@@ -1,7 +1,7 @@
 {
   "version": 1,
   "product_code_budget": 20000,
-  "allowed_paths": ["src/**", "tests/**", "skills/**", ".github/workflows/**", ".steadfast/**", "README.md", "LICENSE", "pyproject.toml", "docs/**", "evidence/**", "CHANGELOG.md"],
+  "allowed_paths": ["src/**", "tests/**", "skills/**", ".github/workflows/**", ".steadfast/**", "README.md", "LICENSE", ".gitignore", "pyproject.toml", "docs/**", "evidence/**", "CHANGELOG.md"],
   "documentation_paths": ["README.md", "docs/**", "CHANGELOG.md", "ROADMAP.md", "ARCHITECTURE.md", "SPEC.md"],
   "required_evidence": ["evidence/verification.md"],
   "implementation_paths": ["src/**"],

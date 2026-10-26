@@ -64,6 +64,17 @@ class AgentGuardTests(unittest.TestCase):
         self.assertEqual(result["decision"], "block")
         self.assertIn("AGENT_PROTECTED_PATH", [item["code"] for item in result["findings"]])
 
+    def test_file_write_blocks_runtime_state_tampering(self) -> None:
+        for path in (".steadfast/work-cycle.json", ".steadfast/work-cycle.jsonl",
+                     ".steadfast/agent-sessions.jsonl", ".steadfast/pipeline.json"):
+            with self.subTest(path=path):
+                result = evaluate_event(self.repo, {
+                    "hook_event_name": "PreToolUse", "tool_name": "Write",
+                    "tool_input": {"file_path": path},
+                })
+                self.assertEqual(result["decision"], "block")
+                self.assertIn("AGENT_PROTECTED_PATH", [item["code"] for item in result["findings"]])
+
     def test_read_only_tool_does_not_apply_write_role_gate(self) -> None:
         result = evaluate_event(self.repo, {
             "hook_event_name": "PreToolUse", "tool_name": "Read",

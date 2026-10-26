@@ -277,6 +277,31 @@ Run `steadfast ecosystem` to inventory installed Steadfast integrations, reposit
 `steadfast ecosystem --strict` returns a failure when any discovered MCP server is not explicitly trusted. Trust labels are repository-owner policy, not cryptographic signatures or proof of publisher identity; review commands and provenance before trusting a server. The report never returns configured arguments or executes configured commands. Compatible agents can query the same inventory through the read-only `steadfast_ecosystem` MCP tool.
 
 
+Component permissions for Skills, Plugins and MCP use one owner-authored policy. Unlisted components are denied by default. Add explicit entries to `.steadfast/policy.json` only after reviewing the component:
+
+```json
+{
+  "ecosystem_trust": {
+    "trusted_components": [
+      { "kind": "skill", "name": "repo-audit", "permissions": ["repo:read"] },
+      { "kind": "plugin", "name": "formatter", "permissions": ["repo:read", "repo:write"] },
+      { "kind": "mcp", "name": "steadfast", "permissions": ["repo:read"] }
+    ],
+    "blocked_components": ["plugin:unreviewed-extension"]
+  }
+}
+```
+
+Evaluate a permission request without executing the component:
+
+```sh
+steadfast --repo . trust-check --kind plugin --name formatter --permission repo:read
+steadfast --repo . trust-check --kind plugin --name formatter --permission network:outbound
+```
+
+The same decision is available to compatible agents through the read-only `steadfast_trust_check` MCP tool. A policy `allow` means only that the requested permission is listed in the owner grant; `execution_permitted` remains false because this release does not yet provide an execution sandbox or runtime permission enforcement. Do not treat trust metadata or a matching hash as proof that code is safe.
+
+
 ## Scoped agent work orders
 
 Issue a time-bounded task contract from a configured goal. The contract snapshots the goal, policy digest and repository file hashes; agent hooks then block file-tool operations outside the issued scope. Verification runs the configured pipeline and checks the global policy scope, work-order scope, goal integrity and change-impact findings.

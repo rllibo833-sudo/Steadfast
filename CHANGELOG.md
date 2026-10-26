@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1 — MCP Registry publication
+- Added the official MCP Registry ownership marker to the package README and aligned package/registry metadata for the 0.4.1 release.
+
 ## Unreleased
 - Added a copy-ready consumer GitHub Actions workflow and an adoption guide focused on real-repository evaluation and actionable feedback.
 - Aligned initialized default policy with the repository policy, including agent path rules, protected paths, and documentation paths.

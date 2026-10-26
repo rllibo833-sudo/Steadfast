@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "workflows": [
+    {
+      "id": "quick-health",
+      "name": "Quick project health",
+      "description": "Audit the repository, scan security risks and inspect required evidence.",
+      "steps": [
+        "audit",
+        "security",
+        "evidence"
+      ]
+    },
+    {
+      "id": "release-review",
+      "name": "Release review",
+      "description": "Check release readiness, source security and implementation inventory.",
+      "steps": [
+        "release",
+        "security",
+        "inventory"
+      ]
+    },
+    {
+      "id": "work-queue",
+      "name": "Next work queue",
+      "description": "Refresh open findings, calculate risk metrics and plan the next dependency-ready goal.",
+      "steps": [
+        "findings-scan",
+        "finding-metrics",
+        "plan"
+      ]
+    }
+  ]
+}

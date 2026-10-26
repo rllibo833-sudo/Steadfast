@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.rllibo833-sudo/steadfast-governance -->
+
 # Steadfast
 
 **Repository checks and guardrails for coding agents.**

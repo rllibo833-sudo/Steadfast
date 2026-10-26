@@ -324,7 +324,7 @@ def finding_metrics(repo: Path) -> dict[str, Any]:
     ledger = _read_ledger(repo.resolve())
     items = list(ledger["findings"].values())
     by_state = {state: sum(x.get("state") == state for x in items) for state in sorted(VALID_STATES)}
-    by_priority = {priority: sum(x.get("priority") == priority and x.get("state") not in {"fixed", "false_positive"} for x in items) for priority in ("critical", "high", "medium", "low")}
+    by_priority = {priority: sum(x.get("priority") == priority and x.get("state") in {"open", "triaged"} for x in items) for priority in ("critical", "high", "medium", "low")}
     overdue = [x for x in items if x.get("due_date") and x["due_date"] < date.today().isoformat() and x["state"] not in {"fixed", "false_positive"}]
     accepted = [x for x in items if x.get("state") == "accepted"]
     return {

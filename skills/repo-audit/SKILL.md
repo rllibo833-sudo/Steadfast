@@ -1,12 +1,11 @@
 ---
 name: repo-audit
-description: Audit repository state before proposing changes.
+description: Audit a repository against explicit policy and report reproducible findings.
 ---
-
 # Repository audit
-
-1. Inspect the actual source, tests, workflows, and current docs.
-2. Separate verified facts from assumptions.
-3. Report concrete findings with file paths and impact.
-4. Do not claim a check passed without its output.
-5. Recommend the smallest safe change that addresses the finding.
+1. Read .steadfast/policy.json and identify the repository root.
+2. Run steadfast audit and steadfast report --format json.
+3. Group findings by severity and code; distinguish policy violations from heuristic warnings.
+4. Never copy secret values into reports.
+5. Do not change policy, baselines, or evidence merely to turn failures green.
+6. Report commands, exit status, affected paths, and limitations.

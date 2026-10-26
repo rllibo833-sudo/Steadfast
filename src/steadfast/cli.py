@@ -12,6 +12,7 @@ from .gitops import changed_paths
 from .goals import goal_report
 from .inventory import inventory_report
 from .history import read_history, record_run
+from .integrations import install_integration, integration_status, run_hook
 from .policy import init_policy, load_policy
 from .pipeline import run_pipeline
 from .release import release_report
@@ -44,6 +45,11 @@ def parser() -> argparse.ArgumentParser:
     serve = commands.add_parser("serve", help="Open the local read-only Project Console in a browser")
     serve.add_argument("--host", default="127.0.0.1", help="Loopback host (remote hosts are refused)")
     serve.add_argument("--port", type=int, default=8765, help="Local HTTP port (0 selects an available port)")
+    integrate = commands.add_parser("integrate", help="Install coding-agent guidance without overwriting existing files")
+    integrate.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
+    integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
+    commands.add_parser("integration-status", help="Show installed coding-agent integrations")
+    commands.add_parser("agent-hook", help="Read one JSON tool event from stdin and emit an allow/block decision")
     pipeline = commands.add_parser("pipeline", help="Execute a validated dependency-aware verification pipeline")
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
     pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
@@ -87,6 +93,19 @@ def main(argv: list[str] | None = None) -> int:
             from .dashboard import serve_dashboard
             serve_dashboard(repo, host=args.host, port=args.port)
             return 0
+
+        if args.command == "integrate":
+            agents = ("claude", "cursor", "codex") if args.agent == "all" else (args.agent,)
+            result = [install_integration(repo, agent, overwrite=args.overwrite) for agent in agents]
+            print(json.dumps({"integrations": result}, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "integration-status":
+            print(json.dumps(integration_status(repo), indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "agent-hook":
+            return run_hook(repo)
 
         policy = load_policy(repo)
         if args.command == "scope-check":

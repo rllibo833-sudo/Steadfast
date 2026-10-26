@@ -99,3 +99,11 @@ steadfast docs-check
 ```
 
 MIT licensed. See `LICENSE`.
+
+## Coding-agent integrations
+
+`steadfast integrate --agent claude|cursor|codex|all` installs agent-specific instructions and hook configuration. Existing files are preserved by default; use `--overwrite` only when you intend to replace them. `steadfast integration-status` reports installed adapters. `steadfast agent-hook` accepts a JSON event on stdin and emits an allow/block decision based on repository path policy and a small set of destructive-command patterns. The hook never executes the supplied command and is defense-in-depth, not a sandbox; review generated configuration against your installed agent version.
+
+The supported integration targets are Claude Code, Cursor, and Codex. Claude gets a local settings hook and reusable skill; Cursor gets hook configuration and a repository rule; Codex gets an `AGENTS.md` contract and reusable skill. Install them into a target repository with `steadfast --repo /path/to/repo integrate --agent all`.
+
+The local read-only Project Console is available via `steadfast serve` at `http://127.0.0.1:8765` by default. It summarizes governance findings and provides a source-file preview without repository write endpoints.

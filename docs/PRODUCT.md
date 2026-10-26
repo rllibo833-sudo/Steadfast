@@ -20,3 +20,7 @@ Steadfast is a local-first repository governance CLI and portable agent toolkit.
 ## Maturity and scope
 
 This is an actively developed implementation, not a claim of production certification. Remaining work includes deeper language-aware security analysis, more complete policy-schema validation, broader integration coverage, and stronger end-to-end release verification. The configured 20,000-line implementation budget is a ceiling/target constraint, not evidence that the codebase already contains 20,000 lines. Growth must come from distinct, integrated capabilities rather than duplicated code or documentation.
+
+## Coding-agent integration and local console
+
+Steadfast can generate policy guidance for Claude Code, Cursor, and Codex, while preserving existing integration files by default. The shared JSON hook checks repository-relative paths against the configured allowlist and blocks selected destructive shell command patterns. It does not execute commands and must be treated as defense-in-depth rather than a sandbox; agent hook schemas vary and should be reviewed against the installed version. The local Project Console provides read-only governance summaries and source previews.

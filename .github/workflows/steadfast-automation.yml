@@ -1,6 +1,9 @@
 name: Steadfast Automation Studio
 
 on:
+  # Recurring work-queue cycle: inspect findings and publish a concise report every 6 hours.
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
       workflow:
@@ -21,7 +24,7 @@ concurrency:
 
 jobs:
   run-automation:
-    name: Run ${{ inputs.workflow }}
+    name: Run ${{ inputs.workflow || 'work-queue' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -37,7 +40,7 @@ jobs:
       - name: Run selected workflow
         id: run
         env:
-          WORKFLOW_ID: ${{ inputs.workflow }}
+          WORKFLOW_ID: ${{ inputs.workflow || 'work-queue' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +95,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: steadfast-automation-${{ inputs.workflow }}-${{ github.run_id }}
+          name: steadfast-automation-${{ inputs.workflow || 'work-queue' }}-${{ github.run_id }}
           path: |
             .steadfast/automation-output.json
             .steadfast/automation-runs.jsonl

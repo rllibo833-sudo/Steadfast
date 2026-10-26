@@ -12,7 +12,7 @@ from .gitops import changed_paths
 from .goals import goal_report
 from .inventory import inventory_report
 from .history import read_history, record_run
-from .integrations import install_integration, integration_status, run_hook
+from .integrations import SUPPORTED_AGENTS, install_integration, integration_status, run_hook
 from .policy import init_policy, load_policy
 from .pipeline import run_pipeline
 from .release import release_report
@@ -60,6 +60,7 @@ def parser() -> argparse.ArgumentParser:
     integrate.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
     integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
     commands.add_parser("integration-status", help="Show installed coding-agent integrations")
+    commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
     automations = commands.add_parser("automations", help="List and run local, allowlisted automation workflows")
     automation_sub = automations.add_subparsers(dest="automation_action", required=True)
     automation_sub.add_parser("list", help="List available workflows and built-in actions")
@@ -173,6 +174,49 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "integration-status":
             print(json.dumps(integration_status(repo), indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "discover":
+            skill_files = sorted(
+                path.relative_to(repo).as_posix()
+                for base in (repo / "skills", repo / ".agents" / "skills")
+                if base.is_dir()
+                for path in base.rglob("SKILL.md")
+                if path.is_file()
+            )
+            workflow_files = sorted(
+                path.relative_to(repo).as_posix()
+                for path in (repo / ".github" / "workflows").glob("*.yml")
+            ) if (repo / ".github" / "workflows").is_dir() else []
+            result = {
+                "schema_version": 1,
+                "product": "Steadfast",
+                "purpose": "Evidence-based repository governance for coding agents and developers",
+                "repository_root": str(repo),
+                "entrypoints": {
+                    "agent_instructions": "AGENTS.md" if (repo / "AGENTS.md").is_file() else None,
+                    "policy": ".steadfast/policy.json" if (repo / ".steadfast" / "policy.json").is_file() else None,
+                    "goal": ".steadfast/goal.md" if (repo / ".steadfast" / "goal.md").is_file() else None,
+                    "pipeline": ".steadfast/pipeline.json" if (repo / ".steadfast" / "pipeline.json").is_file() else None,
+                },
+                "supported_integrations": list(SUPPORTED_AGENTS),
+                "installed_integrations": integration_status(repo),
+                "skills": skill_files,
+                "github_workflows": workflow_files,
+                "commands": {
+                    "quick_start": "steadfast --repo . discover",
+                    "inspect_policy": "steadfast --repo . report --format json",
+                    "check_scope": "steadfast --repo . scope-check",
+                    "run_pipeline": "steadfast --repo . pipeline",
+                    "agent_hook_protocol": "JSON on stdin; JSON decision on stdout via steadfast --repo . agent-hook",
+                },
+                "cost_policy": {
+                    "external_services_required": False,
+                    "paid_runner_required": False,
+                    "workflow_count_is_not_expanded_by_discover": True,
+                },
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
 
         if args.command == "agent-hook":

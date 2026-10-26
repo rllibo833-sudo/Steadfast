@@ -43,7 +43,12 @@ jobs:
         run: python -m pip install --disable-pip-version-check --upgrade steadfast-governance
 
       - name: Initialize temporary policy for an unconfigured target
-        run: steadfast --repo target-repository init
+        run: |
+          steadfast --repo target-repository init
+          # Keep generated bootstrap files out of the changed-files audit. This commit
+          # exists only in the disposable CI checkout; the upstream repository is untouched.
+          git -C target-repository add .steadfast evidence/verification.md
+          git -C target-repository -c user.name="Steadfast audit bot" -c user.email="audit-bot@users.noreply.github.com" commit -m "Initialize temporary Steadfast audit policy"
 
       - name: Run verification and report
         id: audit

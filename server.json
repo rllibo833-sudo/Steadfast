@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.rllibo833-sudo/steadfast-governance",
   "title": "Steadfast Repository Governance",
-  "description": "Local-first repository governance for AI-assisted development. Audit repository health, change scope, verification evidence, security signals, documentation drift, and release readiness through a CLI and read-only-by-default MCP tools.",
+  "description": "Local-first repository governance and verification tools for AI coding agents.",
   "version": "0.4.0",
   "websiteUrl": "https://github.com/rllibo833-sudo/Steadfast",
   "repository": {

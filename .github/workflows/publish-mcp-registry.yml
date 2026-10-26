@@ -1,9 +1,14 @@
 name: Publish to Official MCP Registry
 
 on:
-  workflow_run:
-    workflows: ["Publish to PyPI"]
-    types: [completed]
+  release:
+    types: [published]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "server.json"
+      - ".github/workflows/publish-mcp-registry.yml"
 
 permissions:
   contents: read
@@ -11,21 +16,49 @@ permissions:
 
 jobs:
   publish:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out released source
+      - name: Check out source
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Confirm package version exists on PyPI
+        env:
+          PACKAGE_VERSION: ${{ fromJson(file('server.json')).packages[0].version }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, time
+          with open("server.json", encoding="utf-8") as f:
+              manifest = json.load(f)
+          package = manifest["packages"][0]["identifier"]
+          version = manifest["packages"][0]["version"]
+          url = f"https://pypi.org/pypi/{package}/{version}/json"
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(url, timeout=10) as response:
+                      if response.status == 200:
+                          print(f"Confirmed on PyPI: {package}=={version}")
+                          break
+              except Exception as exc:
+                  if attempt == 11:
+                      raise SystemExit(f"Package not available on PyPI: {package}=={version}: {exc}")
+                  print(f"Waiting for PyPI publication ({attempt + 1}/12)...")
+                  time.sleep(10)
+          PY
+
       - name: Install MCP Publisher
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-          sudo install mcp-publisher /usr/local/bin/mcp-publisher
+          set -euo pipefail
+          archive="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+          curl --fail --location --retry 3 "https://github.com/modelcontextprotocol/registry/releases/latest/download/${archive}" -o /tmp/mcp-publisher.tar.gz
+          tar -xzf /tmp/mcp-publisher.tar.gz -C /tmp mcp-publisher
+          sudo install /tmp/mcp-publisher /usr/local/bin/mcp-publisher
+
       - name: Validate registry manifest
         run: mcp-publisher validate server.json
+
       - name: Authenticate with GitHub OIDC
         run: mcp-publisher login github-oidc
+
       - name: Publish Steadfast to Official MCP Registry
         run: mcp-publisher publish server.json

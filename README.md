@@ -266,4 +266,19 @@ Steadfast exposes a dependency-free, read-only Model Context Protocol (MCP) serv
 }
 ```
 
-The server provides discovery, governance report, change-impact analysis, dependency-aware plan, integration status and inventory tools. It does not expose arbitrary shell execution or file-write tools. This local MCP endpoint makes tools discoverable to a compatible client; it does not grant GitHub permissions or register external accounts.
+The server provides discovery, governance report, change-impact analysis, dependency-aware plan, integration status, inventory and read-only work-order inspection tools. It does not expose arbitrary shell execution or file-write tools. This local MCP endpoint makes tools discoverable to a compatible client; it does not grant GitHub permissions or register external accounts.
+
+
+## Scoped agent work orders
+
+Issue a time-bounded task contract from a configured goal. The contract snapshots the goal, policy digest and repository file hashes; agent hooks then block file-tool operations outside the issued scope. Verification runs the configured pipeline and checks the global policy scope, work-order scope, goal integrity and change-impact findings.
+
+```sh
+steadfast --repo . work-order issue native-engine --owner codex --ttl-minutes 240 --scope src/** tests/**
+steadfast --repo . work-order list
+steadfast --repo . work-order show ORDER_ID
+steadfast --repo . work-order verify ORDER_ID
+steadfast --repo . work-order close ORDER_ID
+```
+
+Use a real goal ID from `.steadfast/goals/*.md`; the root product goal `goal` is also supported. Only one unexpired work order may be active at a time. Explicit scopes must be narrower than or equal to the global policy allowlist. Goal criteria and policy changes invalidate verification. Hashes detect changes but are not signatures. Shell commands that do not identify their target files cannot be fully constrained by path-based hooks, so required pipeline and scope checks remain mandatory.

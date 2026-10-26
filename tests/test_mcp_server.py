@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from steadfast.mcp_server import handle_message
+from steadfast.mcp_server import handle_message, _tool_args
 from steadfast.policy import init_policy
 
 
@@ -62,6 +62,33 @@ class McpServerTests(unittest.TestCase):
             {"jsonrpc": "2.0", "method": "notifications/initialized"}, self.repo
         )
         self.assertIsNone(response)
+
+
+
+    def test_work_order_tools_are_discoverable_and_read_only(self):
+        response = handle_message(
+            {"jsonrpc": "2.0", "id": 5, "method": "tools/list"}, self.repo
+        )
+        names = {item["name"] for item in response["result"]["tools"]}
+        self.assertIn("steadfast_work_orders", names)
+        self.assertIn("steadfast_work_order_show", names)
+        listed = handle_message(
+            {"jsonrpc": "2.0", "id": 6, "method": "tools/call",
+             "params": {"name": "steadfast_work_orders", "arguments": {"limit": 10}}},
+            self.repo,
+        )
+        self.assertFalse(listed["result"]["isError"])
+        self.assertEqual(json.loads(listed["result"]["content"][0]["text"])["count"], 0)
+
+    def test_work_order_show_rejects_invalid_id_before_dispatch(self):
+        with self.assertRaisesRegex(ValueError, "12 lowercase hexadecimal"):
+            _tool_args("steadfast_work_order_show", {"order_id": "../bad"})
+        response = handle_message(
+            {"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+             "params": {"name": "steadfast_work_order_show", "arguments": {"order_id": "../bad"}}},
+            self.repo,
+        )
+        self.assertTrue(response["result"]["isError"])
 
 
 if __name__ == "__main__":

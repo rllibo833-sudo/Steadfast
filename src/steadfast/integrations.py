@@ -9,6 +9,7 @@ from typing import Any, TextIO
 
 from .policy import load_policy
 from .workcycle import cycle_status
+from .workorders import WorkOrderError, active_work_order, matches_work_order_scope
 
 SUPPORTED_AGENTS = ("claude", "cursor", "codex")
 
@@ -111,6 +112,19 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
         if message:
             findings.append({"severity": "error", "code": "AGENT_DESTRUCTIVE_COMMAND", "path": "", "message": message})
     try:
+        order = active_work_order(repo)
+    except (WorkOrderError, OSError, ValueError, json.JSONDecodeError) as exc:
+        order = None
+        findings.append({"severity": "error", "code": "AGENT_WORK_ORDER_INVALID", "path": "",
+                         "message": "Active work order could not be validated: " + str(exc)})
+    if order:
+        for raw in _tool_paths(event):
+            normalized = _repo_path(repo, raw)
+            if normalized is not None and not matches_work_order_scope(normalized, order.get("scope_paths", [])):
+                findings.append({"severity": "error", "code": "AGENT_WORK_ORDER_SCOPE_BLOCK",
+                                 "path": normalized,
+                                 "message": "Path is outside active work order " + str(order.get("id", "")) + " scope."})
+    try:
         cycle = cycle_status(repo).get("task")
     except (OSError, ValueError, json.JSONDecodeError):
         cycle = None
@@ -122,6 +136,8 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
     return {"decision": "block" if blocked else "allow", "continue": not blocked,
             "reason": "; ".join(f["message"] for f in findings), "findings": findings, "repo": str(repo),
             "event_name": event_name,
+            "work_order": {"id": order.get("id"), "goal_id": order.get("goal_id"),
+                           "status": order.get("status"), "scope_paths": order.get("scope_paths", [])} if order else {"status": "not_issued"},
             "work_cycle": {"task_id": cycle.get("id"), "goal_id": cycle.get("goal_id"),
                            "status": cycle.get("status")} if cycle else {"status": "not_started"}}
 
@@ -145,7 +161,8 @@ def _hook_output(event: dict[str, Any], result: dict[str, Any]) -> dict[str, Any
         return {"permission": "allow"}
     return {"decision": result.get("decision", "block"), "continue": not blocked,
             "reason": reason, "findings": result.get("findings", []),
-            "work_cycle": result.get("work_cycle", {"status": "not_started"})}
+            "work_cycle": result.get("work_cycle", {"status": "not_started"}),
+            "work_order": result.get("work_order", {"status": "not_issued"})}
 
 
 def run_hook(repo: Path, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int:
@@ -185,8 +202,9 @@ description: Keep {agent} changes inside repository policy and require real veri
 
 Before changing files:
 1. Read the .steadfast/policy.json policy and active goal acceptance criteria.
-2. Run steadfast scope-check and identify allowed implementation, test, docs and evidence paths.
-3. Never weaken policy or overwrite evidence merely to make checks pass.
+2. Run `steadfast work-order list`. If a work order is active, treat its scope_paths and acceptance criteria as the task boundary; do not edit files outside that scope.
+3. Run steadfast scope-check and identify allowed implementation, test, docs and evidence paths.
+4. Never weaken policy or overwrite evidence merely to make checks pass.
 
 During implementation:
 1. Keep edits inside allowed_paths.

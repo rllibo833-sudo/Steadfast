@@ -14,6 +14,7 @@ from steadfast.integrations import (
 )
 from steadfast.policy import init_policy
 from steadfast.workcycle import start_cycle
+from steadfast.workorders import issue_work_order
 
 
 class AgentGuardTests(unittest.TestCase):
@@ -42,6 +43,16 @@ class AgentGuardTests(unittest.TestCase):
         self.assertEqual(result["decision"], "block")
         self.assertEqual(result["findings"][0]["code"], "AGENT_SCOPE_BLOCK")
         self.assertEqual(result["work_cycle"]["status"], "not_started")
+
+    def test_active_work_order_blocks_paths_outside_its_scope(self) -> None:
+        order = issue_work_order(self.repo, "goal", scope_paths=["src/**"])
+        result = evaluate_event(self.repo, {
+            "tool_name": "Write",
+            "tool_input": {"file_path": "tests/test_new_feature.py"},
+        })
+        self.assertEqual(result["decision"], "block")
+        self.assertIn("AGENT_WORK_ORDER_SCOPE_BLOCK", [item["code"] for item in result["findings"]])
+        self.assertEqual(result["work_order"]["id"], order["id"])
 
     def test_path_escape_is_blocked(self) -> None:
         result = evaluate_event(self.repo, {

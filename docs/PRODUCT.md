@@ -98,3 +98,8 @@ The evidence-bundle engine collects audit, scope/evidence, security, goal, relea
 ## Change impact analysis
 
 The change-impact engine maps modified paths to source, test, documentation, workflow, configuration and sensitive-path classes. It detects conventional source/test pairing gaps, identifies public-surface changes without documentation updates, proposes review gates and computes a bounded triage score with explicit factors and limitations. Sensitive-looking credential paths block a passing result. Other path relationships remain advisory because naming conventions cannot prove semantic coupling or actual test assertions. The engine is exposed as `impact-check` and is included in work-cycle verification and evidence bundles.
+
+
+## Scoped agent work orders
+
+Work orders are durable, expiring handoff contracts generated from configured goals. Each contract records the acceptance checklist, dependency state, narrowed scope, policy digest, base commit and baseline file hashes. Agent hooks enforce the active work-order scope for tool events that identify file paths. Verification checks contract integrity, goal and policy immutability, changed-path scope, change-impact findings and the configured pipeline. A passing work order can be closed; failed verification leaves it open. The contract uses hashes rather than a signature, and shell operations with opaque file effects remain outside the certainty of path-based enforcement.

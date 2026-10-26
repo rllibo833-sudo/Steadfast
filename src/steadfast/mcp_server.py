@@ -52,6 +52,25 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "steadfast_work_orders",
+        "description": "List issued agent work orders and their expiry/status without mutating repository state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000}},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "steadfast_work_order_show",
+        "description": "Read and integrity-check one scoped agent work-order contract.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"order_id": {"type": "string", "minLength": 12, "maxLength": 12}},
+            "required": ["order_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "steadfast_inventory",
         "description": "Return a repository inventory and implementation-budget summary.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -105,6 +124,22 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if arguments:
             raise ValueError("steadfast_integrations accepts no arguments")
         return ["integration-status"]
+    if name == "steadfast_work_orders":
+        unknown = set(arguments) - {"limit"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        limit = arguments.get("limit", 100)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer from 1 to 1000")
+        return ["work-order", "list", "--limit", str(limit)]
+    if name == "steadfast_work_order_show":
+        unknown = set(arguments) - {"order_id"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str) or len(order_id) != 12 or any(c not in "0123456789abcdef" for c in order_id):
+            raise ValueError("order_id must be 12 lowercase hexadecimal characters")
+        return ["work-order", "show", order_id]
     if name == "steadfast_inventory":
         if arguments:
             raise ValueError("steadfast_inventory accepts no arguments")
@@ -139,7 +174,7 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
                 "instructions": (
                     "Steadfast provides read-only repository governance tools. "
                     "Tool calls do not edit files, run arbitrary shell commands, publish releases, "
-                    "or grant repository permissions. Treat heuristic impact results as advisory."
+                    "or grant repository permissions. Treat heuristic impact results as advisory. Work-order tools are read-only inspection only."
                 ),
             },
         }

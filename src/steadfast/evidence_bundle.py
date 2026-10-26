@@ -22,6 +22,7 @@ from .release import release_report
 from .security import security_findings, workflow_findings
 from .session_ledger import SessionLedgerError, session_report, verify_session_ledger
 from .workcycle import cycle_history, cycle_status
+from .workorders import list_work_orders
 
 BUNDLE_DIR = ".steadfast/artifacts"
 MAX_BUNDLE_BYTES = 64 * 1024 * 1024
@@ -134,6 +135,7 @@ def collect_evidence(repo: Path) -> dict[str, Any]:
             "change_impact": _component(analyze_change_impact, root),
             "work_cycle": _component(cycle_status, root),
             "work_cycle_history": _component(cycle_history, root, 100),
+            "work_orders": _component(list_work_orders, root, limit=1000),
             "agent_sessions": sessions,
             "agent_session_integrity": ledger_integrity,
             "finding_ledger": _component(list_findings, root, limit=1000),

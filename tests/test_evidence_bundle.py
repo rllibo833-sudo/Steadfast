@@ -41,6 +41,7 @@ class EvidenceBundleTests(unittest.TestCase):
             self.assertNotIn(str(self.repo), json.dumps(report))
             self.assertIn("inventory", report["components"])
             self.assertIn("change_impact", report["components"])
+            self.assertIn("work_orders", report["components"])
 
     def test_existing_output_requires_explicit_overwrite(self):
         build_evidence_bundle(self.repo, ".steadfast/artifacts/release.zip")

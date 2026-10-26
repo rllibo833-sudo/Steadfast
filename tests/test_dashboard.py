@@ -52,5 +52,16 @@ class DashboardSnapshotTests(unittest.TestCase):
         self.assertIn("error", snapshot["agent_sessions"])
 
 
+
+    def test_snapshot_includes_work_order_status_and_survives_corrupt_order(self):
+        snapshot = build_snapshot(self.repo)
+        self.assertIn("work_orders", snapshot)
+        self.assertEqual(snapshot["work_orders"]["count"], 0)
+        directory = self.repo / ".steadfast" / "work-orders"
+        directory.mkdir()
+        (directory / "000000000000.json").write_text("{broken", encoding="utf-8")
+        snapshot = build_snapshot(self.repo)
+        self.assertIn("error", snapshot["work_orders"])
+
 if __name__ == "__main__":
     unittest.main()

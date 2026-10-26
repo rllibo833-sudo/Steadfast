@@ -102,6 +102,7 @@ def _event_record(event: dict[str, Any], decision: dict[str, Any], session_id: s
         "input_summary": _redact(tool_input) if isinstance(tool_input, dict) else {},
         "result_summary": _redact(tool_result) if isinstance(tool_result, (dict, list, str, int, float, bool)) else None,
         "work_cycle": _redact(decision.get("work_cycle", {})),
+        "work_order": _redact(decision.get("work_order", {})),
     }
 
 

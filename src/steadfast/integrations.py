@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from .policy import load_policy
+from .workcycle import cycle_status
 
 SUPPORTED_AGENTS = ("claude", "cursor", "codex")
 
@@ -106,8 +107,14 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
         if message:
             findings.append({"severity": "error", "code": "AGENT_DESTRUCTIVE_COMMAND", "path": "", "message": message})
     blocked = bool(findings)
+    try:
+        cycle = cycle_status(repo).get("task")
+    except (OSError, ValueError, json.JSONDecodeError):
+        cycle = None
     return {"decision": "block" if blocked else "allow", "continue": not blocked,
-            "reason": "; ".join(f["message"] for f in findings), "findings": findings, "repo": str(repo)}
+            "reason": "; ".join(f["message"] for f in findings), "findings": findings, "repo": str(repo),
+            "work_cycle": {"task_id": cycle.get("id"), "goal_id": cycle.get("goal_id"),
+                           "status": cycle.get("status")} if cycle else {"status": "not_started"}}
 
 
 def run_hook(repo: Path, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int:
@@ -147,7 +154,9 @@ Before reporting completion:
 1. Run relevant tests and the configured steadfast pipeline.
 2. Run steadfast audit, steadfast evidence-check, steadfast docs-check, and steadfast release-check.
 3. Record actual commands, exit codes, observed results, timestamps, commit and limitations.
-4. Never claim an unrun check succeeded. Summarize changed behavior, files, observed verification and remaining failures.
+4. Attach concrete repository-local evidence to each acceptance criterion using `steadfast cycle evidence AC-XX PATH`.
+5. Run `steadfast cycle verify`; do not claim completion if the pipeline or scope gate fails.
+6. Never claim an unrun check succeeded. Summarize changed behavior, files, observed verification and remaining failures.
 """
 
 

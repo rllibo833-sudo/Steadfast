@@ -31,6 +31,7 @@ class AgentGuardTests(unittest.TestCase):
         })
         self.assertEqual(result["decision"], "allow")
         self.assertEqual(result["findings"], [])
+        self.assertEqual(result["work_cycle"]["status"], "not_started")
 
     def test_path_outside_allowlist_is_blocked(self) -> None:
         result = evaluate_event(self.repo, {
@@ -39,6 +40,7 @@ class AgentGuardTests(unittest.TestCase):
         })
         self.assertEqual(result["decision"], "block")
         self.assertEqual(result["findings"][0]["code"], "AGENT_SCOPE_BLOCK")
+        self.assertEqual(result["work_cycle"]["status"], "not_started")
 
     def test_path_escape_is_blocked(self) -> None:
         result = evaluate_event(self.repo, {

@@ -17,6 +17,7 @@ from .inventory import inventory_report
 from .policy import load_policy
 from .release import release_report
 from .security import security_findings, workflow_findings
+from .workcycle import cycle_history, cycle_status
 
 APP_VERSION = "0.2.0"
 MAX_FILE_BYTES = 256_000
@@ -105,6 +106,8 @@ def build_snapshot(repo: Path) -> dict[str, object]:
         "files": files,
         "file_count": len(files),
         "severity": dict(severity),
+        "work_cycle": cycle_status(repo),
+        "work_cycle_history": cycle_history(repo, limit=8),
     }
 
 
@@ -147,6 +150,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card metric"><label>Security findings</label><strong id="securityCount">—</strong><small id="securityHint">Source and workflow scan</small></div>
 <div class="card metric"><label>Repository files</label><strong id="fileCount">—</strong><small id="fileHint">Readable workspace inventory</small></div>
 <div class="card metric"><label>Release readiness</label><strong id="releaseState">—</strong><small id="releaseHint">Evidence-based gate</small></div>
+<div class="card full" id="cyclePanel"><div class="section-head"><h2>Active work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><div id="cycleBody" class="rows"><div class="empty">No tracked task yet. Start one with steadfast cycle start.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
 <div class="card side"><h2>Workspace actions</h2><div class="rows"><div class="rowitem"><div><b>Run a fresh scan</b><small>Recompute audit, security, goals and release gates.</small></div><button id="scanAgain">Run</button></div><div class="rowitem"><div><b>Inspect findings</b><small>Filter and review actionable results.</small></div><button data-tab="findings">Open</button></div><div class="rowitem"><div><b>Explore source files</b><small>Read files without changing the repository.</small></div><button data-tab="files">Open</button></div></div></div>
 <div class="card wide" id="findingsPanel"><div class="section-head"><h2>Actionable findings</h2><span id="findingTotal" class="pill">0</span></div><input id="findingSearch" class="search" placeholder="Filter by code, file, message…"><div id="findings" class="rows"><div class="empty">Loading findings…</div></div></div>
@@ -185,7 +189,7 @@ function render(){
  $("findingTotal").textContent=allFindings.length+" findings";
  $("footerVersion").textContent="v"+(snapshot.version||"");
  files=snapshot.files||[];$("fileTotal").textContent=files.length+" files";
- renderFindings();renderFiles();renderGates();
+ renderFindings();renderFiles();renderGates();renderCycle();
 }
 function renderFindings(){
  const q=$("findingSearch").value.trim().toLowerCase();
@@ -201,6 +205,27 @@ function renderGates(){
  ["Evidence",(snapshot.evidence&&snapshot.evidence.count||0)+" findings",!(snapshot.evidence&&snapshot.evidence.count),"Required verification records"]
  ];
  $("gates").innerHTML=items.map(x=>'<div class="rowitem"><div><b>'+esc(x[0])+'</b><small>'+esc(x[3])+'</small></div>'+pill(x[1],x[2]?"good":"warn")+'</div>').join("");
+}
+function renderCycle(){
+ const cycle=snapshot.work_cycle||{},task=cycle.task,events=(snapshot.work_cycle_history||{}).events||[];
+ $("cycleStatus").textContent=task?task.status:"No task";
+ $("cycleStatus").className="pill "+(task&&task.status==="completed"?"good":task&&task.status==="blocked"?"bad":task?"warn":"");
+ if(!task){
+  $("cycleBody").innerHTML='<div class="empty">No active task. Start with <code>steadfast cycle start goal</code> from the repository root.</div>';
+ }else{
+  const summary=task.acceptance_summary||{};
+  const verify=task.verification;
+  const verifyText=verify?(verify.passed?"Passed":"Failed"):"Not run";
+  const rows=[
+   ["Task",task.title||task.goal_id,task.goal_id||""],
+   ["Acceptance evidence",(summary.with_evidence||0)+" / "+(summary.total||0)+" criteria",summary.missing_evidence&&summary.missing_evidence.length?"Missing: "+summary.missing_evidence.join(", "):"All criteria have evidence attached"],
+   ["Latest verification",verifyText,verify&&verify.verified_at?"At "+verify.verified_at:"Pipeline and scope check have not run"],
+   ["Changed paths",(task.changed_paths||[]).length+" tracked paths",(task.changed_paths||[]).slice(0,5).join(", ")||"No changed paths recorded"]
+  ];
+  $("cycleBody").innerHTML=rows.map(x=>'<div class="rowitem"><div><b>'+esc(x[0])+'</b><small>'+esc(x[1])+'</small><small>'+esc(x[2])+'</small></div></div>').join("");
+ }
+ $("cycleEventCount").textContent=events.length+" events";
+ $("cycleEvents").innerHTML=events.length?events.slice(0,8).map(e=>'<div class="rowitem"><div><b>'+esc(e.event||"event")+'</b><small>'+esc(e.at||"")+' · '+esc(e.task_id||"")+'</small><small>'+esc(JSON.stringify(e.details||{}))+'</small></div></div>').join(""):'<div class="empty">No events recorded.</div>';
 }
 function renderFiles(){
  const q=$("fileSearch").value.trim().toLowerCase();

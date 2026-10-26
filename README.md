@@ -123,3 +123,8 @@ steadfast --repo . cycle history
 ```
 
 The cycle stores the current task in `.steadfast/work-cycle.json` and appends events to `.steadfast/work-cycle.jsonl`. Completion is refused unless the latest configured pipeline and scope check passed, every acceptance criterion has a repository-local evidence file, and each evidence file still matches its recorded SHA-256 digest. File integrity provides traceability, not semantic proof; reviewers must still assess whether the evidence supports the criterion.
+
+
+### Work cycle in the Project Console
+
+The local Project Console now displays the current work-cycle task, acceptance-evidence coverage, latest verification result, changed paths and recent events. Agent hook responses also include the current cycle status so connected coding agents can keep task context visible while the existing path and destructive-command policy remains in force. The console remains read-only; task changes are made through the `steadfast cycle` CLI.

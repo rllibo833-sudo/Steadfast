@@ -29,3 +29,8 @@ Steadfast can generate policy guidance for Claude Code, Cursor, and Codex, while
 ## Evidence-gated work cycle
 
 The cycle binds goal checklist items to repository-local evidence and observed pipeline/scope results. It records task transitions in an append-only JSONL event journal and stores the current task state separately. Completion is refused if verification fails, evidence is missing, or an evidence file changes after attachment. Evidence-file integrity does not establish semantic correctness; the evidence content still requires review.
+
+
+### Console and agent integration
+
+The Project Console surfaces the work-cycle state and recent journal events alongside audit, security, evidence and release signals. Agent hook responses carry a compact task context (task ID, goal ID and status), and generated skill instructions direct agents to inspect the cycle, attach per-criterion evidence, and run the configured verification gate before completion claims. The hook context is advisory; path and destructive-command findings remain the enforced decisions, and the local console does not mutate repository state.

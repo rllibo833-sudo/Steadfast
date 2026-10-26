@@ -184,6 +184,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     repo = Path(args.repo).resolve()
     try:
+        if args.command == "verify":
+            result = verification_report(repo)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["passed"] else 1
+
         if args.command == "init":
             created = init_policy(repo)
             if created:

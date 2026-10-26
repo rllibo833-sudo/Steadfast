@@ -28,6 +28,7 @@ Steadfast is local-first and can be evaluated without a hosted database or AI AP
 
 - [Propose an evaluation, integration, paid pilot, or sponsorship](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=paid_pilot.yml)
 - [Request a technical collaboration](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=collaboration.yml)
+- [Generate a shareable self-assessment artifact from GitHub Actions](https://github.com/rllibo833-sudo/Steadfast/actions/workflows/self-assessment.yml) (manual run; no hosted database)
 
 ## Commands
 

@@ -201,6 +201,10 @@ Run `steadfast code-truth` to see facts derived from the Python implementation, 
 For practical agent/skills setup, follow [the coding-agent skills tutorial](docs/AGENT_SKILLS_TUTORIAL.md).
 
 
+### Role-aware file-write gate
+
+For supported pre-tool hooks, `steadfast agent-hook` applies the `code` role rules to recognized file-mutating tools (`Write`, `Edit`, `MultiEdit`, `apply_patch`, and equivalent names). It blocks protected policy/workflow/configuration paths even if globally allowed, while read-only tools are not subjected to the role gate. A media-writing integration must label its event with `steadfast_role: "media"` (or `agent_role: "media"`) for media allowlist and extension checks. Hook event formats differ by agent; this is not universal enforcement for arbitrary external AI services and is not a sandbox. Verify the target agent actually invokes the hook before relying on it.
+
 ### Agent hook enforcement
 
 Claude Code `PreToolUse` responses use its event-specific `hookSpecificOutput.permissionDecision` schema; Cursor shell hooks use Cursor's native `permission` response schema and inspect the top-level `command` field. Claude-compatible Stop hooks can block a tracked task that has not passed the work-cycle completion gate. Cursor's installed hook set includes shell-command and stop checks with fail-closed hook configuration. Codex currently receives repository instructions and skills, not an equivalent native enforcement hook. See the [Claude Code hook contract](https://docs.anthropic.com/en/docs/claude-code/hooks) and [Cursor hooks contract](https://cursor.com/docs/hooks).

@@ -114,7 +114,9 @@ def run_audit(repo: Path, base: str | None = None) -> dict[str, Any]:
         scope_findings(repo, policy, paths)
         + evidence_findings(repo, policy)
         + documentation_findings(policy, paths)
-        + contract_findings(repo, policy)\n        + security_findings(repo, policy)\n        + workflow_findings(repo)
+        + contract_findings(repo, policy)
+        + security_findings(repo, policy)
+        + workflow_findings(repo)
     )
     budget = policy["product_code_budget"]
     if count > budget:

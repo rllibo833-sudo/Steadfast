@@ -13,6 +13,7 @@ from steadfast.workorders import (
     active_work_order,
     close_work_order,
     issue_work_order,
+    render_work_order_prompt,
     matches_work_order_scope,
     show_work_order,
     verify_work_order,
@@ -52,6 +53,22 @@ class WorkOrderTests(unittest.TestCase):
         closed = close_work_order(self.repo, order["id"])
         self.assertEqual(closed["status"], "closed")
         self.assertIsNone(active_work_order(self.repo))
+
+    def test_work_order_prompt_contains_scope_acceptance_and_verification(self):
+        order = issue_work_order(self.repo, "goal", owner="agent-a", scope_paths=["src/**"])
+        prompt = render_work_order_prompt(self.repo, order["id"])
+        self.assertIn(order["id"], prompt)
+        self.assertIn("Change is reviewed", prompt)
+        self.assertIn("Verification passes", prompt)
+        self.assertIn("`src/**`", prompt)
+        self.assertIn(f"work-order verify {order['id']}", prompt)
+
+    def test_work_order_prompt_rejects_closed_contract(self):
+        order = issue_work_order(self.repo, "goal")
+        order["status"] = "closed"
+        _write_order(self.repo, order)
+        with self.assertRaisesRegex(WorkOrderError, "prompt unavailable"):
+            render_work_order_prompt(self.repo, order["id"])
 
     def test_unchanged_workspace_cannot_pass_work_order_verification(self):
         order = issue_work_order(self.repo, "goal", scope_paths=["src/**"], ttl_minutes=60)

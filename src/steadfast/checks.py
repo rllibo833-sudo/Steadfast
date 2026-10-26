@@ -6,7 +6,8 @@ from typing import Any
 
 from .contracts import contract_findings
 from .gitops import changed_paths, is_repo
-from .policy import load_policy\nfrom .security import security_findings, workflow_findings
+from .policy import load_policy
+from .security import security_findings, workflow_findings
 
 
 def matches(path: str, patterns: list[str]) -> bool:

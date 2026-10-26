@@ -2,23 +2,30 @@
 
 **Keep coding agents aligned with the repository's actual state.** Steadfast is a local-first project operations app for repository health checks, evidence-gated task cycles, coding-agent guardrails, and one-click repeatable automations. It includes a local web console and a closed registry of built-in workflow actions. It does not generate code, require an AI API, or send repository contents to a hosted service.
 
-## Quick start
+## Try Steadfast in your repository
 
-Requires Python 3.10+ and Git. For this repository, install Steadfast and connect Codex in two steps:
+Steadfast is free to try from this public repository. It gives coding agents a consistent repository-governance toolset: project discovery, change-impact guidance, scoped work orders, evidence-gated verification, and checks that expose code/documentation drift. It does not require an AI API key or send source code to a Steadfast-hosted service.
+
+Requires Python 3.10+ and Git. Install the CLI once:
 
 ```bash
-python -m pip install -e .
+python -m pip install "git+https://github.com/rllibo833-sudo/Steadfast.git"
+```
+
+Then, from the root of the repository you want your agent to work on:
+
+```bash
 steadfast onboard --agent codex
 ```
 
-Codex's project-scoped MCP configuration is `.codex/config.toml`; Codex loads it only after you trust this repository. The MCP server exposes read-only Steadfast tools. Codex also discovers the repository skill under `.agents/skills/`, while `AGENTS.md` keeps the work anchored to the goal, prevents repetitive test/fix loops, and requires code, tests, documentation, and verification to agree.
+Restart or reopen Codex after trusting that repository. Steadfast's project MCP server exposes read-only inspection tools; the agent edits code using its own permitted workspace tools, while `AGENTS.md` and the installed skill keep the task anchored to repository goals and evidence. To use another supported agent, replace `codex` with `claude`, `cursor`, or `all`.
 
-For a compact health check, run `steadfast audit`, `steadfast pipeline`, `steadfast docs-check`, and `steadfast code-truth`. Use `steadfast cycle status` to resume the existing work cycle instead of inventing a parallel task process.
+To contribute to Steadfast itself, clone this repository and use `python -m pip install -e .`. For a quick check, run `steadfast audit`, `steadfast pipeline`, `steadfast docs-check`, and `steadfast code-truth`.
 
 ## Commands
 
 - `steadfast init`: create missing policy, goal, and verification-evidence files.
-- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing files. Claude Code, Cursor, and Codex receive repo-local MCP client configuration when those config files do not already exist; Codex uses the trusted-project `.codex/config.toml` and `.agents/skills/` discovery path. The MCP server runs with `python -m steadfast --repo . mcp-server`; the project config adds `src` to `PYTHONPATH` so a source checkout can run it without installing the package first.
+- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing files. Claude Code, Cursor, and Codex receive repo-local MCP client configuration when those config files do not already exist; Codex uses the trusted-project `.codex/config.toml` and `.agents/skills/` discovery path. The MCP server runs with `python -m steadfast --repo . mcp-server` using the installed package, so the same generated configuration works inside repositories that do not contain Steadfast's source tree.
 - `steadfast discover`: emit a machine-readable JSON capability map for agents and tools.
 - `steadfast mcp-server`: expose read-only discovery, report, change-impact, plan, integration-status and inventory tools over the standard MCP stdio protocol; no API key or hosted service is required.
 - `steadfast impact-check [--base REF] [--changed PATH ...]`: classify changed paths, suggest review gates, and flag likely test/documentation gaps. Results are heuristic and do not prove semantic coverage.

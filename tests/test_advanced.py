@@ -91,5 +91,18 @@ class OutputTests(unittest.TestCase):
             self.assertIn("CHANGELOG_NOT_READY", [item["code"] for item in result["findings"]])
 
 
+    def test_release_check_blocks_secret_files_in_implementation_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            init_policy(repo)
+            source = repo / "src"
+            source.mkdir()
+            (source / "main.py").write_text("answer = 42\n", encoding="utf-8")
+            (source / ".env").write_text("API_KEY=\"real-secret-value-123456\"\n", encoding="utf-8")
+            result = release_report(repo)
+            self.assertFalse(result["ready"])
+            self.assertIn("ENV_FILE_IN_SOURCE_SCOPE", [item["code"] for item in result["findings"]])
+
+
 if __name__ == "__main__":
     unittest.main()

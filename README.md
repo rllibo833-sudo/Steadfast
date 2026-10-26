@@ -187,3 +187,6 @@ The Project Console includes an Automation Studio panel with one-click execution
 ### Run automations from GitHub on a phone
 
 The manual GitHub Actions workflow is named **Steadfast Automation Studio**. From the repository's Actions tab, choose that workflow, tap **Run workflow**, select \`quick-health\`, \`release-review\`, or \`work-queue\`, and start it. The run summary shows the outcome; a JSON artifact contains per-step results and run history. This uses the repository's existing GitHub account and a GitHub-hosted runner; no Termux installation, model API key, or extra third-party account is required. GitHub Actions availability and repository permissions still apply.
+
+
+Work-cycle verification is tied to a SHA-256 fingerprint of the workspace (excluding Git internals, caches and Steadfast's own runtime journals). If source, configuration, tests or other workspace files change after verification, completion is blocked until the configured pipeline and scope checks are rerun. The Project Console labels such results as stale instead of showing them as current passes.

@@ -66,3 +66,8 @@ This automation scope is intentionally bounded to repository/project operations.
 ## Phone-accessible execution
 
 The \`.github/workflows/steadfast-automation.yml\` workflow allows a maintainer to start one of the built-in workflows from GitHub's Actions interface, including the mobile website/app. It uses read-only repository permissions, validates the selected workflow against a fixed list, publishes a run summary, and uploads a short-lived JSON artifact. This avoids requiring the user to install Python or run Termux, but it is still a GitHub Actions workflow rather than a standalone hosted SaaS app.
+
+
+### Verification freshness
+
+A successful pipeline result is not sufficient if the workspace changes afterward. Each work-cycle verification records a deterministic workspace fingerprint; completion compares it with the current workspace and blocks stale results. The console surfaces stale verification. This prevents completion based on a passing run against a different set of files.

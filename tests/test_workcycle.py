@@ -53,6 +53,22 @@ class WorkCycleTests(unittest.TestCase):
         attach_evidence(self.repo, "AC-02", "evidence.txt")
         self.assertEqual(complete_cycle(self.repo)["status"], "completed")
 
+    def test_workspace_change_after_verification_invalidates_completion(self):
+        start_cycle(self.repo, "goal")
+        target = self.repo / "implementation.py"
+        target.write_text("value = 1\\n", encoding="utf-8")
+        passed = {"tool":"steadfast","passed":True,"summary":{},"steps":[],
+                  "manifest":".steadfast/pipeline.json","duration_seconds":0.1}
+        with patch("steadfast.workcycle.run_pipeline", return_value=passed):
+            with patch("steadfast.workcycle.changed_paths", return_value=[]):
+                result = verify_cycle(self.repo)
+        self.assertTrue(result["workspace_sha256"])
+        attach_evidence(self.repo, "AC-01", "evidence.txt")
+        attach_evidence(self.repo, "AC-02", "evidence.txt")
+        target.write_text("value = 2\\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "workspace changed after verification"):
+            complete_cycle(self.repo)
+
     def test_failed_pipeline_cannot_complete(self):
         start_cycle(self.repo, "goal")
         failed = {"tool":"steadfast","passed":False,"summary":{"failed":1},"steps":[],

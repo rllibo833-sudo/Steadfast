@@ -250,7 +250,7 @@ function renderCycle(){
  }else{
   const summary=task.acceptance_summary||{};
   const verify=task.verification;
-  const verifyText=verify?(verify.passed?"Passed":"Failed"):"Not run";
+  const verifyText=verify?(verify.passed?(task.verification_fresh?"Passed · workspace unchanged":"Stale · workspace changed"):"Failed"):"Not run";
   const rows=[
    ["Task",task.title||task.goal_id,task.goal_id||""],
    ["Acceptance evidence",(summary.with_evidence||0)+" / "+(summary.total||0)+" criteria",summary.missing_evidence&&summary.missing_evidence.length?"Missing: "+summary.missing_evidence.join(", "):"All criteria have evidence attached"],

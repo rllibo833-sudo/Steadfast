@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,56 @@ JOURNAL = ".steadfast/work-cycle.jsonl"
 
 def now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+_VOLATILE_FILES = {
+    ".steadfast/work-cycle.json",
+    ".steadfast/work-cycle.jsonl",
+    ".steadfast/runs.jsonl",
+    ".steadfast/automation-runs.jsonl",
+    ".steadfast/finding-ledger.json",
+    ".steadfast/finding-events.jsonl",
+}
+_IGNORED_DIRS = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".venv", "venv", "node_modules"}
+
+def _workspace_fingerprint(repo: Path) -> str:
+    """Hash the workspace contents while excluding Steadfast's own runtime journals."""
+    root = repo.resolve()
+    digest = hashlib.sha256()
+    total_bytes = 0
+    file_count = 0
+    for current, dirs, names in os.walk(root, topdown=True, followlinks=False):
+        base = Path(current)
+        dirs[:] = sorted(
+            name for name in dirs
+            if name not in _IGNORED_DIRS and not (base / name).is_symlink()
+        )
+        for name in sorted(names):
+            path = base / name
+            relative = path.relative_to(root).as_posix()
+            if relative in _VOLATILE_FILES:
+                continue
+            file_count += 1
+            if file_count > 100_000:
+                raise ValueError("workspace verification limit exceeded: more than 100,000 files")
+            if path.is_symlink():
+                payload = ("symlink:" + os.readlink(path)).encode("utf-8", errors="surrogateescape")
+            elif path.is_file():
+                size = path.stat().st_size
+                total_bytes += size
+                if total_bytes > 128 * 1024 * 1024:
+                    raise ValueError("workspace verification limit exceeded: more than 128 MiB")
+                file_hash = hashlib.sha256()
+                with path.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        file_hash.update(chunk)
+                payload = b"file:" + str(size).encode("ascii") + b":" + file_hash.digest()
+            else:
+                continue
+            digest.update(relative.encode("utf-8", errors="surrogateescape"))
+            digest.update(b"\\0")
+            digest.update(payload)
+            digest.update(b"\\n")
+    return digest.hexdigest()
 
 def read_state(repo: Path) -> dict[str, Any]:
     path = repo / STATE
@@ -157,6 +208,7 @@ def verify_cycle(repo: Path) -> dict[str, Any]:
                        "changed_paths": paths, "findings": findings}
     result["passed"] = bool(result["passed"]) and result["scope"]["passed"]
     result["verified_at"] = now()
+    result["workspace_sha256"] = _workspace_fingerprint(repo)
     task["verification"] = result
     task["status"] = "verifying" if result["passed"] else "in_progress"
     save(repo, state, "verification_finished", {"passed": result["passed"]})
@@ -168,8 +220,15 @@ def complete_cycle(repo: Path) -> dict[str, Any]:
     task = state.get("task")
     if not task or task["status"] not in {"in_progress", "verifying"}:
         raise ValueError("no active task")
-    if not task.get("verification") or not task["verification"].get("passed"):
+    verification = task.get("verification")
+    if not verification or not verification.get("passed"):
         raise ValueError("completion blocked: run a passing pipeline and scope check first")
+    recorded_workspace = verification.get("workspace_sha256")
+    if not recorded_workspace:
+        raise ValueError("completion blocked: verification has no workspace fingerprint; rerun verification")
+    current_workspace = _workspace_fingerprint(repo)
+    if current_workspace != recorded_workspace:
+        raise ValueError("completion blocked: workspace changed after verification; rerun the configured pipeline and scope check")
     missing = []
     for item in task["acceptance"]:
         proof = item.get("evidence")
@@ -203,6 +262,14 @@ def cycle_status(repo: Path) -> dict[str, Any]:
     task = read_state(repo.resolve()).get("task")
     if task:
         task = dict(task)
+        verification = task.get("verification")
+        if verification and verification.get("workspace_sha256"):
+            try:
+                task["verification_fresh"] = _workspace_fingerprint(repo.resolve()) == verification["workspace_sha256"]
+            except (OSError, ValueError):
+                task["verification_fresh"] = False
+        else:
+            task["verification_fresh"] = False
         task["acceptance_summary"] = {"total": len(task["acceptance"]),
             "with_evidence": sum(bool(x.get("evidence")) for x in task["acceptance"]),
             "missing_evidence": [x["id"] for x in task["acceptance"] if not x.get("evidence")]}

@@ -1,13 +1,13 @@
 # Changelog
 
-## 0.2.0 — integrated governance core
-- Added policy contract validation and optional required-file / required-text contracts.
-- Added structured, timestamped verification evidence records with validation and atomic persistence.
-- Added deterministic repository inventory with SHA-256 digests and implementation budget utilization.
-- Added release-readiness checks that report blockers and warnings without publishing.
-- Added SARIF 2.1.0 output for code-scanning integrations.
-- Expanded regression coverage across contracts, evidence, inventory, release checks, and report conversion.
-- CI status must be checked against the resulting GitHub Actions run; source commits alone do not prove a green pipeline.
+## 0.3.0 — integrated governance workflows
+- Added dependency-aware goal graph checks for missing dependencies, cycles, duplicate IDs, active-goal limits, and acceptance criteria.
+- Added explicit audit baselines and regression comparison; audits never rewrite baselines implicitly.
+- Added documentation synchronization checks for CLI commands and package entrypoints.
+- Added optional repository contract validation.
+- Added structured verification evidence, deterministic inventory, release readiness, and SARIF 2.1.0 output.
+- Expanded standard-library regression coverage for the integrated governance modules.
+- GitHub Actions status still needs confirmation from an actual workflow run; source commits alone are not proof of a green pipeline.
 
 ## 0.1.0 — initial scaffold
 - Local-first CLI for scope, evidence, and code budget checks.

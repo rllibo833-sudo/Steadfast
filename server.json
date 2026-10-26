@@ -3,7 +3,7 @@
   "name": "io.github.rllibo833-sudo/steadfast-governance",
   "title": "Steadfast Repository Governance",
   "description": "Local-first repository governance and verification tools for AI coding agents.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "websiteUrl": "https://github.com/rllibo833-sudo/Steadfast",
   "repository": {
     "url": "https://github.com/rllibo833-sudo/Steadfast",
@@ -13,7 +13,7 @@
     {
       "registryType": "pypi",
       "identifier": "steadfast-governance",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "transport": {
         "type": "stdio"
       }

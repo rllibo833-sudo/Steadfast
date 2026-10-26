@@ -13,6 +13,7 @@ from .checks import scope_findings
 from .gitops import changed_paths
 from .policy import load_policy
 from .goals import goal_report
+from .impact import analyze_change_impact
 
 STATE = ".steadfast/work-cycle.json"
 JOURNAL = ".steadfast/work-cycle.jsonl"
@@ -327,7 +328,9 @@ def verify_cycle(repo: Path) -> dict[str, Any]:
     findings = scope_findings(repo, load_policy(repo), paths)
     result["scope"] = {"passed": not any(x.get("severity") == "error" for x in findings),
                        "changed_paths": paths, "findings": findings}
-    result["passed"] = bool(result["passed"]) and result["scope"]["passed"]
+    impact = analyze_change_impact(repo, paths=paths)
+    result["change_impact"] = impact
+    result["passed"] = bool(result["passed"]) and result["scope"]["passed"] and bool(impact.get("passed"))
     result["verified_at"] = now()
     result["workspace_sha256"] = _workspace_fingerprint(repo)
     task["verification"] = result

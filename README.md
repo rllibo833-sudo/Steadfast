@@ -230,3 +230,16 @@ steadfast --repo . evidence-bundle verify .steadfast/artifacts/release-review.zi
 ```
 
 The bundle contains `manifest.json` and `evidence.json`. Verification checks the archive layout, size limits, schema and SHA-256 payload digest. Hashes detect content changes; they are **not a digital signature** and do not authenticate the producer. Review the report's per-component outcomes: an unavailable check is not a pass.
+
+
+## Change impact review
+
+Use `steadfast impact-check` to classify changed files, identify likely source-to-test gaps, flag sensitive-looking paths, and list recommended review gates.
+
+```sh
+steadfast --repo . impact-check
+steadfast --repo . impact-check --base origin/main
+steadfast --repo . impact-check --changed src/steadfast/cli.py tests/test_cli.py
+```
+
+The report is a heuristic review map, not proof of semantic dependencies, test coverage, or defect probability. Sensitive-looking paths are blocking findings; missing conventional test links are warnings that require reviewer judgment. The same analysis is included in work-cycle verification, the Project Console, and portable evidence bundles.

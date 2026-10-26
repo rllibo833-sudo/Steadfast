@@ -21,6 +21,7 @@ from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_histo
 from .findings import finding_metrics, list_findings
 from .planner import execution_plan
 from .automations import automation_history, list_automations, run_automation
+from .impact import analyze_change_impact
 from .session_ledger import SessionLedgerError, session_report
 
 APP_VERSION = "0.2.0"
@@ -116,6 +117,7 @@ def build_snapshot(repo: Path) -> dict[str, object]:
         "severity": dict(severity),
         "agent_sessions": agent_sessions,
         "execution_plan": execution_plan(repo),
+        "change_impact": analyze_change_impact(repo),
         "work_cycle": cycle_status(repo),
         "work_cycle_history": cycle_history(repo, limit=8),
         "finding_ledger": list_findings(repo, limit=25),
@@ -165,6 +167,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card full" id="planPanel"><div class="section-head"><h2>Next work to execute</h2><span id="planCount" class="pill">0 ready</span></div><div id="planBody" class="rows"><div class="empty">Loading execution plan…</div></div><small class="muted">Recommendations respect goal dependencies. Risk matching is heuristic; it does not prove causality.</small></div>
 <div class="card full" id="automationPanel"><div class="section-head"><h2>Automation Studio</h2><span class="pill">Local · no API key</span></div><p class="muted">Run built-in project workflows with one tap. These use fixed local actions; no arbitrary shell commands or repository uploads.</p><div id="automationList" class="rows"><div class="empty">Loading local automations…</div></div><p id="automationMessage" class="muted" role="status" aria-live="polite"></p><div class="section-head" style="margin-top:14px"><h2>Recent automation runs</h2><span id="automationHistoryCount" class="muted">0 runs</span></div><div id="automationHistory" class="rows"><div class="empty">No runs yet.</div></div></div>
 <div class="card full" id="cyclePanel"><div class="section-head"><h2>Work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><p class="muted">Manage the active goal, attach proof, run verification, and close the task only when gates pass.</p><div class="actions" style="margin:12px 0"><form id="cycleStartForm" class="actions"><input id="cycleGoal" placeholder="Goal ID (e.g. goal)" required maxlength="64" aria-label="Goal ID"><input id="cycleTitle" placeholder="Task title (optional)" maxlength="160" aria-label="Task title"><button type="submit">Start task</button></form><button id="cycleVerify" type="button">Run verification</button><button id="cycleComplete" type="button">Complete task</button></div><form id="cycleEvidenceForm" class="actions"><select id="cycleCriterion" aria-label="Acceptance criterion" required><option value="">Select criterion</option></select><input id="cycleEvidencePath" placeholder="Repository file path for evidence" required maxlength="512" aria-label="Evidence file path"><input id="cycleEvidenceNote" placeholder="Evidence note (optional)" maxlength="500" aria-label="Evidence note"><button type="submit">Attach evidence</button></form><form id="cycleBlockForm" class="actions" style="margin-top:10px"><input id="cycleBlockReason" placeholder="Reason to block task" maxlength="500" aria-label="Block reason" required><button type="submit">Block task</button></form><p id="cycleActionMessage" class="muted" role="status" aria-live="polite"></p><div id="cycleBody" class="rows"><div class="empty">No tracked task yet.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
+<div class="card full" id="impactPanel"><div class="section-head"><h2>Change impact</h2><span id="impactRisk" class="pill">No changes</span></div><p class="muted">Path-based review map: likely test/doc gaps, sensitive paths and recommended verification gates. The score is a review heuristic, not a defect probability.</p><div id="impactSummary" class="split"></div><div id="impactFindings" class="rows"></div><div id="impactGates" class="muted"></div></div>
 <div class="card full" id="agentSessionsPanel"><div class="section-head"><h2>Agent session ledger</h2><span id="agentSessionCount" class="pill">0 events</span></div><p class="muted">Tool decisions recorded by installed agent hooks. Secret-like fields are redacted; verify the append-only hash chain with <code>steadfast sessions verify</code>.</p><div id="agentSessionSummary" class="split"></div><div id="agentSessionRows" class="rows"><div class="empty">No agent hook events recorded yet.</div></div></div>
 <div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
@@ -206,7 +209,7 @@ function render(){
  $("findingTotal").textContent=allFindings.length+" findings";
  $("footerVersion").textContent="v"+(snapshot.version||"");
  files=snapshot.files||[];$("fileTotal").textContent=files.length+" files";
- renderFindings();renderFiles();renderGates();renderCycle();renderPlan();renderLedger();renderAgentSessions();
+ renderFindings();renderFiles();renderGates();renderCycle();renderPlan();renderImpact();renderLedger();renderAgentSessions();
 }
 function renderFindings(){
  const q=$("findingSearch").value.trim().toLowerCase();
@@ -277,6 +280,17 @@ function renderCycle(){
  $("cycleEvidenceForm").querySelector("button").disabled=!active;
  $("cycleEventCount").textContent=events.length+" events";
  $("cycleEvents").innerHTML=events.length?events.slice(0,8).map(e=>'<div class="rowitem"><div><b>'+esc(e.event||"event")+'</b><small>'+esc(e.at||"")+' · '+esc(e.task_id||"")+'</small><small>'+esc(JSON.stringify(e.details||{}))+'</small></div></div>').join(""):'<div class="empty">No events recorded.</div>';
+}
+function renderImpact(){
+ const impact=snapshot.change_impact||{},items=impact.findings||[],score=Number(impact.risk_score||0);
+ $("impactRisk").textContent=impact.changed_count===undefined?"Unavailable":score+" risk · "+impact.changed_count+" files";
+ $("impactRisk").className="pill "+(items.some(x=>x.severity==="error")?"bad":score>=40?"warn":"good");
+ const counts=impact.classification_counts||{};
+ $("impactSummary").innerHTML=[
+  ["Source",counts.source||0],["Tests",counts.test||0],["Docs",counts.documentation||0]
+ ].map(x=>'<div class="mini"><strong>'+esc(x[1])+'</strong><small>'+esc(x[0])+' changed</small></div>').join("");
+ $("impactFindings").innerHTML=items.length?items.slice(0,12).map(x=>'<div class="rowitem"><div><b>'+esc(x.code||"IMPACT")+' · '+esc(x.path||"")+'</b><small>'+esc(x.message||"")+'</small></div><span class="pill '+(x.severity==="error"?"bad":x.severity==="warning"?"warn":"")+'">'+esc(x.severity||"info")+'</span></div>').join(""):'<div class="empty">No impact findings for the current change set.</div>';
+ $("impactGates").textContent="Recommended gates: "+((impact.required_gates||[]).join(", ")||"none detected");
 }
 function renderAgentSessions(){
  const report=snapshot.agent_sessions||{},sessions=report.sessions||[],events=report.events||[];

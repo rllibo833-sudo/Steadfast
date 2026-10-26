@@ -16,6 +16,7 @@ from .docsync import docs_sync_report
 from .findings import finding_metrics, list_findings
 from .goals import goal_report
 from .inventory import inventory_report
+from .impact import analyze_change_impact
 from .policy import load_policy
 from .release import release_report
 from .security import security_findings, workflow_findings
@@ -130,6 +131,7 @@ def collect_evidence(repo: Path) -> dict[str, Any]:
             "inventory": inventory,
             "documentation_contract": _component(docs_sync_report, root),
             "code_truth": _component(code_truth_report, root),
+            "change_impact": _component(analyze_change_impact, root),
             "work_cycle": _component(cycle_status, root),
             "work_cycle_history": _component(cycle_history, root, 100),
             "agent_sessions": sessions,

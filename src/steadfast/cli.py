@@ -26,6 +26,7 @@ from .automations import automation_history, list_automations, run_automation
 from .code_truth import code_truth_report
 from .session_ledger import session_report, verify_session_ledger
 from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
+from .impact import analyze_change_impact
 
 
 def parser() -> argparse.ArgumentParser:
@@ -51,6 +52,9 @@ def parser() -> argparse.ArgumentParser:
     plan.add_argument("--include-proposed", action="store_true", help="Include proposed goals in the unready queue")
     plan.add_argument("--goal", help="Explain one goal and its dependencies instead of showing the full queue")
     commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
+    impact = commands.add_parser("impact-check", help="Analyze changed files, test/doc relationships and review gates")
+    impact.add_argument("--base", help="Compare committed changes against BASE...HEAD")
+    impact.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git")
     commands.add_parser("code-truth", help="Derive product facts from source code and flag stale documented CLI examples")
     commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
     serve = commands.add_parser("serve", help="Open the local read-only Project Console in a browser")
@@ -274,6 +278,11 @@ def main(argv: list[str] | None = None) -> int:
             result = goal_report(repo, policy)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 1 if _has_errors(result["findings"]) else 0
+
+        if args.command == "impact-check":
+            result = analyze_change_impact(repo, base=args.base, paths=args.changed)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result.get("passed") else 1
 
         if args.command == "code-truth":
             result = code_truth_report(repo)

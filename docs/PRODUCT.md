@@ -93,3 +93,8 @@ Each valid agent-hook event is recorded in a bounded local JSONL ledger with ses
 ## Portable evidence bundles
 
 The evidence-bundle engine collects audit, scope/evidence, security, goal, release, inventory, code-truth, documentation-contract, work-cycle, finding-ledger and redacted agent-session results into a portable ZIP. The default bundle contains metadata and file hashes, not source contents. Verification enforces a strict two-entry archive layout, repository-relative paths, compressed/uncompressed size limits, schema checks and payload SHA-256 integrity. The manifest is not signed; hash integrity must not be represented as producer authentication. Unavailable component checks remain explicitly unavailable rather than being counted as passes.
+
+
+## Change impact analysis
+
+The change-impact engine maps modified paths to source, test, documentation, workflow, configuration and sensitive-path classes. It detects conventional source/test pairing gaps, identifies public-surface changes without documentation updates, proposes review gates and computes a bounded triage score with explicit factors and limitations. Sensitive-looking credential paths block a passing result. Other path relationships remain advisory because naming conventions cannot prove semantic coupling or actual test assertions. The engine is exposed as `impact-check` and is included in work-cycle verification and evidence bundles.

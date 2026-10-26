@@ -81,7 +81,7 @@ def _skill_inventory(repo: Path) -> list[dict[str, str]]:
             name = path.parent.name
             for line in source.splitlines()[:12]:
                 if line.strip().lower().startswith("name:"):
-                    name = line.split(":", 1)[1].strip().strip("\\"'") or name
+                    name = line.split(":", 1)[1].strip().strip(chr(34) + "'") or name
                     break
             found[relative] = {"path": relative, "sha256": hashlib.sha256(content).hexdigest(), "name": name, "status": "indexed"}
     return [found[key] for key in sorted(found)]

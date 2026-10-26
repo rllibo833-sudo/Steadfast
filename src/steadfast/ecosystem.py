@@ -1,4 +1,5 @@
 from __future__ import annotations
+import ast
 import hashlib
 import json
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Any
 from .integrations import integration_status
 
 MCP_CONFIG_PATHS = (".mcp.json", ".cursor/mcp.json", ".vscode/mcp.json", ".claude/mcp.json")
+CODEX_CONFIG_PATH = ".codex/config.toml"
 
 def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     try:
@@ -15,6 +17,50 @@ def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     if not isinstance(value, dict):
         return None, "Configuration root must be a JSON object"
     return value, None
+
+def _read_codex_toml(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Read the MCP subset of Codex TOML without adding a runtime dependency."""
+    try:
+        source = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+    servers: dict[str, dict[str, Any]] = {}
+    current: dict[str, Any] | None = None
+    for number, raw in enumerate(source.splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[mcp_servers.") and line.endswith("]"):
+            name = line[len("[mcp_servers."):-1]
+            if not name or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for char in name):
+                return None, f"Invalid MCP server section at line {number}"
+            if name in servers:
+                return None, f"Duplicate MCP server section {name!r} at line {number}"
+            current = {}
+            servers[name] = current
+            continue
+        if line.startswith("["):
+            current = None
+            continue
+        if current is None:
+            continue
+        key, separator, raw_value = line.partition("=")
+        key, raw_value = key.strip(), raw_value.strip()
+        if key not in {"command", "args"}:
+            continue
+        if not separator:
+            return None, f"Invalid {key} setting at line {number}"
+        try:
+            value = ast.literal_eval(raw_value)
+        except (ValueError, SyntaxError):
+            return None, f"Invalid TOML value for {key!r} at line {number}"
+        if key == "command" and not isinstance(value, str):
+            return None, f"command must be a string at line {number}"
+        if key == "args" and (not isinstance(value, list) or any(not isinstance(item, str) for item in value)):
+            return None, f"args must be an array of strings at line {number}"
+        current[key] = value
+    return {"mcpServers": servers}, None
+
 
 def _skill_inventory(repo: Path) -> list[dict[str, str]]:
     found: dict[str, dict[str, str]] = {}
@@ -81,6 +127,19 @@ def ecosystem_report(repo: Path) -> dict[str, Any]:
             state = "blocked" if name in blocked else "trusted" if name in trusted else "untrusted" if require_trust else "unreviewed"
             servers.append({"name": name, "config_path": relative, "command_basename": Path(command).name if command else "",
                             "argument_count": len(args) if isinstance(args, list) else 0, "status": state})
+    codex_path = root / CODEX_CONFIG_PATH
+    if codex_path.exists():
+        config, error = _read_codex_toml(codex_path)
+        if error:
+            errors.append({"path": CODEX_CONFIG_PATH, "error": error})
+        else:
+            assert config is not None
+            for name, definition in sorted(config["mcpServers"].items(), key=lambda pair: pair[0].casefold()):
+                command, args = definition.get("command", ""), definition.get("args", [])
+                state = "blocked" if name in blocked else "trusted" if name in trusted else "untrusted" if require_trust else "unreviewed"
+                servers.append({"name": name, "config_path": CODEX_CONFIG_PATH,
+                                "command_basename": Path(command).name if command else "",
+                                "argument_count": len(args) if isinstance(args, list) else 0, "status": state})
     counts: dict[str, int] = {}
     for server in servers:
         key = server["name"].casefold()

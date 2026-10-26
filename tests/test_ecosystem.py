@@ -28,6 +28,33 @@ class EcosystemReportTests(unittest.TestCase):
             self.assertFalse(report["safety"]["server_commands_executed"])
             self.assertNotIn("dont-leak", json.dumps(report))
 
+    def test_indexes_codex_toml_mcp_servers_without_leaking_arguments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            codex = root / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(
+                '[mcp_servers.steadfast]\ncommand = "python"\nargs = ["-m", "steadfast", "--token", "hidden"]\n'
+                'cwd = "."\nstartup_timeout_sec = 10\n\n[mcp_servers.review_bot]\ncommand = "node"\nargs = ["review.js"]\n',
+                encoding="utf-8",
+            )
+            report = ecosystem_report(root)
+            indexed = {item["name"]: item for item in report["mcp_servers"]}
+            self.assertEqual(indexed["steadfast"]["config_path"], ".codex/config.toml")
+            self.assertEqual(indexed["steadfast"]["command_basename"], "python")
+            self.assertEqual(indexed["steadfast"]["argument_count"], 4)
+            self.assertNotIn("hidden", json.dumps(report))
+            self.assertEqual(indexed["review_bot"]["status"], "unreviewed")
+
+    def test_reports_invalid_codex_command_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".codex").mkdir()
+            (root / ".codex" / "config.toml").write_text('[mcp_servers.bad]\ncommand = ["not", "a", "string"]\n', encoding="utf-8")
+            report = ecosystem_report(root)
+            self.assertEqual(report["configuration_errors"][0]["path"], ".codex/config.toml")
+            self.assertEqual(report["status"], "attention_required")
+
     def test_reports_duplicate_names_and_malformed_mcp_config_without_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

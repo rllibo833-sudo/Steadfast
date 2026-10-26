@@ -199,3 +199,8 @@ Work-cycle verification is tied to a SHA-256 fingerprint of the workspace (exclu
 Run `steadfast code-truth` to see facts derived from the Python implementation, test files, package entrypoints and live argparse command tree. It hashes implementation files and checks documented command examples against actual command names. The JSON report is intended for CI and agent decisions; Markdown is a consumer of these facts, not the canonical record. This check validates command paths and repository structure, not the semantic truth of every sentence or the correctness of business behavior.
 
 For practical agent/skills setup, follow [the coding-agent skills tutorial](docs/AGENT_SKILLS_TUTORIAL.md).
+
+
+### Agent hook enforcement
+
+Claude Code `PreToolUse` responses use its event-specific `hookSpecificOutput.permissionDecision` schema; Cursor shell hooks use Cursor's native `permission` response schema and inspect the top-level `command` field. Claude-compatible Stop hooks can block a tracked task that has not passed the work-cycle completion gate. Cursor's installed hook set includes shell-command and stop checks with fail-closed hook configuration. Codex currently receives repository instructions and skills, not an equivalent native enforcement hook. See the [Claude Code hook contract](https://docs.anthropic.com/en/docs/claude-code/hooks) and [Cursor hooks contract](https://cursor.com/docs/hooks).

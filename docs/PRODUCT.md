@@ -78,3 +78,8 @@ A successful pipeline result is not sufficient if the workspace changes afterwar
 `steadfast code-truth` derives implementation and test inventory from source files, resolves the live CLI tree from the instantiated argparse parser, checks package entrypoints, fingerprints implementation files with SHA-256, and detects documented CLI examples that refer to nonexistent commands or subcommands. The configured CI pipeline runs this check. This deliberately makes code and executable configuration the source of truth; docs are checked as downstream representations. It is not yet semantic verification of arbitrary prose or proof that tests fully cover behavior.
 
 See [the practical coding-agent skills tutorial](AGENT_SKILLS_TUTORIAL.md) for setup and usage examples.
+
+
+### Agent hook protocol enforcement
+
+Hook adapters emit event-specific response formats instead of one generic JSON shape: Claude Code `PreToolUse` uses `hookSpecificOutput`, Stop uses `decision: block` with a reason, and Cursor shell execution uses `permission: allow|deny`. Cursor's top-level shell command is evaluated by the same destructive-command policy as Claude's nested Bash input. When a tracked cycle exists, Stop/SubagentStop is blocked until the cycle is completed; the message tells the agent to attach acceptance evidence, run verification, and complete the cycle. An absent work cycle is not itself blocked, to avoid trapping untracked sessions. Codex integration remains instruction/skill-based because this implementation does not claim a Codex native hook.

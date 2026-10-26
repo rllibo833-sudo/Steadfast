@@ -13,6 +13,7 @@ from steadfast.integrations import (
     run_hook,
 )
 from steadfast.policy import init_policy
+from steadfast.workcycle import start_cycle
 
 
 class AgentGuardTests(unittest.TestCase):
@@ -72,6 +73,49 @@ class AgentGuardTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(json.loads(output.getvalue())["decision"], "block")
 
+
+    def test_cursor_top_level_shell_command_is_guarded_with_native_schema(self) -> None:
+        from io import StringIO
+        event = {"command": "git push origin main --force", "cwd": str(self.repo)}
+        output = StringIO()
+        code = run_hook(self.repo, StringIO(json.dumps(event)), output)
+        self.assertEqual(code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["permission"], "deny")
+        self.assertIn("Force-push", payload["agent_message"])
+
+    def test_claude_pretool_uses_event_specific_deny_schema(self) -> None:
+        from io import StringIO
+        event = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                 "tool_input": {"command": "git reset --hard HEAD"}}
+        output = StringIO()
+        code = run_hook(self.repo, StringIO(json.dumps(event)), output)
+        self.assertEqual(code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["hookSpecificOutput"]["hookEventName"], "PreToolUse")
+        self.assertEqual(payload["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_stop_hook_blocks_active_unverified_cycle(self) -> None:
+        from io import StringIO
+        (self.repo / ".steadfast" / "goal.md").write_text(
+            "# Goal\\n\\n## Acceptance criteria\\n- [ ] Behavior verified\\n", encoding="utf-8")
+        start_cycle(self.repo, "goal")
+        event = {"hook_event_name": "Stop", "reason": "agent finished"}
+        output = StringIO()
+        code = run_hook(self.repo, StringIO(json.dumps(event)), output)
+        self.assertEqual(code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["decision"], "block")
+        self.assertIn("steadfast cycle verify", payload["reason"])
+        self.assertIn("AGENT_COMPLETION_GATE", " ".join(x["code"] for x in evaluate_event(self.repo, event)["findings"]))
+
+    def test_stop_hook_allows_when_no_cycle_is_active(self) -> None:
+        from io import StringIO
+        output = StringIO()
+        code = run_hook(self.repo, StringIO(json.dumps({"hook_event_name": "Stop"})), output)
+        self.assertEqual(code, 0)
+        self.assertNotEqual(json.loads(output.getvalue()).get("decision"), "block")
+
     def test_integrations_preserve_existing_files(self) -> None:
         existing = self.repo / "AGENTS.md"
         existing.write_text("user-owned instructions\n", encoding="utf-8")
@@ -87,6 +131,9 @@ class AgentGuardTests(unittest.TestCase):
             self.assertTrue(all(content.strip() for content in generated.values()))
         claude = json.loads(integration_files("claude")[".claude/settings.local.json"])
         self.assertIn("Stop", claude["hooks"])
+        cursor = json.loads(integration_files("cursor")[".cursor/hooks.json"])
+        self.assertIn("beforeShellExecution", cursor["hooks"])
+        self.assertIn("stop", cursor["hooks"])
 
     def test_integration_status_tracks_missing_files(self) -> None:
         status = integration_status(self.repo)

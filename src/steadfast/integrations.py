@@ -50,6 +50,10 @@ def _tool_paths(event: dict[str, Any]) -> list[str]:
 
 
 def _shell_command(event: dict[str, Any]) -> str:
+    # Cursor's beforeShellExecution payload puts command at top level.
+    for key in ("command", "cmd", "script"):
+        if isinstance(event.get(key), str):
+            return event[key]
     payload = event.get("tool_input", event.get("input", {}))
     if not isinstance(payload, dict):
         return ""
@@ -106,29 +110,61 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
         message = _dangerous_command(command)
         if message:
             findings.append({"severity": "error", "code": "AGENT_DESTRUCTIVE_COMMAND", "path": "", "message": message})
-    blocked = bool(findings)
     try:
         cycle = cycle_status(repo).get("task")
     except (OSError, ValueError, json.JSONDecodeError):
         cycle = None
+    event_name = str(event.get("hook_event_name", event.get("event", ""))).casefold()
+    if event_name in {"stop", "subagentstop", "subagent_stop"} and cycle and cycle.get("status") != "completed":
+        findings.append({"severity": "error", "code": "AGENT_COMPLETION_GATE", "path": "",
+                         "message": "Tracked work is not complete. Attach evidence for every acceptance criterion, run 'steadfast cycle verify', resolve failures, then run 'steadfast cycle complete'. Current status: " + str(cycle.get("status", "unknown")) + "."})
+    blocked = bool(findings)
     return {"decision": "block" if blocked else "allow", "continue": not blocked,
             "reason": "; ".join(f["message"] for f in findings), "findings": findings, "repo": str(repo),
+            "event_name": event_name,
             "work_cycle": {"task_id": cycle.get("id"), "goal_id": cycle.get("goal_id"),
                            "status": cycle.get("status")} if cycle else {"status": "not_started"}}
 
 
+def _hook_output(event: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    """Translate policy results into the documented agent hook response schema."""
+    reason = result.get("reason") or "Steadfast policy check passed."
+    event_name = str(event.get("hook_event_name", event.get("event", ""))).casefold()
+    blocked = result.get("decision") == "block"
+    if event_name in {"stop", "subagentstop", "subagent_stop"}:
+        return {"decision": "block", "reason": reason} if blocked else {"continue": True}
+    if event_name == "pretooluse":
+        if blocked:
+            return {"hookSpecificOutput": {"hookEventName": "PreToolUse",
+                    "permissionDecision": "deny", "permissionDecisionReason": reason}}
+        # Do not bypass the user's normal permission policy with permissionDecision=allow.
+        return {}
+    if any(isinstance(event.get(key), str) for key in ("command", "cmd", "script")):
+        if blocked:
+            return {"permission": "deny", "user_message": reason, "agent_message": reason}
+        return {"permission": "allow"}
+    return {"decision": result.get("decision", "block"), "continue": not blocked,
+            "reason": reason, "findings": result.get("findings", []),
+            "work_cycle": result.get("work_cycle", {"status": "not_started"})}
+
+
 def run_hook(repo: Path, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int:
+    event: dict[str, Any] = {}
     try:
         event = json.load(stdin)
         if not isinstance(event, dict):
             raise ValueError("Hook event must be a JSON object")
         result = evaluate_event(repo, event)
+        output = _hook_output(event, result)
+        exit_code = 0
     except (json.JSONDecodeError, ValueError, OSError) as exc:
-        result = {"decision": "block", "continue": False, "reason": f"Invalid hook event or policy: {exc}",
+        output = {"decision": "block", "reason": f"Invalid hook event or policy: {exc}",
+                  "continue": False,
                   "findings": [{"severity": "error", "code": "AGENT_HOOK_INVALID", "path": "", "message": str(exc)}]}
-    stdout.write(json.dumps(result, ensure_ascii=False) + "\n")
+        exit_code = 2
+    stdout.write(json.dumps(output, ensure_ascii=False) + "\n")
     stdout.flush()
-    return 0 if result["decision"] == "allow" else 2
+    return exit_code
 
 
 def _skill_text(agent: str) -> str:
@@ -168,17 +204,20 @@ def integration_files(agent: str) -> dict[str, str]:
         config = {"hooks": {
             "PreToolUse": [{"matcher": "Write|Edit|MultiEdit|Bash",
                 "hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}],
-            "Stop": [{"hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}]
+            "Stop": [{"hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 10}]}]
         }}
         return {".claude/settings.local.json": json.dumps(config, indent=2) + "\n",
                 ".claude/skills/steadfast-governance/SKILL.md": skill}
     if agent == "cursor":
-        config = {"version": 1, "hooks": {"beforeShellExecution": [{"command": "steadfast agent-hook", "timeout": 5}]}}
+        config = {"version": 1, "hooks": {
+            "beforeShellExecution": [{"command": "steadfast agent-hook", "timeout": 10, "failClosed": True}],
+            "stop": [{"command": "steadfast agent-hook", "timeout": 10, "failClosed": True}]
+        }}
         rule = """---
 description: Repository policy and evidence contract for coding agents
 alwaysApply: true
 ---
-Read .steadfast/policy.json before edits. Keep changes inside allowed_paths. Do not weaken policy to make checks pass. Avoid destructive commands without explicit human approval. Run relevant tests and report actual outcomes; never invent evidence. Before completion, run steadfast audit, evidence-check, docs-check and release-check.
+Read .steadfast/policy.json before edits. Keep changes inside allowed_paths. Do not weaken policy to make checks pass. Avoid destructive commands without explicit human approval. Run relevant tests and report actual outcomes; never invent evidence. If a tracked work cycle is active, completion is blocked until every criterion has evidence and `steadfast cycle verify` passes, followed by `steadfast cycle complete`. Before completion, run steadfast audit, evidence-check, docs-check and release-check.
 """
         return {".cursor/hooks.json": json.dumps(config, indent=2) + "\n",
                 ".cursor/rules/steadfast-governance.mdc": rule}

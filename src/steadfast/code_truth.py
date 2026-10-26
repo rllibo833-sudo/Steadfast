@@ -97,7 +97,7 @@ def _example_findings(repo: Path, commands: list[str], nested: dict[str, list[st
             continue
         for match in EXAMPLE_RE.finditer(content):
             count += 1
-            tokens = re.split(r"\s+", match.group(1).strip().strip("'\\""))
+            tokens = re.split(r"\s+", match.group(1).strip())
             # Skip global options and their single values without executing anything.
             while tokens and tokens[0].startswith("-"):
                 flag = tokens.pop(0)

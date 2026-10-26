@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,10 +57,20 @@ def _workspace_fingerprint(repo: Path) -> str:
                 if total_bytes > 128 * 1024 * 1024:
                     raise ValueError("workspace verification limit exceeded: more than 128 MiB")
                 file_hash = hashlib.sha256()
-                with path.open("rb") as stream:
-                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                        file_hash.update(chunk)
-                payload = b"file:" + str(size).encode("ascii") + b":" + file_hash.digest()
+                normalized_size = size
+                # Goal status is a lifecycle marker updated by this engine after
+                # verified completion; normalize only that metadata field so the
+                # bookkeeping transition does not invalidate its own proof.
+                if relative.startswith(".steadfast/goals/") and path.suffix.lower() == ".md":
+                    raw = path.read_bytes()
+                    normalized = _without_goal_status(raw)
+                    normalized_size = len(normalized)
+                    file_hash.update(normalized)
+                else:
+                    with path.open("rb") as stream:
+                        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                            file_hash.update(chunk)
+                payload = b"file:" + str(normalized_size).encode("ascii") + b":" + file_hash.digest()
             else:
                 continue
             digest.update(relative.encode("utf-8", errors="surrogateescape"))
@@ -123,17 +134,113 @@ def save(repo: Path, state: dict[str, Any], event: str, details: dict[str, Any])
     temporary.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     temporary.replace(target)
 
+def _frontmatter_bounds(text: str) -> tuple[int, int] | None:
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return None
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            return 1, index
+    return None
+
+
+def _goal_metadata(path: Path) -> tuple[str, str]:
+    text = path.read_text(encoding="utf-8")
+    bounds = _frontmatter_bounds(text)
+    goal_id, status = path.stem, "proposed"
+    if bounds:
+        lines = text.splitlines()
+        for line in lines[bounds[0]:bounds[1]]:
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            value = value.strip().strip('"').strip("'")
+            if key.strip() == "id":
+                goal_id = value
+            elif key.strip() == "status":
+                status = value.casefold()
+    return goal_id, status
+
+
+def _without_goal_status(raw: bytes) -> bytes:
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw
+    bounds = _frontmatter_bounds(text)
+    if not bounds:
+        return raw
+    lines = text.splitlines(keepends=True)
+    normalized = False
+    for index in range(bounds[0], bounds[1]):
+        if lines[index].lstrip().startswith("status:"):
+            ending = "\r\n" if lines[index].endswith("\r\n") else "\n" if lines[index].endswith("\n") else ""
+            lines[index] = "status: __STEADFAST_STATUS_NORMALIZED__" + ending
+            normalized = True
+            break
+    if not normalized:
+        ending = "\r\n" if "\r\n" in text else "\n"
+        lines.insert(bounds[1], "status: __STEADFAST_STATUS_NORMALIZED__" + ending)
+    return "".join(lines).encode("utf-8")
+
+
+def _sync_goal_status(repo: Path, goal_id: str, status: str) -> str | None:
+    directory = repo / ".steadfast" / "goals"
+    matches = []
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.md")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            actual_id, _ = _goal_metadata(path)
+            if actual_id == goal_id:
+                matches.append(path)
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError(f"goal {goal_id!r} has multiple matching goal files")
+    path = matches[0]
+    text = path.read_text(encoding="utf-8")
+    bounds = _frontmatter_bounds(text)
+    if bounds:
+        lines = text.splitlines(keepends=True)
+        found = False
+        for index in range(bounds[0], bounds[1]):
+            if lines[index].lstrip().startswith("status:"):
+                prefix, _, _ = lines[index].partition(":")
+                ending = "\r\n" if lines[index].endswith("\r\n") else "\n" if lines[index].endswith("\n") else ""
+                lines[index] = prefix + ": " + status + ending
+                found = True
+                break
+        if not found:
+            ending = "\r\n" if "\r\n" in text else "\n"
+            lines.insert(bounds[1], "status: " + status + ending)
+        updated = "".join(lines)
+    else:
+        # A goal without frontmatter has no explicit lifecycle field to update.
+        # Do not inject metadata during completion because that would change the
+        # already-verified workspace beyond the status-only normalization rule.
+        return None
+    temporary = path.with_name(path.name + ".steadfast.tmp")
+    temporary.write_text(updated, encoding="utf-8")
+    temporary.replace(path)
+    return path.relative_to(repo).as_posix()
+
+
 def find_goal(repo: Path, goal_id: str) -> tuple[str, list[str]]:
-    paths = [repo / ".steadfast" / "goal.md"] + sorted((repo / ".steadfast" / "goals").glob("*.md"))
-    for path in paths:
-        if not path.is_file():
-            continue
-        if path.name != "goal.md" and path.stem != goal_id:
-            continue
-        if path.name == "goal.md" and goal_id not in {"goal", "product"}:
-            continue
+    root_goal = repo / ".steadfast" / "goal.md"
+    candidates = ([root_goal] if goal_id in {"goal", "product"} else [])
+    directory = repo / ".steadfast" / "goals"
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.md")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            actual_id, status = _goal_metadata(path)
+            if actual_id == goal_id and status not in {"done", "cancelled"}:
+                candidates.append(path)
+    for path in candidates:
+        text = path.read_text(encoding="utf-8")
         lines, active = [], False
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in text.splitlines():
             if line.startswith("## "):
                 active = line[3:].strip().lower() == "acceptance criteria"
             elif active and line.strip().startswith(("- [ ]", "- [x]", "- [X]")):
@@ -143,7 +250,7 @@ def find_goal(repo: Path, goal_id: str) -> tuple[str, list[str]]:
         if not lines:
             raise ValueError(f"goal {goal_id!r} has no acceptance checklist")
         return path.relative_to(repo).as_posix(), lines
-    raise ValueError(f"goal {goal_id!r} not found")
+    raise ValueError(f"goal {goal_id!r} not found, or already done/cancelled")
 
 def start_cycle(repo: Path, goal_id: str, title: str = "") -> dict[str, Any]:
     repo = repo.resolve()
@@ -243,8 +350,12 @@ def complete_cycle(repo: Path) -> dict[str, Any]:
     current_workspace = _workspace_fingerprint(repo)
     if current_workspace != recorded_workspace:
         raise ValueError("completion blocked: workspace changed after verification; rerun the configured pipeline and scope check")
+    # Keep the dependency planner consistent with the verified task. Only the
+    # goal status field is changed; acceptance criteria and all other content
+    # remain part of the workspace fingerprint.
+    synced_goal = _sync_goal_status(repo, str(task.get("goal_id", "")), "done")
     task["status"], task["completed_at"] = "completed", now()
-    save(repo, state, "task_completed", {"criteria_count": len(task["acceptance"])})
+    save(repo, state, "task_completed", {"criteria_count": len(task["acceptance"]), "goal_status_file": synced_goal})
     return task
 
 def block_cycle(repo: Path, reason: str) -> dict[str, Any]:

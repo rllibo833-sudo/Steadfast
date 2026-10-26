@@ -114,5 +114,30 @@ class WorkCycleTests(unittest.TestCase):
         self.assertEqual(history["events"][0]["event"], "evidence_attached")
         self.assertEqual(cycle_status(self.repo)["task"]["acceptance_summary"]["with_evidence"], 1)
 
+
+    def test_goal_metadata_id_is_resolved_and_completed_status_syncs(self):
+        goals = self.repo / ".steadfast" / "goals"
+        goals.mkdir(parents=True)
+        goal_file = goals / "different-filename.md"
+        goal_file.write_text(
+            "---\nid: native-engine\ntitle: Native engine\nstatus: active\n---\n\n"
+            "# Native engine\n\n## Acceptance criteria\n- [ ] Execute the native backend\n",
+            encoding="utf-8",
+        )
+        task = start_cycle(self.repo, "native-engine")
+        self.assertEqual(task["goal_path"], ".steadfast/goals/different-filename.md")
+        passed = {"tool":"steadfast","passed":True,"summary":{},"steps":[],
+                  "manifest":".steadfast/pipeline.json","duration_seconds":0.1}
+        with patch("steadfast.workcycle.run_pipeline", return_value=passed):
+            with patch("steadfast.workcycle.changed_paths", return_value=[]):
+                self.assertTrue(verify_cycle(self.repo)["passed"])
+        attach_evidence(self.repo, "AC-01", "evidence.txt")
+        self.assertEqual(complete_cycle(self.repo)["status"], "completed")
+        self.assertIn("status: done", goal_file.read_text(encoding="utf-8"))
+        self.assertTrue(cycle_status(self.repo)["task"]["verification_fresh"])
+        with self.assertRaisesRegex(ValueError, "already done"):
+            start_cycle(self.repo, "native-engine")
+
+
 if __name__ == "__main__":
     unittest.main()

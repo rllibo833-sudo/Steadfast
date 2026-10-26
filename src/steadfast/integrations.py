@@ -284,8 +284,6 @@ startup_timeout_sec = 10
 tool_timeout_sec = 60
 default_tools_approval_mode = "auto"
 
-[mcp_servers.steadfast.env]
-PYTHONPATH = "src"
 """
     return {
         "AGENTS.md": agents_md,

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import fnmatch
 import re
 from pathlib import Path
 from typing import Any, Iterable
 
-from .checks import matches
 
 
 SECRET_ASSIGNMENT = re.compile(

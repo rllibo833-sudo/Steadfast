@@ -104,5 +104,18 @@ class OutputTests(unittest.TestCase):
             self.assertIn("ENV_FILE_IN_SOURCE_SCOPE", [item["code"] for item in result["findings"]])
 
 
+    def test_release_check_blocks_broken_package_entrypoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            init_policy(repo)
+            (repo / "src").mkdir()
+            (repo / "src" / "main.py").write_text("answer = 42\n", encoding="utf-8")
+            (repo / "README.md").write_text("steadfast audit\n", encoding="utf-8")
+            (repo / "pyproject.toml").write_text("project = {}\n", encoding="utf-8")
+            result = release_report(repo)
+            self.assertFalse(result["ready"])
+            self.assertIn("CLI_ENTRYPOINT_MISSING", [item["code"] for item in result["findings"]])
+
+
 if __name__ == "__main__":
     unittest.main()

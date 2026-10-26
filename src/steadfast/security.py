@@ -45,7 +45,9 @@ def _source_files(repo: Path, policy: dict[str, Any]) -> Iterable[Path]:
         relative = path.relative_to(repo).as_posix()
         if _matches(relative, ignored) or not _matches(relative, roots):
             continue
-        if path.suffix.lower() not in {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".hpp", ".cuk", ".sh", ".yaml", ".yml", ".toml", ".json"}:
+        # Environment files may contain secrets but have no conventional source suffix.
+        is_env_file = path.name == ".env" or path.name.startswith(".env.")
+        if not is_env_file and path.suffix.lower() not in {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".hpp", ".cuk", ".sh", ".yaml", ".yml", ".toml", ".json"}:
             continue
         yield path
 

@@ -98,7 +98,7 @@ class AgentGuardTests(unittest.TestCase):
     def test_stop_hook_blocks_active_unverified_cycle(self) -> None:
         from io import StringIO
         (self.repo / ".steadfast" / "goal.md").write_text(
-            "# Goal\\n\\n## Acceptance criteria\\n- [ ] Behavior verified\\n", encoding="utf-8")
+            "# Goal\n\n## Acceptance criteria\n- [ ] Behavior verified\n", encoding="utf-8")
         start_cycle(self.repo, "goal")
         event = {"hook_event_name": "Stop", "reason": "agent finished"}
         output = StringIO()

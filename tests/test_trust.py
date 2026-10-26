@@ -45,5 +45,17 @@ class ComponentPolicyTests(unittest.TestCase):
             evaluate_component_policy(root, "skill", "anything", [""])
 
 
+    def test_cli_trust_check_uses_owner_policy(self):
+        from steadfast.cli import main
+        root = self.make_repo({"version": 1, "ecosystem_trust": {"trusted_components": [{"kind": "skill", "name": "review", "permissions": ["repo:read"]}]}})
+        self.assertEqual(main(["--repo", str(root), "trust-check", "--kind", "skill", "--name", "review", "--permission", "repo:read"]), 0)
+        self.assertEqual(main(["--repo", str(root), "trust-check", "--kind", "skill", "--name", "review", "--permission", "repo:write"]), 1)
+
+    def test_mcp_tool_maps_to_the_same_cli_policy(self):
+        from steadfast.mcp_server import TOOLS, _tool_args
+        tool = next(item for item in TOOLS if item["name"] == "steadfast_trust_check")
+        self.assertEqual(tool["inputSchema"]["required"], ["kind", "name"])
+        self.assertEqual(_tool_args("steadfast_trust_check", {"kind": "plugin", "name": "format", "permissions": ["repo:read"]}), ["trust-check", "--kind", "plugin", "--name", "format", "--permission", "repo:read"])
+
 if __name__ == "__main__":
     unittest.main()

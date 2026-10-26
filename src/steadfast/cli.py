@@ -14,7 +14,8 @@ from .inventory import inventory_report
 from .policy import init_policy, load_policy
 from .release import release_report
 from .report import render_json, render_markdown
-from .sarif import render_sarif\nfrom .security import security_findings, workflow_findings
+from .sarif import render_sarif
+from .security import security_findings, workflow_findings
 
 
 def parser() -> argparse.ArgumentParser:

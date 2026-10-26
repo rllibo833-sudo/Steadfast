@@ -81,6 +81,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("steadfast_work_order_issue", names)
         self.assertIn("steadfast_work_order_verify", names)
         self.assertIn("steadfast_work_order_close", names)
+        self.assertIn("steadfast_work_order_prompt", names)
         listed = handle_message(
             {"jsonrpc": "2.0", "id": 6, "method": "tools/call",
              "params": {"name": "steadfast_work_orders", "arguments": {"limit": 10}}},
@@ -106,6 +107,12 @@ class McpServerTests(unittest.TestCase):
             _tool_args("steadfast_work_order_close", {"order_id": "012345abcdef"}),
             ["work-order", "close", "012345abcdef"],
         )
+        self.assertEqual(
+            _tool_args("steadfast_work_order_prompt", {"order_id": "012345abcdef"}),
+            ["work-order", "prompt", "012345abcdef"],
+        )
+        with self.assertRaisesRegex(ValueError, "12 lowercase hexadecimal"):
+            _tool_args("steadfast_work_order_prompt", {"order_id": "../bad"})
         with self.assertRaisesRegex(ValueError, "ttl_minutes"):
             _tool_args("steadfast_work_order_issue", {"goal_id": "ship-mvp", "ttl_minutes": True})
         with self.assertRaisesRegex(ValueError, "12 lowercase hexadecimal"):

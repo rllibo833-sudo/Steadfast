@@ -22,6 +22,13 @@ Restart or reopen Codex after trusting that repository. Steadfast's project MCP 
 
 To contribute to Steadfast itself, clone this repository and use `python -m pip install -e .`. For a quick check, run `steadfast audit`, `steadfast pipeline`, `steadfast docs-check`, and `steadfast code-truth`.
 
+## Adoption, collaboration, and paid pilots
+
+Steadfast is local-first and can be evaluated without a hosted database or AI API. For teams that need help applying it to a real repository, see [the adoption and paid-pilot path](docs/ADOPTION_AND_PAID_PILOT.md). A pilot should have one agreed repository, a bounded scope, observable success criteria, and a handover of commands and evidence. A public request is not a contract or a promise of service availability.
+
+- [Propose an evaluation, integration, paid pilot, or sponsorship](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=paid_pilot.yml)
+- [Request a technical collaboration](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=collaboration.yml)
+
 ## Commands
 
 - `steadfast init`: create missing policy, goal, and verification-evidence files.

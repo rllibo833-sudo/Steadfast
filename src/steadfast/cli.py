@@ -248,8 +248,14 @@ def main(argv: list[str] | None = None) -> int:
                 "repository_root": str(repo),
                 "ecosystem": {
                     "skills": ecosystem["skills"],
+                    "skill_entry_points": ecosystem["installed_extensions"]["skills"],
+                    "plugins": ecosystem["installed_extensions"]["plugins"],
+                    "mcp_status": {
+                        "repository_servers": ecosystem["mcp_servers"],
+                        "installed_server_entry_points": ecosystem["installed_extensions"]["mcp_servers"],
+                        "trust_status": ecosystem["status"],
+                    },
                     "installed_extensions": ecosystem["installed_extensions"],
-                    "mcp_servers": ecosystem["mcp_servers"],
                     "integration_status": ecosystem["integrations"],
                     "trust_status": ecosystem["status"],
                 },

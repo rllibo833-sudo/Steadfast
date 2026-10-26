@@ -65,6 +65,7 @@ def parser() -> argparse.ArgumentParser:
     integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
     commands.add_parser("integration-status", help="Show installed coding-agent integrations")
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
+    commands.add_parser("mcp-server", help="Serve read-only Steadfast tools over the standard MCP stdio protocol")
     onboard = commands.add_parser("onboard", help="Set up Steadfast policy and selected coding-agent integrations in one command")
     onboard.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
     automations = commands.add_parser("automations", help="List and run local, allowlisted automation workflows")
@@ -158,6 +159,10 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print("Policy files already exist; nothing overwritten.")
             return 0
+
+        if args.command == "mcp-server":
+            from .mcp_server import serve_stdio
+            return serve_stdio(repo)
 
         if args.command == "serve":
             from .dashboard import serve_dashboard

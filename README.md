@@ -26,7 +26,7 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 - `steadfast audit [--base REF]`: check changed paths, required evidence, documentation drift, configured repository contracts, and implementation-line budget.
 - `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against the allowlist.
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
-- `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.
+- `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.\n- `steadfast security-check`: scan implementation files for common hardcoded-secret patterns, risky dynamic execution, and workflow trust-boundary issues. Findings are conservative signals for review, not a full security proof.
 - `steadfast inventory`: produce a deterministic file inventory with SHA-256 digests, file sizes, classification, and budget utilization.
 - `steadfast goal-check`: validate Markdown goal metadata, dependencies, cycles, acceptance criteria, and the configured active-goal limit.
 - `steadfast release-check`: evaluate release prerequisites without publishing or modifying a release.

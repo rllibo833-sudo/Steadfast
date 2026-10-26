@@ -6,3 +6,7 @@ Tempat kit alur kerja agen yang dapat ditinjau dan digunakan ulang.
 - Kit adalah instruksi/aset, bukan sandbox; penegakan bergantung pada pemeriksaan Steadfast dan hook agen yang didukung.
 - Jangan menyimpan rahasia, kredensial, atau executable yang belum ditinjau.
 - Tinjau isi dan pemeriksaan wajib sebelum menggunakan kit.
+
+## Available kits
+
+- [Repository governance pilot](repository-governance-pilot/README.md): a bounded, local-first evaluation with reviewable commands, evidence, handover, and explicit limitations.

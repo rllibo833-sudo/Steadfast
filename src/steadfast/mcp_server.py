@@ -81,6 +81,16 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "steadfast_work_order_prompt",
+        "description": "Render a copy-ready, scope-bounded execution instruction for a live work order. Does not execute an agent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"order_id": {"type": "string", "minLength": 12, "maxLength": 12}},
+            "required": ["order_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "steadfast_work_order_issue",
         "description": "Issue a bounded work contract for a configured, dependency-ready goal. This writes a work-order record but does not execute an agent.",
         "inputSchema": {
@@ -203,6 +213,14 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if not isinstance(order_id, str) or len(order_id) != 12 or any(c not in "0123456789abcdef" for c in order_id):
             raise ValueError("order_id must be 12 lowercase hexadecimal characters")
         return ["work-order", "show", order_id]
+    if name == "steadfast_work_order_prompt":
+        unknown = set(arguments) - {"order_id"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str) or len(order_id) != 12 or any(ch not in "0123456789abcdef" for ch in order_id):
+            raise ValueError("order_id must be 12 lowercase hexadecimal characters")
+        return ["work-order", "prompt", order_id]
     if name == "steadfast_work_order_issue":
         unknown = set(arguments) - {"goal_id", "owner", "ttl_minutes", "scope_paths"}
         if unknown:

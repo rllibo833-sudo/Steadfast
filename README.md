@@ -309,6 +309,10 @@ steadfast --repo . trust-check --kind plugin --name formatter --permission netwo
 The same decision is available to compatible agents through the read-only `steadfast_trust_check` MCP tool. A policy `allow` means only that the requested permission is listed in the owner grant; `execution_permitted` remains false because this release does not yet provide an execution sandbox or runtime permission enforcement. Do not treat trust metadata or a matching hash as proof that code is safe.
 
 
+## RLI project ecosystem
+
+Steadfast is one part of a broader open-source portfolio alongside [PusingCuk](https://github.com/rllibo833-sudo/pusingcuk) and [Mnemos-RLI](https://github.com/rllibo833-sudo/mnemos-RLI). See [ECOSYSTEM.md](ECOSYSTEM.md) for each project's current role and the honest integration boundaries.
+
 ## Scoped agent work orders
 
 Issue a time-bounded task contract from a configured goal. The contract snapshots the goal, policy digest and repository file hashes; agent hooks then block file-tool operations outside the issued scope. Verification runs the configured pipeline and checks the global policy scope, work-order scope, goal integrity and change-impact findings.

@@ -78,6 +78,9 @@ class McpServerTests(unittest.TestCase):
         names = {item["name"] for item in response["result"]["tools"]}
         self.assertIn("steadfast_work_orders", names)
         self.assertIn("steadfast_work_order_show", names)
+        self.assertIn("steadfast_work_order_issue", names)
+        self.assertIn("steadfast_work_order_verify", names)
+        self.assertIn("steadfast_work_order_close", names)
         listed = handle_message(
             {"jsonrpc": "2.0", "id": 6, "method": "tools/call",
              "params": {"name": "steadfast_work_orders", "arguments": {"limit": 10}}},
@@ -85,6 +88,30 @@ class McpServerTests(unittest.TestCase):
         )
         self.assertFalse(listed["result"]["isError"])
         self.assertEqual(json.loads(listed["result"]["content"][0]["text"])["count"], 0)
+
+    def test_mcp_work_order_lifecycle_builds_validated_cli_arguments(self):
+        self.assertEqual(
+            _tool_args("steadfast_work_order_issue", {
+                "goal_id": "ship-mvp", "owner": "agent", "ttl_minutes": 60,
+                "scope_paths": ["src/steadfast/**", "tests/**"],
+            }),
+            ["work-order", "issue", "ship-mvp", "--owner", "agent",
+             "--ttl-minutes", "60", "--scope", "src/steadfast/**", "tests/**"],
+        )
+        self.assertEqual(
+            _tool_args("steadfast_work_order_verify", {"order_id": "012345abcdef"}),
+            ["work-order", "verify", "012345abcdef"],
+        )
+        self.assertEqual(
+            _tool_args("steadfast_work_order_close", {"order_id": "012345abcdef"}),
+            ["work-order", "close", "012345abcdef"],
+        )
+        with self.assertRaisesRegex(ValueError, "ttl_minutes"):
+            _tool_args("steadfast_work_order_issue", {"goal_id": "ship-mvp", "ttl_minutes": True})
+        with self.assertRaisesRegex(ValueError, "12 lowercase hexadecimal"):
+            _tool_args("steadfast_work_order_verify", {"order_id": "../bad"})
+        with self.assertRaisesRegex(ValueError, "unknown argument"):
+            _tool_args("steadfast_work_order_close", {"order_id": "012345abcdef", "force": True})
 
     def test_work_order_show_rejects_invalid_id_before_dispatch(self):
         with self.assertRaisesRegex(ValueError, "12 lowercase hexadecimal"):

@@ -4,6 +4,7 @@ import fnmatch
 from pathlib import Path
 from typing import Any
 
+from .contracts import contract_findings
 from .gitops import changed_paths, is_repo
 from .policy import load_policy
 
@@ -35,10 +36,7 @@ def product_code_lines(repo: Path, policy: dict[str, Any]) -> tuple[int, list[st
             lines = path.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeError):
             continue
-        total += sum(
-            1 for line in lines
-            if line.strip() and not line.lstrip().startswith("#")
-        )
+        total += sum(1 for line in lines if line.strip() and not line.lstrip().startswith("#"))
         files.append(rel)
     return total, sorted(files)
 
@@ -76,9 +74,8 @@ def evidence_findings(repo: Path, policy: dict[str, Any]) -> list[dict[str, str]
                 "path": item, "message": "Evidence path must stay inside the repository.",
             })
             continue
-        evidence = repo / path
         try:
-            content = evidence.read_text(encoding="utf-8")
+            content = (repo / path).read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             content = ""
         if len(content.strip()) < 40:
@@ -94,8 +91,7 @@ def documentation_findings(
     policy: dict[str, Any], paths: list[str]
 ) -> list[dict[str, str]]:
     implementation_changed = any(
-        matches(path, policy.get("implementation_paths", ["src/**"]))
-        for path in paths
+        matches(path, policy.get("implementation_paths", ["src/**"])) for path in paths
     )
     docs_changed = any(
         matches(path, policy.get("documentation_paths", ["README.md", "docs/**", "CHANGELOG.md"]))
@@ -118,6 +114,7 @@ def run_audit(repo: Path, base: str | None = None) -> dict[str, Any]:
         scope_findings(repo, policy, paths)
         + evidence_findings(repo, policy)
         + documentation_findings(policy, paths)
+        + contract_findings(repo, policy)
     )
     budget = policy["product_code_budget"]
     if count > budget:

@@ -11,6 +11,42 @@ class CliTests(unittest.TestCase):
             self.assertEqual(main(["--repo", directory, "init"]), 0)
             self.assertEqual(main(["--repo", directory, "evidence-check"]), 0)
 
+    def test_agent_check_enforces_role_scope(self):
+        import contextlib
+        import io
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(main(["--repo", directory, "init"]), 0)
+            policy_path = Path(directory) / ".steadfast" / "policy.json"
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+            policy["agent_path_rules"] = {"code": ["src/**"], "media": ["assets/**"]}
+            policy["agent_protected_paths"] = [".steadfast/policy.json"]
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "agent-check", "--role", "code", "--changed", "src/app.py"]), 0)
+            self.assertTrue(json.loads(output.getvalue())["passed"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "agent-check", "--role", "media", "--changed", "src/app.py"]), 1)
+            self.assertFalse(json.loads(output.getvalue())["passed"])
+
+    def test_agent_check_blocks_protected_paths_and_non_media_types(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(main(["--repo", directory, "init"]), 0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "agent-check", "--role", "code", "--changed", ".steadfast/policy.json"]), 1)
+            self.assertIn("AGENT_PROTECTED_PATH", output.getvalue())
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "agent-check", "--role", "media", "--changed", "assets/index.html"]), 1)
+            self.assertIn("AGENT_MEDIA_TYPE_DENIED", output.getvalue())
+
     def test_security_check_has_a_dedicated_dispatch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

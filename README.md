@@ -30,7 +30,8 @@ To contribute to Steadfast itself, clone this repository and use `python -m pip 
 - `steadfast mcp-server`: expose read-only discovery, report, change-impact, plan, integration-status and inventory tools over the standard MCP stdio protocol; no API key or hosted service is required.
 - `steadfast impact-check [--base REF] [--changed PATH ...]`: classify changed paths, suggest review gates, and flag likely test/documentation gaps. Results are heuristic and do not prove semantic coverage.
 - `steadfast audit [--base REF]`: check changed paths, required evidence, documentation drift, configured repository contracts, and implementation-line budget.
-- `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against the allowlist.
+- `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against the repository allowlist.
+- `steadfast agent-check --role code|media [--changed PATH ...]`: enforce role-specific path rules before accepting agent changes. The media role is restricted to configured asset directories and recognized media extensions; protected policy/workflow paths are denied. This is a check, not a sandbox: the agent integration must invoke it, and external AI services cannot be forced to obey repository text instructions.
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
 - `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.
 - `steadfast code-truth`: derive implementation/test counts, source SHA-256 fingerprints, entrypoint facts and the actual runtime CLI command tree from code/config; fail when documented CLI examples name commands or subcommands that do not exist. Code is authoritative; Markdown is checked against it.

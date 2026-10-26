@@ -16,5 +16,5 @@ JANGAN
 - Jangan menyatakan teks ini sebagai sandbox. Batas nyata berasal dari izin tool, policy check, review, dan CI.
 
 GERBANG
-- Sebelum selesai, periksa perubahan terhadap policy Steadfast (misalnya steadfast scope-check --changed ...), lalu jalankan tes dan pipeline relevan.
+- Sebelum selesai, periksa perubahan terhadap policy Steadfast (wajib jalankan `steadfast agent-check --role code --changed PATH...` untuk setiap path yang diubah, lalu `steadfast scope-check` dan tes/pipeline relevan), lalu jalankan tes dan pipeline relevan.
 - Jika perubahan melanggar scope atau memerlukan izin yang belum diberikan, berhenti dan minta persetujuan.

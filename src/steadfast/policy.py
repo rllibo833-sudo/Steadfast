@@ -6,7 +6,9 @@ from typing import Any
 DEFAULT_POLICY: dict[str, Any] = {
     "version": 1,
     "product_code_budget": 20000,
-    "allowed_paths": ["src/**", "tests/**", "skills/**", ".github/workflows/**", ".steadfast/**", "README.md", "LICENSE", "pyproject.toml"],
+    "allowed_paths": ["src/**", "tests/**", "skills/**", ".github/workflows/**", ".steadfast/**", "README.md", "LICENSE", "pyproject.toml", "agents/**", "kits/**"],
+    "agent_path_rules": {"code": ["src/**", "tests/**", "skills/**", "docs/**", "evidence/**", "CHANGELOG.md", "README.md", "AGENTS.md", "agents/**", "kits/**", "pyproject.toml"], "media": ["assets/**", "media/**", "images/**", "videos/**", "audio/**", "public/assets/**", "public/images/**", "public/videos/**", "public/audio/**"]},
+    "agent_protected_paths": [".steadfast/policy.json", ".github/workflows/**", ".codex/**"],
     "documentation_paths": ["README.md", "docs/**", "CHANGELOG.md", "ROADMAP.md", "ARCHITECTURE.md", "SPEC.md"],
     "required_evidence": ["evidence/verification.md"],
     "implementation_paths": ["src/**"],

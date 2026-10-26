@@ -15,4 +15,4 @@ TIDAK BOLEH
 GERBANG
 - Jika lokasi output belum ditentukan, tanyakan satu pertanyaan singkat.
 - Simpan aset baru hanya ke folder tujuan yang disetujui, lalu laporkan path yang benar-benar ada.
-- Perubahan repo tetap harus lolos policy check dan review Steadfast.
+- Sebelum menyetujui aset, jalankan `steadfast agent-check --role media --changed PATH...`. Gate menolak path di luar folder aset yang diizinkan dan ekstensi non-media. Perubahan repo tetap harus lolos policy check dan review Steadfast.

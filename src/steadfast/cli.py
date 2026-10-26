@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from .baseline import compare_baseline, write_baseline
-from .checks import run_audit, scope_findings, evidence_findings
+from .checks import run_audit, scope_findings, evidence_findings, agent_scope_findings
 from .docsync import docs_sync_report
 from .gitops import changed_paths
 from .goals import goal_report
@@ -45,6 +45,9 @@ def parser() -> argparse.ArgumentParser:
     audit.add_argument("--base", help="Compare changes against BASE...HEAD")
     scope = commands.add_parser("scope-check", help="Check changed paths against allowlist")
     scope.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git")
+    agent_check = commands.add_parser("agent-check", help="Enforce role-specific changed-path rules for code or media agents")
+    agent_check.add_argument("--role", choices=("code", "media"), required=True)
+    agent_check.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git")
     evidence = commands.add_parser("evidence-check", help="Check required verification evidence")
     evidence.add_argument("--evidence", help="Check only this evidence file")
     report = commands.add_parser("report", help="Print a complete audit report")
@@ -312,6 +315,12 @@ def main(argv: list[str] | None = None) -> int:
             return run_hook(repo)
 
         policy = load_policy(repo)
+        if args.command == "agent-check":
+            paths = args.changed if args.changed is not None else changed_paths(repo)
+            findings = agent_scope_findings(policy, args.role, paths)
+            print(json.dumps({"role": args.role, "checked_paths": paths, "passed": not _has_errors(findings), "findings": findings}, indent=2, ensure_ascii=False))
+            return 1 if _has_errors(findings) else 0
+
         if args.command == "scope-check":
             paths = args.changed if args.changed is not None else changed_paths(repo)
             findings = scope_findings(repo, policy, paths)

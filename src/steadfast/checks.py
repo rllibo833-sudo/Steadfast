@@ -147,3 +147,29 @@ def run_audit(repo: Path, base: str | None = None) -> dict[str, Any]:
         "summary": {"errors": errors, "warnings": warnings, "info": info},
         "passed": errors == 0,
     }
+
+
+MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".ico", ".mp4", ".webm", ".mov", ".m4v", ".mp3", ".wav", ".ogg", ".flac"}
+
+
+def agent_scope_findings(policy: dict[str, Any], role: str, paths: list[str]) -> list[dict[str, str]]:
+    """Enforce role-specific path rules before accepting an agent change."""
+    if role not in {"code", "media"}:
+        return [{"severity": "error", "code": "AGENT_ROLE_INVALID", "path": role, "message": "Agent role must be code or media."}]
+    rules = policy.get("agent_path_rules", {})
+    allowed = rules.get(role, policy.get("allowed_paths", []) if role == "code" else [])
+    protected = policy.get("agent_protected_paths", [".steadfast/policy.json", ".github/workflows/**"])
+    if not paths:
+        return [{"severity": "error", "code": "AGENT_NO_PATHS", "path": "", "message": "No changed paths supplied or detected; refusing to approve an empty scope."}]
+    findings: list[dict[str, str]] = []
+    for raw_path in paths:
+        path = raw_path.replace("\\", "/").removeprefix("./")
+        if path.startswith("/") or ".." in Path(path).parts:
+            findings.append({"severity": "error", "code": "INVALID_REPOSITORY_PATH", "path": raw_path, "message": "Path must stay inside the repository."})
+        elif matches(path, protected):
+            findings.append({"severity": "error", "code": "AGENT_PROTECTED_PATH", "path": path, "message": "Protected path requires explicit maintainer handling and is blocked by the agent role gate."})
+        elif not matches(path, allowed):
+            findings.append({"severity": "error", "code": "AGENT_ROLE_SCOPE_DENIED", "path": path, "message": f"Path is not allowed for the {role} agent role."})
+        elif role == "media" and Path(path).suffix.lower() not in MEDIA_SUFFIXES:
+            findings.append({"severity": "error", "code": "AGENT_MEDIA_TYPE_DENIED", "path": path, "message": "Media role may add only recognized image, video, or audio asset types."})
+    return findings

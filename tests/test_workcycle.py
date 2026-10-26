@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from steadfast.policy import init_policy
+from steadfast.planner import execution_plan
 from steadfast.pipeline import PipelineError
 from steadfast.workcycle import start_cycle, attach_evidence, verify_cycle, complete_cycle, block_cycle, cycle_status, cycle_history
 
@@ -137,6 +138,30 @@ class WorkCycleTests(unittest.TestCase):
         self.assertTrue(cycle_status(self.repo)["task"]["verification_fresh"])
         with self.assertRaisesRegex(ValueError, "already done"):
             start_cycle(self.repo, "native-engine")
+
+
+
+    def test_goal_start_respects_dependency_graph(self):
+        goals = self.repo / ".steadfast" / "goals"
+        goals.mkdir(parents=True)
+        (goals / "foundation.md").write_text(
+            "---\nid: foundation\ntitle: Foundation\nstatus: active\n---\n\n"
+            "# Foundation\n\n## Acceptance criteria\n- [ ] Foundation exists\n",
+            encoding="utf-8",
+        )
+        (goals / "consumer.md").write_text(
+            "---\nid: consumer\ntitle: Consumer\nstatus: ready\ndepends_on: [foundation]\n---\n\n"
+            "# Consumer\n\n## Acceptance criteria\n- [ ] Consumer works\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "unfinished dependencies: foundation"):
+            start_cycle(self.repo, "consumer")
+        self.assertEqual(start_cycle(self.repo, "foundation")["goal_id"], "foundation")
+
+    def test_blocked_task_does_not_claim_to_be_an_active_planner_cycle(self):
+        start_cycle(self.repo, "goal")
+        block_cycle(self.repo, "waiting on upstream work")
+        self.assertIsNone(execution_plan(self.repo)["active_cycle"])
 
 
 if __name__ == "__main__":

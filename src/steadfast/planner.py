@@ -80,7 +80,8 @@ def execution_plan(repo: Path, *, include_proposed: bool = False) -> dict[str, A
     by_id = {str(goal["id"]): goal for goal in goals}
     ledger = list_findings(root, limit=1000)
     findings = ledger.get("findings", [])
-    active_cycle = cycle_status(root).get("task")
+    latest_cycle = cycle_status(root).get("task")
+    active_cycle = latest_cycle if latest_cycle and latest_cycle.get("status") in {"in_progress", "verifying"} else None
     active_ids = {str(active_cycle.get("goal_id"))} if active_cycle else set()
     candidates: list[dict[str, Any]] = []
     for goal_id in order:

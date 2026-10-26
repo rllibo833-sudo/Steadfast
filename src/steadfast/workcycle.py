@@ -12,6 +12,7 @@ from .history import record_run
 from .checks import scope_findings
 from .gitops import changed_paths
 from .policy import load_policy
+from .goals import goal_report
 
 STATE = ".steadfast/work-cycle.json"
 JOURNAL = ".steadfast/work-cycle.jsonl"
@@ -258,6 +259,19 @@ def start_cycle(repo: Path, goal_id: str, title: str = "") -> dict[str, Any]:
     if old and old["status"] not in {"completed", "blocked"}:
         raise ValueError("an active task already exists")
     path, criteria = find_goal(repo, goal_id)
+    if path.startswith(".steadfast/goals/"):
+        report = goal_report(repo, load_policy(repo))
+        configured = next((item for item in report.get("goals", []) if item.get("id") == goal_id), None)
+        if configured is None:
+            raise ValueError(f"goal {goal_id!r} is not valid in the goal graph")
+        if configured.get("status") not in {"ready", "active"}:
+            raise ValueError(f"goal {goal_id!r} cannot start from status {configured.get('status', 'unknown')!r}; mark it ready after review")
+        by_id = {str(item.get("id")): item for item in report.get("goals", [])}
+        waiting = [dependency for dependency in configured.get("depends_on", [])
+                   if dependency not in by_id or by_id[dependency].get("status") != "done"]
+        if waiting:
+            raise ValueError(f"goal {goal_id!r} is blocked by unfinished dependencies: " + ", ".join(waiting))
+        _sync_goal_status(repo, goal_id, "active")
     task = {"id": uuid.uuid4().hex[:12], "goal_id": goal_id, "title": title or goal_id,
             "goal_path": path, "status": "in_progress", "started_at": now(),
             "acceptance": [{"id": f"AC-{i:02d}", "criterion": item, "evidence": None}

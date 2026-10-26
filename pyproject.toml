@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "steadfast-governance"
-version = "0.1.1"
+version = "0.4.0"
 description = "Evidence-based repository governance for coding agents. Central ecosystem hub for skills, plugins, and MCP."
 readme = "README.md"
 requires-python = ">=3.10"

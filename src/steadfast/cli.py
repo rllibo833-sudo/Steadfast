@@ -14,7 +14,7 @@ from .inventory import inventory_report
 from .policy import init_policy, load_policy
 from .release import release_report
 from .report import render_json, render_markdown
-from .sarif import render_sarif
+from .sarif import render_sarif\nfrom .security import security_findings, workflow_findings
 
 
 def parser() -> argparse.ArgumentParser:
@@ -36,7 +36,7 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("inventory", help="Inventory repository files and implementation budget")
     commands.add_parser("release-check", help="Evaluate release prerequisites without publishing")
     commands.add_parser("goal-check", help="Validate goal files and dependency graph")
-    commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
+    commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")\n    commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
     baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
     baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
     baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")

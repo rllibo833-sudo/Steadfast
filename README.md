@@ -9,8 +9,16 @@ Steadfast is free to try from this public repository. It gives coding agents a c
 Requires Python 3.10+ and Git. Install the CLI once:
 
 ```bash
-python -m pip install "git+https://github.com/rllibo833-sudo/Steadfast.git"
+python -m pip install --upgrade steadfast-governance
 ```
+
+To install the latest development version directly from the repository instead, use:
+
+```bash
+python -m pip install --upgrade "git+https://github.com/rllibo833-sudo/Steadfast.git"
+```
+
+The PyPI release is the recommended path for normal use; installing from Git is mainly for testing unreleased changes.
 
 Then, from the root of the repository you want your agent to work on:
 

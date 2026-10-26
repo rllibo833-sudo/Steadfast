@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +69,26 @@ class WorkCycleTests(unittest.TestCase):
             start_cycle(self.repo, "goal")
         block_cycle(self.repo, "waiting for implementation")
         self.assertEqual(start_cycle(self.repo, "goal")["status"], "in_progress")
+
+    def test_journal_detects_tampering(self):
+        start_cycle(self.repo, "goal")
+        path = self.repo / ".steadfast" / "work-cycle.jsonl"
+        record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+        record["event"] = "forged_completion"
+        path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "integrity|chain"):
+            cycle_history(self.repo)
+
+    def test_evidence_rejects_symlink_escape(self):
+        outside = self.repo.parent / (self.repo.name + "-outside.txt")
+        outside.write_text("outside evidence", encoding="utf-8")
+        try:
+            (self.repo / "escape.txt").symlink_to(outside)
+            start_cycle(self.repo, "goal")
+            with self.assertRaisesRegex(ValueError, "symlink|outside"):
+                attach_evidence(self.repo, "AC-01", "escape.txt")
+        finally:
+            outside.unlink(missing_ok=True)
 
     def test_journal_exposes_event_sequence(self):
         start_cycle(self.repo, "goal")

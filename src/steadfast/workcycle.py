@@ -26,14 +26,44 @@ def read_state(repo: Path) -> dict[str, Any]:
         raise ValueError("invalid work-cycle state")
     return value
 
+def _validated_journal(repo: Path) -> list[dict[str, Any]]:
+    journal = repo / JOURNAL
+    if not journal.exists():
+        return []
+    if journal.is_symlink() or journal.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("work-cycle journal is unsafe or exceeds 16 MiB")
+    records: list[dict[str, Any]] = []
+    previous = "0" * 64
+    try:
+        lines = journal.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            record = json.loads(line)
+            if not isinstance(record, dict):
+                raise ValueError(f"invalid journal record at line {number}")
+            digest = record.pop("hash", None)
+            if record.get("previous_hash") != previous:
+                raise ValueError(f"work-cycle journal chain invalid at line {number}")
+            canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            expected = hashlib.sha256((previous + canonical).encode("utf-8")).hexdigest()
+            if digest != expected:
+                raise ValueError(f"work-cycle journal integrity check failed at line {number}")
+            record["hash"] = digest
+            records.append(record)
+            previous = digest
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read work-cycle journal: {exc}") from exc
+    return records
+
 def save(repo: Path, state: dict[str, Any], event: str, details: dict[str, Any]) -> None:
     journal = repo / JOURNAL
     journal.parent.mkdir(parents=True, exist_ok=True)
-    prior = journal.read_text(encoding="utf-8").splitlines() if journal.exists() else []
-    previous = prior[-1] if prior else ""
+    records = _validated_journal(repo)
+    previous = records[-1]["hash"] if records else "0" * 64
     record = {"id": uuid.uuid4().hex, "at": now(), "event": event,
               "task_id": state["task"]["id"], "details": details,
-              "previous_record_sha256": hashlib.sha256(previous.encode()).hexdigest() if previous else ""}
+              "sequence": len(records) + 1, "previous_hash": previous}
+    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    record["hash"] = hashlib.sha256((previous + canonical).encode("utf-8")).hexdigest()
     line = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
     with journal.open("a", encoding="utf-8") as stream:
         stream.write(line + "\n")
@@ -78,6 +108,24 @@ def start_cycle(repo: Path, goal_id: str, title: str = "") -> dict[str, Any]:
     save(repo, state, "task_started", {"goal_id": goal_id})
     return task
 
+def _evidence_file(repo: Path, relative: str) -> Path:
+    candidate = Path(relative)
+    if not isinstance(relative, str) or not relative.strip() or candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("evidence path must be repository-relative")
+    current = repo
+    for part in candidate.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("evidence path may not traverse symlinks")
+    path = (repo / candidate).resolve(strict=True)
+    try:
+        path.relative_to(repo.resolve())
+    except ValueError as exc:
+        raise ValueError("evidence path resolves outside repository") from exc
+    if not path.is_file():
+        raise ValueError("evidence must be an existing regular file")
+    return path
+
 def attach_evidence(repo: Path, criterion_id: str, relative: str, note: str = "") -> dict[str, Any]:
     repo = repo.resolve()
     state = read_state(repo)
@@ -87,12 +135,7 @@ def attach_evidence(repo: Path, criterion_id: str, relative: str, note: str = ""
     item = next((x for x in task["acceptance"] if x["id"] == criterion_id), None)
     if item is None:
         raise ValueError(f"unknown criterion {criterion_id}")
-    candidate = Path(relative)
-    if candidate.is_absolute() or ".." in candidate.parts:
-        raise ValueError("evidence path must be repository-relative")
-    path = (repo / candidate).resolve(strict=True)
-    if not path.is_file() or path.is_symlink():
-        raise ValueError("evidence must be a regular file")
+    path = _evidence_file(repo, relative)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     item["evidence"] = {"path": path.relative_to(repo).as_posix(), "sha256": digest, "note": note, "attached_at": now()}
     save(repo, state, "evidence_attached", {"criterion_id": criterion_id, "path": item["evidence"]["path"]})
@@ -134,10 +177,9 @@ def complete_cycle(repo: Path) -> dict[str, Any]:
             missing.append(item["id"])
             continue
         try:
-            path = (repo / proof["path"]).resolve(strict=True)
-            path.relative_to(repo)
-            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != proof["sha256"]:
-                missing.append(item["id"])
+            path = _evidence_file(repo, proof["path"])
+            if hashlib.sha256(path.read_bytes()).hexdigest() != proof["sha256"]:
+                missing.append(item["id"] + " (evidence changed)")
         except (OSError, ValueError, KeyError):
             missing.append(item["id"])
     if missing:
@@ -167,8 +209,8 @@ def cycle_status(repo: Path) -> dict[str, Any]:
     return {"state_file": STATE, "journal_file": JOURNAL, "task": task}
 
 def cycle_history(repo: Path, limit: int = 20) -> dict[str, Any]:
-    if not 1 <= limit <= 1000:
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
         raise ValueError("limit must be from 1 to 1000")
-    path = repo.resolve() / JOURNAL
-    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
-    return {"count": min(limit, len(records)), "events": list(reversed(records[-limit:])), "journal": JOURNAL}
+    records = _validated_journal(repo.resolve())
+    recent = list(reversed(records[-limit:]))
+    return {"count": len(recent), "events": recent, "journal": JOURNAL}

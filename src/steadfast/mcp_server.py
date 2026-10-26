@@ -261,7 +261,7 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": SERVER_INFO,
                 "instructions": (
-                    "Steadfast provides repository governance and bounded work-cycle tools. "
+                    "Steadfast provides mostly read-only repository governance tools plus bounded work-cycle actions. "
                     "Work-order issuance and cycle lifecycle tools write only Steadfast state after "
                     "validating configured goals and policy. Tools never run arbitrary shell commands "
                     "or edit application source files. Treat heuristic impact results as advisory."

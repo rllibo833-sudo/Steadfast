@@ -82,6 +82,44 @@ class PipelineManifestTests(unittest.TestCase):
             self.assertEqual(result["steps"][0]["status"], "timed_out")
             self.assertFalse(result["passed"])
 
+    def test_pipeline_manifest_symlink_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real = root / "real.json"
+            real.write_text(json.dumps({
+                "version": 1, "steps": [{"id": "noop", "command": [sys.executable, "-V"]}]
+            }), encoding="utf-8")
+            link = root / ".steadfast" / "pipeline.json"
+            link.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                link.symlink_to(real)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks are not available on this platform")
+            with self.assertRaisesRegex(PipelineError, "symlink"):
+                run_pipeline(root)
+
+    def test_working_directory_symlink_is_rejected_before_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root.parent / (root.name + "-outside")
+            outside.mkdir()
+            link = root / "linked"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                outside.rmdir()
+                self.skipTest("symlinks are not available on this platform")
+            try:
+                self.write_manifest(root, {
+                    "version": 1,
+                    "steps": [{"id": "noop", "command": [sys.executable, "-V"], "cwd": "linked"}],
+                })
+                with self.assertRaisesRegex(PipelineError, "symlink"):
+                    run_pipeline(root)
+            finally:
+                link.unlink(missing_ok=True)
+                outside.rmdir()
+
     def test_unlisted_host_secrets_are_not_inherited(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

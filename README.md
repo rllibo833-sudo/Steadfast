@@ -9,6 +9,9 @@ Requires Python 3.10+ and Git.
 ```bash
 python -m pip install -e .
 steadfast init
+steadfast onboard --agent all
+steadfast discover
+steadfast mcp-server
 steadfast audit
 steadfast scope-check
 steadfast evidence-check
@@ -32,6 +35,10 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 ## Commands
 
 - `steadfast init`: create missing policy, goal, and verification-evidence files.
+- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing instructions.
+- `steadfast discover`: emit a machine-readable JSON capability map for agents and tools.
+- `steadfast mcp-server`: expose read-only discovery, report, change-impact, plan, integration-status and inventory tools over the standard MCP stdio protocol; no API key or hosted service is required.
+- `steadfast impact-check [--base REF] [--changed PATH ...]`: classify changed paths, suggest review gates, and flag likely test/documentation gaps. Results are heuristic and do not prove semantic coverage.
 - `steadfast audit [--base REF]`: check changed paths, required evidence, documentation drift, configured repository contracts, and implementation-line budget.
 - `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against the allowlist.
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
@@ -243,3 +250,20 @@ steadfast --repo . impact-check --changed src/steadfast/cli.py tests/test_cli.py
 ```
 
 The report is a heuristic review map, not proof of semantic dependencies, test coverage, or defect probability. Sensitive-looking paths are blocking findings; missing conventional test links are warnings that require reviewer judgment. The same analysis is included in work-cycle verification, the Project Console, and portable evidence bundles.
+
+## MCP agent access
+
+Steadfast exposes a dependency-free, read-only Model Context Protocol (MCP) server for compatible coding agents and clients. In the MCP client configuration, launch the installed CLI with the repository path, for example:
+
+```json
+{
+  "mcpServers": {
+    "steadfast": {
+      "command": "steadfast",
+      "args": ["--repo", "/path/to/repo", "mcp-server"]
+    }
+  }
+}
+```
+
+The server provides discovery, governance report, change-impact analysis, dependency-aware plan, integration status and inventory tools. It does not expose arbitrary shell execution or file-write tools. This local MCP endpoint makes tools discoverable to a compatible client; it does not grant GitHub permissions or register external accounts.

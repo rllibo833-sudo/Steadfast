@@ -17,7 +17,8 @@ def _words(value: str) -> set[str]:
             if len(word) > 1 and word not in STOP_WORDS}
 
 
-def _frontmatter(source: str) -> tuple[dict[str, str], str]:
+def read_skill_metadata(source: str) -> tuple[dict[str, str], str]:
+    """Parse the shared SKILL.md frontmatter and return metadata plus body."""
     lines = source.splitlines()
     if not lines or lines[0].strip() != "---":
         return {}, source
@@ -55,7 +56,7 @@ def route_skills(repo: Path, task: str, *, limit: int = 5) -> dict[str, Any]:
                 source = path.read_text(encoding="utf-8")
             except (OSError, UnicodeError):
                 continue
-            metadata, body = _frontmatter(source)
+            metadata, body = read_skill_metadata(source)
             name = metadata.get("name") or path.parent.name
             description = metadata.get("description", "")
             heading_terms = _words(name + " " + description)

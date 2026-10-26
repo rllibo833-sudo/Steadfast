@@ -21,11 +21,12 @@ class PolicyTests(unittest.TestCase):
 
     def test_init_rejects_symlinked_governance_directory(self):
         with tempfile.TemporaryDirectory() as outside:
-            linked = self.repo / ".steadfast"
-            linked.rmdir()
+            repo = self.repo / "symlink-test"
+            repo.mkdir()
+            linked = repo / ".steadfast"
             linked.symlink_to(Path(outside), target_is_directory=True)
             with self.assertRaisesRegex(ValueError, "may not be a symlink"):
-                init_policy(self.repo)
+                init_policy(repo)
             self.assertEqual(list(Path(outside).iterdir()), [])
     def test_init_is_non_destructive(self):
         path = self.repo / ".steadfast" / "goal.md"

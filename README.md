@@ -35,7 +35,7 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 ## Commands
 
 - `steadfast init`: create missing policy, goal, and verification-evidence files.
-- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing instructions.
+- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing files. Claude Code and Cursor also receive repo-local MCP client configuration when those config files do not already exist; the MCP server runs with `python -m steadfast --repo . mcp-server` and requires the package to be installed in that environment.
 - `steadfast discover`: emit a machine-readable JSON capability map for agents and tools.
 - `steadfast mcp-server`: expose read-only discovery, report, change-impact, plan, integration-status and inventory tools over the standard MCP stdio protocol; no API key or hosted service is required.
 - `steadfast impact-check [--base REF] [--changed PATH ...]`: classify changed paths, suggest review gates, and flag likely test/documentation gaps. Results are heuristic and do not prove semantic coverage.

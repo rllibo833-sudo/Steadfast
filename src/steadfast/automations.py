@@ -53,13 +53,18 @@ def _safe_repo_file(repo: Path, relative: str) -> Path:
     candidate = Path(relative)
     if candidate.is_absolute() or ".." in candidate.parts:
         raise ValueError("workflow manifest must be repository-relative")
-    resolved = (repo / candidate).resolve()
+    root = repo.resolve()
+    lexical = root / candidate
+    current = root
+    for part in candidate.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("workflow manifest path cannot traverse symlinks")
+    resolved = lexical.resolve()
     try:
-        resolved.relative_to(repo.resolve())
+        resolved.relative_to(root)
     except ValueError as exc:
         raise ValueError("workflow manifest resolves outside repository") from exc
-    if resolved.is_symlink():
-        raise ValueError("workflow manifest cannot be a symlink")
     return resolved
 
 

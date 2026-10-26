@@ -26,3 +26,13 @@ jobs:
         run: steadfast audit
       - name: Check evidence
         run: steadfast evidence-check
+      - name: Smoke-test CLI commands
+        run: |
+          steadfast --help
+          python -m steadfast --help
+          steadfast inventory
+          steadfast goal-check
+          steadfast docs-check
+          steadfast security-check
+          steadfast report --format json
+          steadfast report --format sarif

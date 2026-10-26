@@ -9,6 +9,25 @@ from steadfast.policy import init_policy, load_policy
 
 
 class PolicyTests(unittest.TestCase):
+    def test_default_policy_matches_repository_governance_contract(self):
+        from steadfast.policy import DEFAULT_POLICY
+
+        repository_policy = __import__("json").loads(
+            (Path(__file__).resolve().parents[1] / ".steadfast" / "policy.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(DEFAULT_POLICY, repository_policy)
+
+    def test_policy_rejects_non_object_root_and_boolean_budget(self):
+        import json
+
+        path = self.repo / ".steadfast" / "policy.json"
+        path.write_text("[]", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "root must be a JSON object"):
+            load_policy(self.repo)
+        path.write_text(json.dumps({"version": 1, "allowed_paths": [], "product_code_budget": True}), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            load_policy(self.repo)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.repo = Path(self.tmp.name)

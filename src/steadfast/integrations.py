@@ -214,7 +214,12 @@ def integration_files(agent: str) -> dict[str, str]:
                 "hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}],
             "Stop": [{"hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 10}]}]
         }}
+        mcp = {"mcpServers": {"steadfast": {
+            "command": "python",
+            "args": ["-m", "steadfast", "--repo", ".", "mcp-server"],
+        }}}
         return {".claude/settings.local.json": json.dumps(config, indent=2) + "\n",
+                ".mcp.json": json.dumps(mcp, indent=2) + "\n",
                 ".claude/skills/steadfast-governance/SKILL.md": skill}
     if agent == "cursor":
         config = {"version": 1, "hooks": {
@@ -227,7 +232,12 @@ alwaysApply: true
 ---
 Read .steadfast/policy.json before edits. Keep changes inside allowed_paths. Do not weaken policy to make checks pass. Avoid destructive commands without explicit human approval. Run relevant tests and report actual outcomes; never invent evidence. If a tracked work cycle is active, completion is blocked until every criterion has evidence and `steadfast cycle verify` passes, followed by `steadfast cycle complete`. Before completion, run steadfast audit, evidence-check, docs-check and release-check.
 """
+        mcp = {"mcpServers": {"steadfast": {
+            "command": "python",
+            "args": ["-m", "steadfast", "--repo", ".", "mcp-server"],
+        }}}
         return {".cursor/hooks.json": json.dumps(config, indent=2) + "\n",
+                ".cursor/mcp.json": json.dumps(mcp, indent=2) + "\n",
                 ".cursor/rules/steadfast-governance.mdc": rule}
     agents_md = """# Repository work contract
 
@@ -270,8 +280,8 @@ def install_integration(repo: Path, agent: str, *, overwrite: bool = False) -> d
 def integration_status(repo: Path) -> dict[str, Any]:
     root = repo.resolve()
     expected = {
-        "claude": [".claude/settings.local.json", ".claude/skills/steadfast-governance/SKILL.md"],
-        "cursor": [".cursor/hooks.json", ".cursor/rules/steadfast-governance.mdc"],
+        "claude": [".claude/settings.local.json", ".mcp.json", ".claude/skills/steadfast-governance/SKILL.md"],
+        "cursor": [".cursor/hooks.json", ".cursor/mcp.json", ".cursor/rules/steadfast-governance.mdc"],
         "codex": ["AGENTS.md", ".agents/skills/steadfast-governance/SKILL.md"],
     }
     return {agent: {"installed": all((root / p).is_file() for p in paths),

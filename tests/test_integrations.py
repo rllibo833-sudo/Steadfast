@@ -41,6 +41,10 @@ class AgentGuardTests(unittest.TestCase):
             "rm -f -r /tmp/target",
             "rm --recursive --force /tmp/target",
             "rm -fr /tmp/target",
+            "find /tmp -delete",
+            "find /tmp -exec rm -rf {} +",
+            "busybox rm -rf /tmp/target",
+            "doas rm -rf /tmp/target",
         ):
             with self.subTest(command=command):
                 self.assertIsNotNone(_dangerous_command(command), command)

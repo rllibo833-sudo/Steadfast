@@ -21,6 +21,7 @@ from .sarif import render_sarif
 from .security import security_findings, workflow_findings
 from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
 from .findings import finding_history, finding_metrics, list_findings, resolve_finding, scan_findings, triage_finding
+from .planner import execution_plan, explain_goal
 
 
 def parser() -> argparse.ArgumentParser:
@@ -42,6 +43,9 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("inventory", help="Inventory repository files and implementation budget")
     commands.add_parser("release-check", help="Evaluate release prerequisites without publishing")
     commands.add_parser("goal-check", help="Validate goal files and dependency graph")
+    plan = commands.add_parser("plan", help="Build a dependency-aware execution queue from goals and open findings")
+    plan.add_argument("--include-proposed", action="store_true", help="Include proposed goals in the unready queue")
+    plan.add_argument("--goal", help="Explain one goal and its dependencies instead of showing the full queue")
     commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
     commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
     serve = commands.add_parser("serve", help="Open the local read-only Project Console in a browser")
@@ -165,6 +169,11 @@ def main(argv: list[str] | None = None) -> int:
             result = release_report(repo)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["ready"] else 1
+
+        if args.command == "plan":
+            result = explain_goal(repo, args.goal, include_proposed=True) if args.goal else execution_plan(repo, include_proposed=args.include_proposed)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if result.get("graph_errors") or result.get("plan_summary", {}).get("graph_errors") else 0
 
         if args.command == "goal-check":
             result = goal_report(repo, policy)

@@ -44,3 +44,8 @@ The Claude Code integration wires a `Stop` hook into the same policy evaluator u
 ## Finding lifecycle engine
 
 The finding ledger reconciles live audit, goal, security and workflow findings with persistent triage records. Stable fingerprints preserve owner, due date, priority, state and resolution metadata across scans. Disappeared findings are automatically marked resolved; if the same fingerprint returns, the entry is reopened. Explicit resolution requires a reason. Every lifecycle change is appended to a SHA-256 hash-chained JSONL journal whose integrity is checked before additional events are written or history is read. Metrics expose open risk by priority, accepted risk and overdue items. The Project Console renders the latest ledger snapshot read-only; mutation remains an explicit CLI operation. Hash chaining detects edits but is not a signature and cannot prevent a privileged actor from rewriting the entire journal.
+
+
+## Dependency-aware execution planner
+
+The planner computes a topological ordering of configured goals, reports missing dependencies and cycles, filters goals whose prerequisites are not done, and ranks currently ready goals using a transparent path/token match against open findings. This risk association is heuristic and advisory only. `steadfast plan` and `steadfast plan --goal GOAL_ID` are read-only; implementation and verification still use the work-cycle and configured pipeline.

@@ -19,6 +19,7 @@ from .release import release_report
 from .security import security_findings, workflow_findings
 from .workcycle import cycle_history, cycle_status
 from .findings import finding_metrics, list_findings
+from .planner import execution_plan
 
 APP_VERSION = "0.2.0"
 MAX_FILE_BYTES = 256_000
@@ -107,6 +108,7 @@ def build_snapshot(repo: Path) -> dict[str, object]:
         "files": files,
         "file_count": len(files),
         "severity": dict(severity),
+        "execution_plan": execution_plan(repo),
         "work_cycle": cycle_status(repo),
         "work_cycle_history": cycle_history(repo, limit=8),
         "finding_ledger": list_findings(repo, limit=25),
@@ -153,6 +155,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card metric"><label>Security findings</label><strong id="securityCount">—</strong><small id="securityHint">Source and workflow scan</small></div>
 <div class="card metric"><label>Repository files</label><strong id="fileCount">—</strong><small id="fileHint">Readable workspace inventory</small></div>
 <div class="card metric"><label>Release readiness</label><strong id="releaseState">—</strong><small id="releaseHint">Evidence-based gate</small></div>
+<div class="card full" id="planPanel"><div class="section-head"><h2>Next work to execute</h2><span id="planCount" class="pill">0 ready</span></div><div id="planBody" class="rows"><div class="empty">Loading execution plan…</div></div><small class="muted">Recommendations respect goal dependencies. Risk matching is heuristic; it does not prove causality.</small></div>
 <div class="card full" id="cyclePanel"><div class="section-head"><h2>Active work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><div id="cycleBody" class="rows"><div class="empty">No tracked task yet. Start one with steadfast cycle start.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
 <div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
@@ -193,7 +196,7 @@ function render(){
  $("findingTotal").textContent=allFindings.length+" findings";
  $("footerVersion").textContent="v"+(snapshot.version||"");
  files=snapshot.files||[];$("fileTotal").textContent=files.length+" files";
- renderFindings();renderFiles();renderGates();renderCycle();renderLedger();
+ renderFindings();renderFiles();renderGates();renderCycle();renderPlan();renderLedger();
 }
 function renderFindings(){
  const q=$("findingSearch").value.trim().toLowerCase();
@@ -209,6 +212,16 @@ function renderGates(){
  ["Evidence",(snapshot.evidence&&snapshot.evidence.count||0)+" findings",!(snapshot.evidence&&snapshot.evidence.count),"Required verification records"]
  ];
  $("gates").innerHTML=items.map(x=>'<div class="rowitem"><div><b>'+esc(x[0])+'</b><small>'+esc(x[3])+'</small></div>'+pill(x[1],x[2]?"good":"warn")+'</div>').join("");
+}
+function renderPlan(){
+ const plan=snapshot.execution_plan||{},queue=plan.execution_queue||[];
+ $("planCount").textContent=(plan.ready_count||0)+" ready";
+ if(!queue.length){
+  const errors=plan.graph_errors||[];
+  $("planBody").innerHTML=errors.length?errors.map(x=>'<div class="rowitem"><div><b>Dependency graph error</b><small>'+esc(x)+'</small></div></div>').join(""):'<div class="empty">No goals are ready to start. Check goal statuses and dependencies with <code>steadfast plan</code>.</div>';
+  return;
+ }
+ $("planBody").innerHTML=queue.slice(0,8).map(item=>'<div class="rowitem"><div><b>#'+esc(item.execution_rank||"—")+' · '+esc(item.title||item.goal_id)+'</b><small>'+esc(item.goal_id)+' · '+esc(item.goal_path)+' · '+esc(item.acceptance_count)+' acceptance criteria</small><small>'+esc(item.recommended_action)+' · related open-risk weight '+esc(item.risk_score)+'</small></div><span class="pill good">Ready</span></div>').join("");
 }
 function renderCycle(){
  const cycle=snapshot.work_cycle||{},task=cycle.task,events=(snapshot.work_cycle_history||{}).events||[];

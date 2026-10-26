@@ -147,3 +147,8 @@ Claude Code integration also installs a `Stop` hook. When an active Steadfast cy
 ## Finding lifecycle
 
 The finding ledger persists triage metadata across scans in `.steadfast/finding-ledger.json`; transitions are appended to `.steadfast/finding-events.jsonl` as a SHA-256 hash-chained event stream. Findings have stable fingerprints, risk priorities, owner, due date, state, and resolution notes. A scan automatically resolves findings no longer emitted by the current configured checks and reopens them if they return. This is a reconciliation aid, not proof that a fix is correct: the live checks must cover the underlying issue, and accepted risk remains visible in metrics. The Project Console reads the ledger without mutating it.
+
+
+## Dependency-aware execution planner
+
+Run `steadfast plan` to get the next eligible goals in dependency order, with a transparent heuristic that highlights goals potentially related to open findings. Use `steadfast plan --goal GOAL_ID` to inspect a goal's acceptance criteria and dependencies. Proposed goals are excluded by default; `--include-proposed` shows them in the unready list. The planner is read-only and does not claim to fix findings or automatically change goal status. The Project Console displays the same ready queue.

@@ -24,6 +24,11 @@ class CliTests(unittest.TestCase):
             (root / "src" / "safe.py").write_text("value = 1\\n", encoding="utf-8")
             self.assertEqual(main(["--repo", directory, "security-check"]), 0)
 
+    def test_plan_command_runs_without_configured_goal_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(main(["--repo", directory, "init"]), 0)
+            self.assertEqual(main(["--repo", directory, "plan"]), 0)
+
     def test_python_module_entrypoint_exists(self):
         self.assertTrue(
             (Path(__file__).parents[1] / "src" / "steadfast" / "__main__.py").is_file()

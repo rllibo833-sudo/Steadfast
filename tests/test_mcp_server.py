@@ -5,7 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from steadfast.mcp_server import handle_message, _tool_args
+from steadfast import __version__
+from steadfast.mcp_server import SERVER_INFO, handle_message, _tool_args
 from steadfast.policy import init_policy
 
 
@@ -27,6 +28,10 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(response["result"]["protocolVersion"], "2024-11-05")
         self.assertIn("tools", response["result"]["capabilities"])
         self.assertIn("read-only", response["result"]["instructions"])
+
+    def test_mcp_server_reports_the_package_version(self):
+        self.assertEqual(SERVER_INFO["version"], __version__)
+        self.assertEqual(__version__, "0.4.1")
 
     def test_tools_list_exposes_discovery_and_impact_tools(self):
         response = handle_message(

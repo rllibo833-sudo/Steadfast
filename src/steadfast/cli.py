@@ -41,6 +41,9 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("goal-check", help="Validate goal files and dependency graph")
     commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
     commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
+    serve = commands.add_parser("serve", help="Open the local read-only Project Console in a browser")
+    serve.add_argument("--host", default="127.0.0.1", help="Loopback host (remote hosts are refused)")
+    serve.add_argument("--port", type=int, default=8765, help="Local HTTP port (0 selects an available port)")
     pipeline = commands.add_parser("pipeline", help="Execute a validated dependency-aware verification pipeline")
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
     pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
@@ -78,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
                 print("Created:\n" + "\n".join(f"- {path}" for path in created))
             else:
                 print("Policy files already exist; nothing overwritten.")
+            return 0
+
+        if args.command == "serve":
+            from .dashboard import serve_dashboard
+            serve_dashboard(repo, host=args.host, port=args.port)
             return 0
 
         policy = load_policy(repo)

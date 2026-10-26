@@ -73,7 +73,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "steadfast_cycle_status",
         "description": "Read the active evidence-gated work cycle.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
     },
     {
         "name": "steadfast_cycle_start",
@@ -82,18 +82,18 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {"goal_id": {"type": "string", "minLength": 1}, "title": {"type": "string", "maxLength": 200}},
             "required": ["goal_id"],
-            "additionalProperties": false
+            "additionalProperties": False
         }
     },
     {
         "name": "steadfast_cycle_verify",
         "description": "Run configured verification and scope checks for the active work cycle.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
     },
     {
         "name": "steadfast_cycle_complete",
         "description": "Complete the active work cycle only when configured verification and evidence gates pass.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
     },
     {
         "name": "steadfast_work_order_issue",
@@ -107,7 +107,7 @@ TOOLS: list[dict[str, Any]] = [
                 "scope_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1}
             },
             "required": ["goal_id"],
-            "additionalProperties": false
+            "additionalProperties": False
         }
     },
     {

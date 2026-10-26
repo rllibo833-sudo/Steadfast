@@ -47,7 +47,6 @@ jobs:
           from pathlib import Path
           p = Path(".steadfast/share/verification.json")
           data = json.loads(p.read_text(encoding="utf-8"))
-          data["workflow_verification_exit_code"] = int("${{ steps.assess.outputs.verify_status || '0' }}") if False else data.get("exit_code")
           p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
           PY
           echo "Verification command exit code: $verify_status"

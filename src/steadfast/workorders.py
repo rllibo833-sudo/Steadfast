@@ -383,6 +383,39 @@ def verify_work_order(repo: Path, order_id: str) -> dict[str, Any]:
     return result
 
 
+
+def render_work_order_prompt(repo: Path, order_id: str) -> str:
+    """Render a bounded, copy-ready instruction for an external coding agent."""
+    order = show_work_order(repo, order_id)
+    if order.get("status") not in {"issued", "in_progress"}:
+        raise WorkOrderError(f"work order prompt unavailable for status {order.get('status')!r}")
+    if _now() > datetime.fromisoformat(order["expires_at"]):
+        raise WorkOrderError("work order has expired")
+    criteria = "\\n".join(
+        f"- [{item.get('id', 'AC')}] {item.get('criterion', '')}"
+        for item in order.get("acceptance", [])
+    ) or "- Follow the goal's acceptance criteria in the repository."
+    scope = "\\n".join(f"- `{path}`" for path in order.get("scope_paths", []))
+    return (
+        f"# Steadfast work order {order['id']}\\n\\n"
+        f"Goal: {order.get('goal_id', '')}\\n"
+        f"Owner: {order.get('owner') or 'unassigned'}\\n"
+        f"Expires: {order.get('expires_at', '')}\\n\\n"
+        "## Required outcome\\n"
+        "Implement the goal in the repository. Make real, reviewable source changes; "
+        "do not claim completion without changes and verification.\\n\\n"
+        "## Acceptance criteria\\n" + criteria + "\\n\\n"
+        "## Allowed paths\\n" + scope + "\\n\\n"
+        "## Rules\\n"
+        "- Read the repository policy and relevant existing code before editing.\\n"
+        "- Do not modify files outside the allowed paths.\\n"
+        "- Do not weaken tests, policy, or verification to force a pass.\\n"
+        "- Add or update tests for behavior changes.\\n"
+        "- Run the relevant tests and report exact commands and outcomes.\\n"
+        "- Leave changes in the workspace; do not commit, push, or claim verification unless asked.\\n\\n"
+        f"## Verification command\\n`steadfast --repo . work-order verify {order['id']}`\\n"
+    )
+
 def close_work_order(repo: Path, order_id: str) -> dict[str, Any]:
     root = repo.resolve()
     order = _read_order(root, order_id)

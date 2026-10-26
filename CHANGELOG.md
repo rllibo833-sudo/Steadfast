@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Aligned initialized default policy with the repository policy, including agent path rules, protected paths, and documentation paths.
+- Hardened policy loading against non-object JSON roots, non-string allowlist entries, and boolean code budgets.
+- Added regression tests for policy parity and malformed configuration.
+- Added a measurable policy-consistency goal and explicit repository automation workflows.
 - Shortened the README to focus on first use and moved detailed CLI guidance into dedicated docs.
 - Expanded `.gitignore` for common Python build, test, environment, and editor artifacts.
 - Clarified PyPI package metadata without changing runtime dependencies or the released package version.

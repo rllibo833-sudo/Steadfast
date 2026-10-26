@@ -143,7 +143,15 @@ def _run_step(repo: Path, step: dict[str, Any]) -> dict[str, Any]:
             "duration_seconds": 0.0, "command": step["command"],
             "stdout": "", "stderr": f"working directory does not exist: {step['cwd']}",
         }
-    environment = os.environ.copy()
+    # Do not pass arbitrary runner/user secrets into repository-defined commands.
+    # Inherit only portable runtime variables; other variables must be declared
+    # explicitly in the reviewed pipeline manifest.
+    inherited = {
+        "PATH", "HOME", "USERPROFILE", "TMP", "TEMP", "TMPDIR",
+        "SYSTEMROOT", "WINDIR", "LANG", "LC_ALL", "CI",
+        "VIRTUAL_ENV", "PYTHONIOENCODING", "PYTHONUTF8",
+    }
+    environment = {key: value for key, value in os.environ.items() if key in inherited}
     environment.update(step["env"])
     try:
         proc = subprocess.run(

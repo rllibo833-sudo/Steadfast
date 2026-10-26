@@ -82,7 +82,7 @@ def parse_goal(path: Path, root: Path) -> tuple[Goal | None, list[dict[str, str]
         body, re.MULTILINE | re.IGNORECASE,
     )
     acceptance = tuple(
-        line.strip()[2:].strip()
+        line.strip().split("]", 1)[-1].strip()
         for line in (acceptance_section.group(1).splitlines() if acceptance_section else [])
         if line.strip().startswith(("- [ ]", "- [x]", "- [X]"))
     )

@@ -11,6 +11,19 @@ class CliTests(unittest.TestCase):
             self.assertEqual(main(["--repo", directory, "init"]), 0)
             self.assertEqual(main(["--repo", directory, "evidence-check"]), 0)
 
+    def test_security_check_has_a_dedicated_dispatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".steadfast").mkdir()
+            (root / ".steadfast" / "policy.json").write_text(
+                '{"version":1,"product_code_budget":20000,"allowed_paths":["src/**"],'
+                '"implementation_paths":["src/**"],"ignored_paths":[],"required_evidence":[]}',
+                encoding="utf-8",
+            )
+            (root / "src").mkdir()
+            (root / "src" / "safe.py").write_text("value = 1\\n", encoding="utf-8")
+            self.assertEqual(main(["--repo", directory, "security-check"]), 0)
+
     def test_python_module_entrypoint_exists(self):
         self.assertTrue(
             (Path(__file__).parents[1] / "src" / "steadfast" / "__main__.py").is_file()

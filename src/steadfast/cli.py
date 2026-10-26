@@ -29,6 +29,7 @@ from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
 from .impact import analyze_change_impact
 from .workorders import close_work_order, issue_work_order, list_work_orders, show_work_order, verify_work_order
 from .ecosystem import ecosystem_report
+from .trust import evaluate_component_policy
 
 
 def parser() -> argparse.ArgumentParser:
@@ -69,6 +70,10 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
     ecosystem = commands.add_parser("ecosystem", help="Inventory repository skills and MCP integrations with owner-controlled trust status")
     ecosystem.add_argument("--strict", action="store_true", help="Return failure when any MCP server is not explicitly trusted")
+    trust_check = commands.add_parser("trust-check", help="Evaluate owner-approved permissions for a skill, plugin, or MCP server without executing it")
+    trust_check.add_argument("--kind", choices=("skill", "plugin", "mcp"), required=True)
+    trust_check.add_argument("--name", required=True)
+    trust_check.add_argument("--permission", action="append", default=[], help="Requested permission; repeat for multiple permissions")
     commands.add_parser("mcp-server", help="Serve read-only Steadfast tools over the standard MCP stdio protocol")
     onboard = commands.add_parser("onboard", help="Set up Steadfast policy and selected coding-agent integrations in one command")
     onboard.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
@@ -221,6 +226,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "integration-status":
             print(json.dumps(integration_status(repo), indent=2, ensure_ascii=False))
             return 0
+
+        if args.command == "trust-check":
+            result = evaluate_component_policy(repo, args.kind, args.name, args.permission)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["decision"] == "allow" else 1
 
         if args.command == "ecosystem":
             result = ecosystem_report(repo)

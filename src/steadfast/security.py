@@ -112,4 +112,9 @@ def workflow_findings(repo: Path) -> list[dict[str, str]]:
                     "path": rel,
                     "message": f"Action uses a movable version tag at line {line_number}; pin a reviewed full commit SHA for stronger supply-chain integrity.",
                 })
-    return findings
+    return findingsdef _matches(path: str, patterns: list[str]) -> bool:
+    return any(
+        fnmatch.fnmatchcase(path, pattern)
+        or (pattern.endswith("/**") and path.startswith(pattern[:-2]))
+        for pattern in patterns
+    )

@@ -29,11 +29,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          steadfast verify --repo . > steadfast-verification.json
+          steadfast --repo . verify > steadfast-verification.json
           result=$?
           set -e
           echo "exit_code=$result" >> "$GITHUB_OUTPUT"
-          steadfast report --repo . --format markdown > steadfast-report.md
+          steadfast --repo . report --format markdown > steadfast-report.md
           exit 0
 
       - name: Upload report for maintainer review
@@ -53,7 +53,7 @@ jobs:
         env:
           VERIFY_EXIT_CODE: \${{ steps.verify.outputs.exit_code }}
         run: |
-          if [ "\${VERIFY_EXIT_CODE:-2}" != "0" ]; then
+          if [ "${VERIFY_EXIT_CODE:-2}" != "0" ]; then
             echo "Steadfast verification reported findings or an execution error; inspect the uploaded report."
             exit 1
           fi

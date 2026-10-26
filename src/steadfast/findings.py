@@ -177,7 +177,11 @@ def scan_findings(repo: Path) -> dict[str, Any]:
     seen: set[str] = set()
     opened = reopened = unchanged = 0
     for raw in current:
-        fid = raw["id"]
+        # Normalize third-party/custom check records as well as built-in findings.
+        fid = str(raw.get("id") or fingerprint(raw))
+        raw["id"] = fid
+        raw.setdefault("priority", _severity_priority(str(raw.get("severity", "warning"))))
+        raw.setdefault("sources", ["audit"])
         seen.add(fid)
         old = existing.get(fid)
         if old is None:

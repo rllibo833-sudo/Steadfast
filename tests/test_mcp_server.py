@@ -37,6 +37,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("steadfast_change_impact", names)
         self.assertIn("steadfast_report", names)
         self.assertIn("steadfast_ecosystem", names)
+        self.assertIn("steadfast_skill_route", names)
 
     def test_discover_tool_returns_machine_readable_payload(self):
         response = handle_message(
@@ -53,6 +54,14 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(_tool_args("steadfast_ecosystem", {}), ["ecosystem"])
         with self.assertRaisesRegex(ValueError, "accepts no arguments"):
             _tool_args("steadfast_ecosystem", {"execute": True})
+
+    def test_skill_route_tool_validates_task_and_builds_cli_args(self):
+        self.assertEqual(_tool_args("steadfast_skill_route", {"task": "debug Python", "limit": 3}),
+                         ["skills", "route", "debug Python", "--limit", "3"])
+        with self.assertRaisesRegex(ValueError, "non-empty"):
+            _tool_args("steadfast_skill_route", {"task": " "})
+        with self.assertRaisesRegex(ValueError, "1 to 25"):
+            _tool_args("steadfast_skill_route", {"task": "debug", "limit": 0})
 
     def test_tool_rejects_unknown_arguments(self):
         response = handle_message(

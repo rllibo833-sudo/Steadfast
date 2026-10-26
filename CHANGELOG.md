@@ -9,6 +9,7 @@
 - Extended the guard to inspect nested shell launchers such as `bash -c`, `sh -c`, and `env`, while preserving harmless quoted text.
 - Protected all `.steadfast/` policy, work-cycle, work-order, and evidence-ledger files from direct agent file-write tools to prevent easy governance-state tampering; runtime APIs remain responsible for legitimate state transitions.
 - Expanded recursive forced-deletion detection to cover split (`rm -r -f`), reordered (`rm -f -r`), combined (`rm -fr`), and long-form flags.
+- Extended destructive-command checks to privileged launchers (`doas`, `pkexec`), `find -delete`/`find -exec`, and `busybox rm` wrappers.
 - Release readiness now blocks on security-scanner errors and high-risk workflow trust-boundary findings instead of depending on an optional separately supplied audit report.
 - Release readiness also blocks broken CLI/module entrypoint contracts for packaged projects.
 - Fixed the security scanner's source-suffix filter so `.env` and `.env.*` files are inspected rather than silently skipped.

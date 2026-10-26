@@ -6,6 +6,7 @@ from typing import Any
 from .checks import evidence_findings, product_code_lines
 from .contracts import contract_findings, validate_policy_file
 from .policy import load_policy
+from .security import security_findings, workflow_findings
 
 
 def release_findings(repo: Path, report: dict[str, Any] | None = None) -> list[dict[str, str]]:
@@ -17,6 +18,12 @@ def release_findings(repo: Path, report: dict[str, Any] | None = None) -> list[d
         return findings
     findings.extend(evidence_findings(repo, policy))
     findings.extend(contract_findings(repo, policy))
+    # Security errors must block release readiness even when the caller did not
+    # separately pass an audit report.
+    findings.extend(
+        item for item in security_findings(repo, policy) + workflow_findings(repo)
+        if item.get("severity") == "error"
+    )
     lines, files = product_code_lines(repo, policy)
     budget = policy.get("product_code_budget", 20000)
     if lines > budget:

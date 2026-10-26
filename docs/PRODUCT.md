@@ -88,3 +88,8 @@ Hook adapters emit event-specific response formats instead of one generic JSON s
 ## Agent session evidence
 
 Each valid agent-hook event is recorded in a bounded local JSONL ledger with session/tool identity, policy decision, finding codes, scoped paths, redacted bounded metadata and a hash-chain link. The `sessions` CLI reports per-session activity and verifies chain integrity; the Project Console surfaces recent events. Ledger write failure converts the hook result to a block rather than silently losing the audit trail. The chain is tamper-evident, not signed or immutable against an attacker who can rewrite all repository state.
+
+
+## Portable evidence bundles
+
+The evidence-bundle engine collects audit, scope/evidence, security, goal, release, inventory, code-truth, documentation-contract, work-cycle, finding-ledger and redacted agent-session results into a portable ZIP. The default bundle contains metadata and file hashes, not source contents. Verification enforces a strict two-entry archive layout, repository-relative paths, compressed/uncompressed size limits, schema checks and payload SHA-256 integrity. The manifest is not signed; hash integrity must not be represented as producer authentication. Unavailable component checks remain explicitly unavailable rather than being counted as passes.

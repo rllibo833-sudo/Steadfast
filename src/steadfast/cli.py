@@ -25,6 +25,7 @@ from .planner import execution_plan, explain_goal
 from .automations import automation_history, list_automations, run_automation
 from .code_truth import code_truth_report
 from .session_ledger import session_report, verify_session_ledger
+from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
 
 
 def parser() -> argparse.ArgumentParser:
@@ -71,6 +72,13 @@ def parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
     pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
     pipeline.add_argument("--record", help="Append the result to a repository-relative JSONL history file")
+    bundle = commands.add_parser("evidence-bundle", help="Build or verify a portable governance evidence package")
+    bundle_sub = bundle.add_subparsers(dest="bundle_action", required=True)
+    bundle_build = bundle_sub.add_parser("build", help="Collect current checks and build a hash-verified ZIP")
+    bundle_build.add_argument("--output", help="Repository-relative output path (default: .steadfast/artifacts/...)")
+    bundle_build.add_argument("--overwrite", action="store_true", help="Replace an existing output bundle")
+    bundle_verify = bundle_sub.add_parser("verify", help="Verify bundle structure and artifact hashes")
+    bundle_verify.add_argument("path", help="Repository-relative bundle path")
     sessions = commands.add_parser("sessions", help="Inspect coding-agent session history and integrity")
     session_sub = sessions.add_subparsers(dest="session_action", required=True)
     session_list = session_sub.add_parser("list", help="Summarize agent sessions and tool decisions")
@@ -228,6 +236,13 @@ def main(argv: list[str] | None = None) -> int:
                 result["history_record"] = {"path": args.record, "run_id": record["run_id"]}
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["passed"] else 1
+
+        if args.command == "evidence-bundle":
+            result = (build_evidence_bundle(repo, args.output, overwrite=args.overwrite)
+                      if args.bundle_action == "build"
+                      else verify_evidence_bundle(repo, args.path))
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result.get("valid", result.get("status") == "built") else 1
 
         if args.command == "sessions":
             result = verify_session_ledger(repo) if args.session_action == "verify" else session_report(repo, args.limit, args.session_id)

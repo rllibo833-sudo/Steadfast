@@ -217,3 +217,16 @@ steadfast --repo . sessions verify
 ```
 
 The Project Console displays recent agent events and allowed/blocked counts. Hook decisions fail closed if an event cannot be recorded. The ledger may contain repository paths and short command previews, so review retention and access before sharing it. Hash chaining detects tampering but is not a digital signature and cannot prevent an attacker with repository write access from rewriting the entire chain.
+
+
+## Portable evidence bundle
+
+Create a portable ZIP that combines current governance results, code inventory hashes, goal/work-cycle state, security and documentation checks, release readiness, finding metrics, and redacted agent-session summaries—without embedding source file contents or raw secrets.
+
+```sh
+steadfast --repo . evidence-bundle build
+steadfast --repo . evidence-bundle build --output .steadfast/artifacts/release-review.zip
+steadfast --repo . evidence-bundle verify .steadfast/artifacts/release-review.zip
+```
+
+The bundle contains `manifest.json` and `evidence.json`. Verification checks the archive layout, size limits, schema and SHA-256 payload digest. Hashes detect content changes; they are **not a digital signature** and do not authenticate the producer. Review the report's per-component outcomes: an unavailable check is not a pass.

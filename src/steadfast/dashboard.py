@@ -21,6 +21,7 @@ from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_histo
 from .findings import finding_metrics, list_findings
 from .planner import execution_plan
 from .automations import automation_history, list_automations, run_automation
+from .session_ledger import SessionLedgerError, session_report
 
 APP_VERSION = "0.2.0"
 MAX_FILE_BYTES = 256_000
@@ -113,6 +114,7 @@ def build_snapshot(repo: Path) -> dict[str, object]:
         "files": files,
         "file_count": len(files),
         "severity": dict(severity),
+        "agent_sessions": agent_sessions,
         "execution_plan": execution_plan(repo),
         "work_cycle": cycle_status(repo),
         "work_cycle_history": cycle_history(repo, limit=8),

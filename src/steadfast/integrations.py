@@ -67,42 +67,56 @@ def _shell_command(event: dict[str, Any]) -> str:
 
 
 def _dangerous_command(command: str) -> str | None:
-    # shlex.split() treats shell operators attached to words (for example
-    # "safe;rm") as ordinary text. Use punctuation-aware lexing so chained
-    # commands cannot hide a destructive operation after a harmless prefix.
-    try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return "Shell command has malformed quoting; review it manually."
+    """Block known destructive commands, including those nested in shell wrappers."""
+    def inspect(text: str, depth: int = 0) -> str | None:
+        if depth > 4:
+            return "Nested shell command is too deep to inspect safely."
+        try:
+            lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            lexer.commenters = ""
+            tokens = list(lexer)
+        except ValueError:
+            return "Shell command has malformed quoting; review it manually."
 
-    operators = {";", "&&", "||", "|", "&", "||", ";;", ";&", "|&"}
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token and all(char in ";&|" for char in token):
-            # Any shell control operator terminates the current command. Treat
-            # unusual operator runs conservatively rather than merging tokens.
-            segments.append([])
-        else:
-            segments[-1].append(token)
+        segments: list[list[str]] = [[]]
+        for token in tokens:
+            if token and all(char in ";&|" for char in token):
+                segments.append([])
+            else:
+                segments[-1].append(token)
 
-    for segment in segments:
-        if not segment:
-            continue
-        base, args = Path(segment[0]).name, segment[1:]
-        if base == "sudo":
-            return "Privileged command requires explicit human review."
-        if base == "rm" and any(a == "-rf" or (a.startswith("-") and "r" in a and "f" in a) for a in args):
-            return "Recursive forced deletion is blocked by the default agent guard."
-        if base == "git" and args and args[0] == "push" and any(a in {"--force", "-f"} for a in args):
-            return "Force-push is blocked by the default agent guard."
-        if base == "git" and args and args[0] == "reset" and "--hard" in args:
-            return "git reset --hard is blocked by the default agent guard."
-        if base == "git" and args and args[0] == "clean" and any(a.startswith("-") and "f" in a and "d" in a for a in args):
-            return "git clean -fd is blocked by the default agent guard."
-    return None
+        for segment in segments:
+            if not segment:
+                continue
+            base, args = Path(segment[0]).name, segment[1:]
+            if base == "sudo":
+                return "Privileged command requires explicit human review."
+            if base == "rm" and any(a == "-rf" or (a.startswith("-") and "r" in a and "f" in a) for a in args):
+                return "Recursive forced deletion is blocked by the default agent guard."
+            if base == "git" and args and args[0] == "push" and any(a in {"--force", "-f", "--force-with-lease"} for a in args):
+                return "Force-push is blocked by the default agent guard."
+            if base == "git" and args and args[0] == "reset" and "--hard" in args:
+                return "git reset --hard is blocked by the default agent guard."
+            if base == "git" and args and args[0] == "clean" and any(a.startswith("-") and "f" in a and "d" in a for a in args):
+                return "git clean -fd is blocked by the default agent guard."
+
+            # Shell -c wrappers preserve a second command as an argument. Inspect
+            # that command recursively instead of treating the shell as harmless.
+            if base in {"sh", "bash", "dash", "zsh", "ksh"}:
+                for index, arg in enumerate(args[:-1]):
+                    if arg == "-c" or (arg.startswith("-") and "c" in arg[1:] and not arg.startswith("--")):
+                        nested = inspect(args[index + 1], depth + 1)
+                        if nested:
+                            return nested
+            # Common command launchers can conceal a shell invocation.
+            if base in {"env", "command", "exec"} and args:
+                nested = inspect(" ".join(shlex.quote(arg) for arg in args), depth + 1)
+                if nested:
+                    return nested
+        return None
+
+    return inspect(command)
 
 
 def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:

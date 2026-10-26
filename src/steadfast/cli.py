@@ -29,6 +29,7 @@ from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
 from .impact import analyze_change_impact
 from .workorders import close_work_order, issue_work_order, list_work_orders, render_work_order_prompt, show_work_order, verify_work_order
 from .ecosystem import ecosystem_report
+from .skill_router import route_skills
 from .trust import evaluate_component_policy
 from .sitecheck import site_check_report
 from .control_plane import verification_report
@@ -78,6 +79,11 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
     ecosystem = commands.add_parser("ecosystem", help="Inventory repository skills and MCP integrations with owner-controlled trust status")
     ecosystem.add_argument("--strict", action="store_true", help="Return failure when any MCP server is not explicitly trusted")
+    skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
+    skills_sub = skills.add_subparsers(dest="skills_action", required=True)
+    skills_route = skills_sub.add_parser("route", help="Rank matching SKILL.md files for a task")
+    skills_route.add_argument("task", help="Natural-language task description")
+    skills_route.add_argument("--limit", type=int, default=5, help="Maximum skill candidates (1-25)")
     trust_check = commands.add_parser("trust-check", help="Evaluate owner-approved permissions for a skill, plugin, or MCP server without executing it")
     trust_check.add_argument("--kind", choices=("skill", "plugin", "mcp"), required=True)
     trust_check.add_argument("--name", required=True)
@@ -251,6 +257,11 @@ def main(argv: list[str] | None = None) -> int:
             result = ecosystem_report(repo)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 1 if args.strict and result["untrusted_mcp_servers"] else 0
+
+        if args.command == "skills" and args.skills_action == "route":
+            result = route_skills(repo, args.task, limit=args.limit)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["status"] == "matched" else 1
 
         if args.command == "site-check":
             result = site_check_report(repo, args.site)

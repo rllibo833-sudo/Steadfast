@@ -111,10 +111,13 @@ class OutputTests(unittest.TestCase):
             (repo / "src").mkdir()
             (repo / "src" / "main.py").write_text("answer = 42\n", encoding="utf-8")
             (repo / "README.md").write_text("steadfast audit\n", encoding="utf-8")
-            (repo / "pyproject.toml").write_text("project = {}\n", encoding="utf-8")
+            package = repo / "src" / "steadfast"
+            package.mkdir()
+            (package / "cli.py").write_text('commands.add_parser("audit")\n', encoding="utf-8")
+            (repo / "pyproject.toml").write_text('steadfast = "steadfast.cli:main"\n', encoding="utf-8")
             result = release_report(repo)
             self.assertFalse(result["ready"])
-            self.assertIn("CLI_ENTRYPOINT_MISSING", [item["code"] for item in result["findings"]])
+            self.assertIn("MODULE_ENTRYPOINT_MISSING", [item["code"] for item in result["findings"]])
 
 
 if __name__ == "__main__":

@@ -54,6 +54,19 @@
         "unit-tests"
       ],
       "timeout": 60
+    },
+    {
+      "id": "code-truth",
+      "command": [
+        "python",
+        "-m",
+        "steadfast",
+        "code-truth"
+      ],
+      "depends_on": [
+        "unit-tests"
+      ],
+      "timeout": 60
     }
   ]
 }

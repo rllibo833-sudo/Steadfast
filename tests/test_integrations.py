@@ -78,7 +78,7 @@ class AgentGuardTests(unittest.TestCase):
         result = install_integration(self.repo, "codex")
         self.assertIn("AGENTS.md", result["preserved"])
         self.assertEqual(existing.read_text(encoding="utf-8"), "user-owned instructions\n")
-        self.assertTrue((self.repo / ".codex/skills/steadfast-governance/SKILL.md").is_file())
+        self.assertTrue((self.repo / ".agents/skills/steadfast-governance/SKILL.md").is_file())
 
     def test_all_integration_targets_have_configuration(self) -> None:
         for agent in ("claude", "cursor", "codex"):

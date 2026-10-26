@@ -13,6 +13,7 @@ steadfast audit
 steadfast scope-check
 steadfast evidence-check
 steadfast docs-check
+steadfast code-truth
 steadfast inventory
 steadfast goal-check
 steadfast release-check
@@ -35,6 +36,7 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 - `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against the allowlist.
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
 - `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.
+- `steadfast code-truth`: derive implementation/test counts, source SHA-256 fingerprints, entrypoint facts and the actual runtime CLI command tree from code/config; fail when documented CLI examples name commands or subcommands that do not exist. Code is authoritative; Markdown is checked against it.
 - `steadfast security-check`: scan implementation files for common hardcoded-secret patterns, risky dynamic execution and APIs (including disabled TLS verification and unsafe deserialization), and workflow trust-boundary issues such as untrusted event data interpolated into shell commands. Findings are conservative signals for review, not a full security proof.
 - `steadfast pipeline [--manifest FILE] [--workers N] [--record FILE]`: execute a versioned JSON pipeline as a dependency graph; independent steps run concurrently, failed dependencies are skipped, timeouts are bounded, and output is returned as structured JSON. `--record` appends an immutable run summary to JSONL history without overwriting earlier records. Commands use argument arrays with `shell=False`; no shell interpolation is performed.
 - `steadfast pipeline-history [--history FILE] [--limit N] [--status all|passed|failed]`: inspect recent pipeline executions, newest first, with outcome filtering. Corrupt complete records are reported rather than silently discarded.
@@ -190,3 +192,10 @@ The manual GitHub Actions workflow is named **Steadfast Automation Studio**. Fro
 
 
 Work-cycle verification is tied to a SHA-256 fingerprint of the workspace (excluding Git internals, caches and Steadfast's own runtime journals). If source, configuration, tests or other workspace files change after verification, completion is blocked until the configured pipeline and scope checks are rerun. The Project Console labels such results as stale instead of showing them as current passes.
+
+
+## Code-first truth check
+
+Run `steadfast code-truth` to see facts derived from the Python implementation, test files, package entrypoints and live argparse command tree. It hashes implementation files and checks documented command examples against actual command names. The JSON report is intended for CI and agent decisions; Markdown is a consumer of these facts, not the canonical record. This check validates command paths and repository structure, not the semantic truth of every sentence or the correctness of business behavior.
+
+For practical agent/skills setup, follow [the coding-agent skills tutorial](docs/AGENT_SKILLS_TUTORIAL.md).

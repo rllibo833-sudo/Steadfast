@@ -71,3 +71,10 @@ The \`.github/workflows/steadfast-automation.yml\` workflow allows a maintainer 
 ### Verification freshness
 
 A successful pipeline result is not sufficient if the workspace changes afterward. Each work-cycle verification records a deterministic workspace fingerprint; completion compares it with the current workspace and blocks stale results. The console surfaces stale verification. This prevents completion based on a passing run against a different set of files.
+
+
+## Code-first truth engine
+
+`steadfast code-truth` derives implementation and test inventory from source files, resolves the live CLI tree from the instantiated argparse parser, checks package entrypoints, fingerprints implementation files with SHA-256, and detects documented CLI examples that refer to nonexistent commands or subcommands. The configured CI pipeline runs this check. This deliberately makes code and executable configuration the source of truth; docs are checked as downstream representations. It is not yet semantic verification of arbitrary prose or proof that tests fully cover behavior.
+
+See [the practical coding-agent skills tutorial](AGENT_SKILLS_TUTORIAL.md) for setup and usage examples.

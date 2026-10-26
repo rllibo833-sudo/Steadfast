@@ -26,6 +26,23 @@ class AgentGuardTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
+    def test_chained_destructive_shell_command_is_blocked(self) -> None:
+        from steadfast.integrations import _dangerous_command
+
+        for command in (
+            "echo safe; rm -rf /tmp/target",
+            "echo safe && rm -rf /tmp/target",
+            "echo safe|rm -rf /tmp/target",
+            "printf safe;sudo rm -rf /tmp/target",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNotNone(_dangerous_command(command), command)
+
+    def test_harmless_chained_shell_command_is_not_blocked(self) -> None:
+        from steadfast.integrations import _dangerous_command
+
+        self.assertIsNone(_dangerous_command("echo safe; printf done"))
+
     def test_allowed_source_path_is_allowed(self) -> None:
         result = evaluate_event(self.repo, {
             "tool_name": "Write",

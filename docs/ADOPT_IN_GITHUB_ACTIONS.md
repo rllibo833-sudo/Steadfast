@@ -11,6 +11,10 @@ Evaluate Steadfast against a real repository before deciding whether it belongs 
 
 The workflow installs `steadfast-governance` from PyPI and runs `steadfast --repo . verify` followed by `steadfast --repo . report --format markdown`. It uploads available output even when verification fails, then returns a failing job status if verification was not successful. Review the report and permissions before enabling branch protection. The report is a governance signal, not proof that code is correct or secure.
 
+## Validate the published package
+
+The project also has a maintainer-only [PyPI adoption smoke test](../.github/workflows/pypi-adoption-smoke.yml). Run it from **Actions → PyPI adoption smoke test → Run workflow** to install the current published PyPI package and exercise the same consumer commands against this repository. Download its artifact to inspect the JSON, stderr, and Markdown report. This validates the published package path; it does **not** count as external adoption because the repository owner is running the test.
+
 ## Evaluate it honestly
 
 For the first few pull requests, record:

@@ -59,11 +59,11 @@ jobs:
           print(f"Markdown report generated ({len(report)} characters).")
           PY
 
-          if [ "$report_result" -ne 0 ]; then
-            echo "The report command returned $report_result; see the uploaded stderr/report artifacts."
+          if [ "$report_result" -gt 1 ]; then
+            echo "The report command encountered a CLI/runtime error (exit $report_result); see the uploaded stderr/report artifacts."
             exit "$report_result"
           fi
-          echo "The published package CLI and report path are operational. A policy result of failed is reported separately and does not itself mean package installation or CLI execution is broken."
+          echo "The published package CLI and report path are operational. Policy findings may return exit 1 and are recorded separately; they do not by themselves mean package installation or CLI execution is broken."
 
       - name: Upload consumer test report
         if: always()

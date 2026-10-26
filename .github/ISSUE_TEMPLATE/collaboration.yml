@@ -5,7 +5,7 @@ labels: ["collaboration"]
 body:
   - type: markdown
     attributes:
-      value: "Use this to propose a practical collaboration. Do not post private contact details, credentials, or confidential business information."
+      value: "Use this to propose a practical collaboration. Do not post private contact details, credentials, repository contents, or confidential business information. For evaluations, share sanitized results only."
   - type: dropdown
     id: type
     attributes:
@@ -26,6 +26,29 @@ body:
       description: Describe the people and workflow involved.
     validations:
       required: true
+  - type: dropdown
+    id: evaluation_status
+    attributes:
+      label: Evaluation status
+      description: If this is not an evaluation, select Not applicable.
+      options:
+        - Not started
+        - Installed, not run
+        - Ran on a real repository
+        - Repeated successfully
+        - Not applicable
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Steadfast version or install source
+      description: For example, PyPI 0.4.0 or a commit SHA. Do not include tokens.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What worked, what failed, and what was noisy?
+      description: Include a sanitized command/result and whether findings were actionable. Do not paste private source or secrets.
   - type: textarea
     id: contribution
     attributes:
@@ -38,5 +61,16 @@ body:
     attributes:
       label: Suggested first step
       description: For example, test one workflow, build a small adapter, or review a demo.
+    validations:
+      required: true
+  - type: dropdown
+    id: pilot_interest
+    attributes:
+      label: Interested in a bounded pilot?
+      options:
+        - No, community evaluation only
+        - Maybe, after technical evaluation
+        - Yes, discuss scope and terms
+        - Not applicable
     validations:
       required: true

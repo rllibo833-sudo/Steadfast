@@ -110,3 +110,33 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_verify_is_unified_and_does_not_execute_configured_pipeline(self):
+        import contextlib
+        import io
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(main(["--repo", directory, "init"]), 0)
+            marker = root / "PIPELINE_MUST_NOT_RUN"
+            manifest = root / ".steadfast" / "pipeline.json"
+            manifest.write_text(json.dumps({
+                "version": 1,
+                "steps": [{
+                    "id": "side-effect",
+                    "command": ["python", "-c", "from pathlib import Path; Path('PIPELINE_MUST_NOT_RUN').write_text('ran')"]
+                }]
+            }), encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = main(["--repo", directory, "verify"])
+            report = json.loads(output.getvalue())
+            self.assertEqual(result, 0, output.getvalue())
+            self.assertTrue(report["passed"])
+            self.assertEqual(report["check"], "unified-control-plane")
+            self.assertIn("audit", report["components"])
+            self.assertIn("security", report["components"])
+            self.assertIn("release_readiness", report["components"])
+            self.assertTrue(report["components"]["pipeline"]["skipped"])
+            self.assertFalse(marker.exists())

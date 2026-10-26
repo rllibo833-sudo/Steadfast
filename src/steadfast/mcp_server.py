@@ -22,6 +22,11 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "steadfast_skill_route",
+        "description": "Rank repository SKILL.md files for a natural-language task. Reads skill content but never executes it or claims an agent ran.",
+        "inputSchema": {"type": "object", "properties": {"task": {"type": "string", "minLength": 1}, "limit": {"type": "integer", "minimum": 1, "maximum": 25}}, "required": ["task"], "additionalProperties": False},
+    },
+    {
         "name": "steadfast_trust_check",
         "description": "Evaluate owner-approved permissions for a skill, plugin, or MCP server. This reports policy only and never executes the component.",
         "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["skill", "plugin", "mcp"]}, "name": {"type": "string", "minLength": 1}, "permissions": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "required": ["kind", "name"], "additionalProperties": False},
@@ -144,6 +149,17 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if arguments:
             raise ValueError("steadfast_ecosystem accepts no arguments")
         return ["ecosystem"]
+    if name == "steadfast_skill_route":
+        unknown = set(arguments) - {"task", "limit"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        task = arguments.get("task")
+        limit = arguments.get("limit", 5)
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("task must be a non-empty string")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 25:
+            raise ValueError("limit must be an integer from 1 to 25")
+        return ["skills", "route", task, "--limit", str(limit)]
     if name == "steadfast_trust_check":
         unknown = set(arguments) - {"kind", "name", "permissions"}
         if unknown:

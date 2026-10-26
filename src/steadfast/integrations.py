@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from .policy import load_policy
+from .checks import agent_scope_findings
 from .workcycle import cycle_status
 from .workorders import WorkOrderError, active_work_order, matches_work_order_scope
 
 SUPPORTED_AGENTS = ("claude", "cursor", "codex")
+_MUTATING_FILE_TOOLS = {"write", "edit", "multiedit", "apply_patch", "write_file", "create_file", "notebookedit"}
 
 
 def _matches(path: str, patterns: list[str]) -> bool:
@@ -98,14 +100,23 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
     policy = load_policy(repo)
     findings: list[dict[str, str]] = []
     allowed, ignored = policy.get("allowed_paths", []), policy.get("ignored_paths", [])
-    for raw in _tool_paths(event):
+    tool_name = str(event.get("tool_name", event.get("tool", ""))).casefold()
+    is_file_mutation = tool_name in _MUTATING_FILE_TOOLS
+    requested_role = str(event.get("steadfast_role", event.get("agent_role", "code"))).casefold()
+    raw_paths = _tool_paths(event)
+    normalized_paths: list[str] = []
+    for raw in raw_paths:
         normalized = _repo_path(repo, raw)
         if normalized is None:
             findings.append({"severity": "error", "code": "AGENT_PATH_ESCAPE", "path": raw,
                              "message": "Agent tool path resolves outside the repository root."})
-        elif not _matches(normalized, allowed) and not _matches(normalized, ignored):
+            continue
+        normalized_paths.append(normalized)
+        if not (is_file_mutation and requested_role == "media") and not _matches(normalized, allowed) and not _matches(normalized, ignored):
             findings.append({"severity": "error", "code": "AGENT_SCOPE_BLOCK", "path": normalized,
                              "message": "Agent tool path is outside configured allowed_paths."})
+    if is_file_mutation:
+        findings.extend(agent_scope_findings(policy, requested_role, normalized_paths))
     command = _shell_command(event)
     if command:
         message = _dangerous_command(command)
@@ -118,7 +129,7 @@ def evaluate_event(repo: Path, event: dict[str, Any]) -> dict[str, Any]:
         findings.append({"severity": "error", "code": "AGENT_WORK_ORDER_INVALID", "path": "",
                          "message": "Active work order could not be validated: " + str(exc)})
     if order:
-        for raw in _tool_paths(event):
+        for raw in raw_paths:
             normalized = _repo_path(repo, raw)
             if normalized is not None and not matches_work_order_scope(normalized, order.get("scope_paths", [])):
                 findings.append({"severity": "error", "code": "AGENT_WORK_ORDER_SCOPE_BLOCK",

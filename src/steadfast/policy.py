@@ -24,6 +24,9 @@ def policy_path(repo: Path) -> Path:
 
 def load_policy(repo: Path) -> dict[str, Any]:
     path = policy_path(repo)
+    directory = repo / ".steadfast"
+    if directory.is_symlink() or path.is_symlink():
+        raise ValueError("Steadfast policy paths may not traverse symlinks.")
     if not path.exists():
         raise FileNotFoundError("Missing .steadfast/policy.json; run `steadfast init`.")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -37,6 +40,8 @@ def load_policy(repo: Path) -> dict[str, Any]:
 
 def init_policy(repo: Path) -> list[str]:
     directory = repo / ".steadfast"
+    if directory.is_symlink():
+        raise ValueError("Steadfast policy directory may not be a symlink.")
     directory.mkdir(parents=True, exist_ok=True)
     created = []
     p = policy_path(repo)

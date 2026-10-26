@@ -259,6 +259,23 @@ Steadfast exposes a dependency-free, read-only Model Context Protocol (MCP) serv
 The server provides discovery, governance report, change-impact analysis, dependency-aware plan, integration status, inventory and read-only work-order inspection tools. It does not expose arbitrary shell execution or file-write tools. This local MCP endpoint makes tools discoverable to a compatible client; it does not grant GitHub permissions or register external accounts.
 
 
+## Repository ecosystem map
+
+Run `steadfast ecosystem` to inventory installed Steadfast integrations, repository skills, and MCP server declarations without launching any third-party process. The report hashes skill files, identifies duplicate MCP server names, reports malformed configuration, and labels servers using the owner-controlled `ecosystem_trust` object in `.steadfast/policy.json`:
+
+```json
+{
+  "ecosystem_trust": {
+    "require_trust": true,
+    "trusted_mcp_servers": ["steadfast"],
+    "blocked_mcp_servers": ["unreviewed-example"]
+  }
+}
+```
+
+`steadfast ecosystem --strict` returns a failure when any discovered MCP server is not explicitly trusted. Trust labels are repository-owner policy, not cryptographic signatures or proof of publisher identity; review commands and provenance before trusting a server. The report never returns configured arguments or executes configured commands. Compatible agents can query the same inventory through the read-only `steadfast_ecosystem` MCP tool.
+
+
 ## Scoped agent work orders
 
 Issue a time-bounded task contract from a configured goal. The contract snapshots the goal, policy digest and repository file hashes; agent hooks then block file-tool operations outside the issued scope. Verification runs the configured pipeline and checks the global policy scope, work-order scope, goal integrity and change-impact findings.

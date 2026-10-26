@@ -17,6 +17,11 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "steadfast_ecosystem",
+        "description": "Inventory repository skills and MCP server declarations; apply owner-configured trust labels without executing integrations.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
         "name": "steadfast_report",
         "description": "Run the read-only governance report and return structured JSON findings.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -71,46 +76,6 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "steadfast_cycle_status",
-        "description": "Read the active evidence-gated work cycle.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
-    },
-    {
-        "name": "steadfast_cycle_start",
-        "description": "Start a configured goal as the active evidence-gated work cycle.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"goal_id": {"type": "string", "minLength": 1}, "title": {"type": "string", "maxLength": 200}},
-            "required": ["goal_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "name": "steadfast_cycle_verify",
-        "description": "Run configured verification and scope checks for the active work cycle.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
-    },
-    {
-        "name": "steadfast_cycle_complete",
-        "description": "Complete the active work cycle only when configured verification and evidence gates pass.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}
-    },
-    {
-        "name": "steadfast_work_order_issue",
-        "description": "Issue an integrity-checked, policy-bounded work order from a configured goal. Writes only Steadfast work-order state.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "goal_id": {"type": "string", "minLength": 1, "maxLength": 120},
-                "owner": {"type": "string", "maxLength": 120},
-                "ttl_minutes": {"type": "integer", "minimum": 5, "maximum": 10080},
-                "scope_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1}
-            },
-            "required": ["goal_id"],
-            "additionalProperties": False
-        }
-    },
-    {
         "name": "steadfast_inventory",
         "description": "Return a repository inventory and implementation-budget summary.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -125,6 +90,10 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if arguments:
             raise ValueError("steadfast_discover accepts no arguments")
         return ["discover"]
+    if name == "steadfast_ecosystem":
+        if arguments:
+            raise ValueError("steadfast_ecosystem accepts no arguments")
+        return ["ecosystem"]
     if name == "steadfast_report":
         if arguments:
             raise ValueError("steadfast_report accepts no arguments")
@@ -180,55 +149,6 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if not isinstance(order_id, str) or len(order_id) != 12 or any(c not in "0123456789abcdef" for c in order_id):
             raise ValueError("order_id must be 12 lowercase hexadecimal characters")
         return ["work-order", "show", order_id]
-    if name == "steadfast_cycle_status":
-        if arguments:
-            raise ValueError("steadfast_cycle_status accepts no arguments")
-        return ["cycle", "status"]
-    if name == "steadfast_cycle_start":
-        unknown = set(arguments) - {"goal_id", "title"}
-        if unknown:
-            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
-        goal_id = arguments.get("goal_id")
-        title = arguments.get("title", "")
-        if not isinstance(goal_id, str) or not goal_id.strip():
-            raise ValueError("goal_id must be non-empty text")
-        if not isinstance(title, str) or len(title) > 200:
-            raise ValueError("title must be text of at most 200 characters")
-        result = ["cycle", "start", goal_id]
-        if title:
-            result.extend(["--title", title])
-        return result
-    if name == "steadfast_cycle_verify":
-        if arguments:
-            raise ValueError("steadfast_cycle_verify accepts no arguments")
-        return ["cycle", "verify"]
-    if name == "steadfast_cycle_complete":
-        if arguments:
-            raise ValueError("steadfast_cycle_complete accepts no arguments")
-        return ["cycle", "complete"]
-    if name == "steadfast_work_order_issue":
-        unknown = set(arguments) - {"goal_id", "owner", "ttl_minutes", "scope_paths"}
-        if unknown:
-            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
-        goal_id = arguments.get("goal_id")
-        owner = arguments.get("owner", "")
-        ttl = arguments.get("ttl_minutes", 240)
-        scope = arguments.get("scope_paths")
-        if not isinstance(goal_id, str) or not goal_id.strip() or len(goal_id) > 120:
-            raise ValueError("goal_id must be non-empty text of at most 120 characters")
-        if not isinstance(owner, str) or len(owner) > 120:
-            raise ValueError("owner must be text of at most 120 characters")
-        if isinstance(ttl, bool) or not isinstance(ttl, int) or not 5 <= ttl <= 10080:
-            raise ValueError("ttl_minutes must be an integer from 5 to 10080")
-        if scope is not None and (not isinstance(scope, list) or not scope or any(not isinstance(p, str) or not p.strip() for p in scope)):
-            raise ValueError("scope_paths must be a non-empty array of non-empty strings")
-        result = ["work-order", "issue", goal_id, "--ttl-minutes", str(ttl)]
-        if owner:
-            result.extend(["--owner", owner])
-        if scope is not None:
-            result.append("--scope")
-            result.extend(scope)
-        return result
     if name == "steadfast_inventory":
         if arguments:
             raise ValueError("steadfast_inventory accepts no arguments")
@@ -261,10 +181,9 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": SERVER_INFO,
                 "instructions": (
-                    "Steadfast provides mostly read-only repository governance tools plus bounded work-cycle actions. "
-                    "Work-order issuance and cycle lifecycle tools write only Steadfast state after "
-                    "validating configured goals and policy. Tools never run arbitrary shell commands "
-                    "or edit application source files. Treat heuristic impact results as advisory."
+                    "Steadfast provides read-only repository governance, ecosystem inventory, and work-order inspection tools. "
+                    "The ecosystem inventory never executes configured MCP server commands and applies owner-controlled trust labels only. "
+                    "Tools never run arbitrary shell commands or edit application source files. Treat heuristic impact results as advisory."
                 ),
             },
         }

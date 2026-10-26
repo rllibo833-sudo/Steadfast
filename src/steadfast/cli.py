@@ -28,6 +28,7 @@ from .session_ledger import session_report, verify_session_ledger
 from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
 from .impact import analyze_change_impact
 from .workorders import close_work_order, issue_work_order, list_work_orders, show_work_order, verify_work_order
+from .ecosystem import ecosystem_report
 
 
 def parser() -> argparse.ArgumentParser:
@@ -66,6 +67,8 @@ def parser() -> argparse.ArgumentParser:
     integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
     commands.add_parser("integration-status", help="Show installed coding-agent integrations")
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
+    ecosystem = commands.add_parser("ecosystem", help="Inventory repository skills and MCP integrations with owner-controlled trust status")
+    ecosystem.add_argument("--strict", action="store_true", help="Return failure when any MCP server is not explicitly trusted")
     commands.add_parser("mcp-server", help="Serve read-only Steadfast tools over the standard MCP stdio protocol")
     onboard = commands.add_parser("onboard", help="Set up Steadfast policy and selected coding-agent integrations in one command")
     onboard.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
@@ -218,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "integration-status":
             print(json.dumps(integration_status(repo), indent=2, ensure_ascii=False))
             return 0
+
+        if args.command == "ecosystem":
+            result = ecosystem_report(repo)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if args.strict and result["untrusted_mcp_servers"] else 0
 
         if args.command == "discover":
             skill_files = sorted(

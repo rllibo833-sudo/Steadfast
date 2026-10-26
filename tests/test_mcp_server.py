@@ -36,9 +36,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("steadfast_discover", names)
         self.assertIn("steadfast_change_impact", names)
         self.assertIn("steadfast_report", names)
-        self.assertIn("steadfast_cycle_start", names)
-        self.assertIn("steadfast_cycle_verify", names)
-        self.assertIn("steadfast_work_order_issue", names)
+        self.assertIn("steadfast_ecosystem", names)
 
     def test_discover_tool_returns_machine_readable_payload(self):
         response = handle_message(
@@ -51,6 +49,11 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], 1)
         self.assertFalse(payload["cost_policy"]["paid_runner_required"])
 
+    def test_ecosystem_tool_routes_to_read_only_inventory(self):
+        self.assertEqual(_tool_args("steadfast_ecosystem", {}), ["ecosystem"])
+        with self.assertRaisesRegex(ValueError, "accepts no arguments"):
+            _tool_args("steadfast_ecosystem", {"execute": True})
+
     def test_tool_rejects_unknown_arguments(self):
         response = handle_message(
             {"jsonrpc": "2.0", "id": 4, "method": "tools/call",
@@ -59,29 +62,6 @@ class McpServerTests(unittest.TestCase):
         )
         self.assertTrue(response["result"]["isError"])
         self.assertIn("accepts no arguments", response["result"]["content"][0]["text"])
-
-    def test_cycle_lifecycle_tools_map_to_existing_handlers(self):
-        self.assertEqual(_tool_args("steadfast_cycle_start", {"goal_id": "goal-1", "title": "Fix it"}),
-                         ["cycle", "start", "goal-1", "--title", "Fix it"])
-        self.assertEqual(_tool_args("steadfast_cycle_status", {}), ["cycle", "status"])
-        self.assertEqual(_tool_args("steadfast_cycle_verify", {}), ["cycle", "verify"])
-        self.assertEqual(_tool_args("steadfast_cycle_complete", {}), ["cycle", "complete"])
-        with self.assertRaisesRegex(ValueError, "accepts no arguments"):
-            _tool_args("steadfast_cycle_complete", {"shell": "whoami"})
-
-    def test_work_order_issue_arguments_are_bounded_and_shell_free(self):
-        args = _tool_args("steadfast_work_order_issue", {
-            "goal_id": "goal-1", "owner": "agent", "ttl_minutes": 60,
-            "scope_paths": ["src/**", "tests/**"],
-        })
-        self.assertEqual(args, [
-            "work-order", "issue", "goal-1", "--ttl-minutes", "60",
-            "--owner", "agent", "--scope", "src/**", "tests/**",
-        ])
-        with self.assertRaisesRegex(ValueError, "ttl_minutes"):
-            _tool_args("steadfast_work_order_issue", {"goal_id": "goal-1", "ttl_minutes": True})
-        with self.assertRaisesRegex(ValueError, "unknown argument"):
-            _tool_args("steadfast_work_order_issue", {"goal_id": "goal-1", "command": "whoami"})
 
     def test_notifications_do_not_emit_responses(self):
         response = handle_message(

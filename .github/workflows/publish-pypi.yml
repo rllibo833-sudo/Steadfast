@@ -33,6 +33,15 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+      - name: Explain manual validation-only runs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          {
+            echo "## PyPI publication"
+            echo ""
+            echo "This was a manual validation run: distributions were built and checked, but publishing is intentionally skipped."
+            echo "To publish, publish a GitHub Release. The release event triggers the trusted PyPI publisher job."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish:
     name: Publish trusted distribution to PyPI

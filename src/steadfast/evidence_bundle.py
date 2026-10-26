@@ -81,6 +81,18 @@ def _component(function: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"error": f"{type(exc).__name__}: {exc}", "available": False}
 
 
+def _sanitize_root(value: Any, root: Path) -> Any:
+    """Remove host-specific absolute workspace paths from shareable evidence."""
+    absolute = str(root)
+    if isinstance(value, str):
+        return value.replace(absolute, root.name)
+    if isinstance(value, list):
+        return [_sanitize_root(item, root) for item in value]
+    if isinstance(value, dict):
+        return {key: _sanitize_root(item, root) for key, item in value.items()}
+    return value
+
+
 def collect_evidence(repo: Path) -> dict[str, Any]:
     """Collect structured, secret-minimized release and governance evidence."""
     root = repo.resolve()
@@ -126,6 +138,9 @@ def collect_evidence(repo: Path) -> dict[str, Any]:
             "finding_metrics": _component(finding_metrics, root),
         },
     }
+    # Reports from lower-level engines may include the local absolute root.
+    # Portable evidence must not leak a developer/runner home directory.
+    report["components"] = _sanitize_root(report["components"], root)
     # Provide a compact, explicit outcome index without conflating unavailable
     # checks with passing checks.
     outcomes: dict[str, str] = {}

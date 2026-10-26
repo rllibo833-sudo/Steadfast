@@ -15,7 +15,9 @@
     "evidence/**",
     "CHANGELOG.md",
     ".codex/**",
-    ".agents/**"
+    ".agents/**",
+    "agents/**",
+    "kits/**"
   ],
   "documentation_paths": [
     "README.md",
@@ -23,7 +25,9 @@
     "CHANGELOG.md",
     "ROADMAP.md",
     "ARCHITECTURE.md",
-    "SPEC.md"
+    "SPEC.md",
+    "agents/**",
+    "kits/**"
   ],
   "required_evidence": [
     "evidence/verification.md"

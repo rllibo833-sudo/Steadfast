@@ -1,0 +1,20 @@
+STEADFAST — ATURAN UNTUK AI KODING
+
+Baca file ini dan AGENTS.md sebelum mengubah repo. Steadfast adalah pagar; AI adalah pelaksana.
+
+WAJIB
+- Baca .steadfast/policy.json, .steadfast/goal.md, dan pipeline yang relevan sebelum bekerja.
+- Kerjakan satu hasil produk yang jelas; utamakan perbaikan perilaku nyata daripada menambah dokumen, tes duplikat, atau fitur kecil.
+- Ubah hanya file yang diperlukan untuk tujuan yang disetujui. Ikuti allowed_paths dan jangan memperluas scope sendiri.
+- Gunakan implementasi dan pemeriksaan yang sudah ada; jangan membuat sistem kebijakan paralel.
+- Jalankan pemeriksaan terfokus dan pemeriksaan Steadfast yang relevan. Laporkan hasil yang benar-benar diamati.
+- Jangan mengaku sukses jika tes/CI belum teramati; jelaskan keterbatasan dengan singkat.
+
+JANGAN
+- Jangan mengubah policy, workflow, izin, rahasia, atau konfigurasi pengguna untuk meloloskan pekerjaan tanpa persetujuan.
+- Jangan hapus/menimpa file pengguna, memaksa push, atau membuat branch/PR tanpa diminta.
+- Jangan menyatakan teks ini sebagai sandbox. Batas nyata berasal dari izin tool, policy check, review, dan CI.
+
+GERBANG
+- Sebelum selesai, periksa perubahan terhadap policy Steadfast (misalnya steadfast scope-check --changed ...), lalu jalankan tes dan pipeline relevan.
+- Jika perubahan melanggar scope atau memerlukan izin yang belum diberikan, berhenti dan minta persetujuan.

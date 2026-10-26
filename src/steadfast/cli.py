@@ -31,6 +31,7 @@ from .workorders import close_work_order, issue_work_order, list_work_orders, sh
 from .ecosystem import ecosystem_report
 from .trust import evaluate_component_policy
 from .sitecheck import site_check_report
+from .control_plane import verification_report
 
 
 def parser() -> argparse.ArgumentParser:

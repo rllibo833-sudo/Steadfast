@@ -41,6 +41,7 @@ class WorkOrderTests(unittest.TestCase):
         self.assertEqual(order["status"], "issued")
         self.assertEqual(len(order["acceptance"]), 2)
         self.assertEqual(active_work_order(self.repo)["id"], order["id"])
+        (self.repo / "src" / "module.py").write_text("VALUE = 2\n", encoding="utf-8")
         pipeline = {"tool": "steadfast", "passed": True, "summary": {}, "steps": [],
                     "manifest": ".steadfast/pipeline.json", "duration_seconds": 0.1}
         with patch("steadfast.workorders.run_pipeline", return_value=pipeline):
@@ -51,6 +52,17 @@ class WorkOrderTests(unittest.TestCase):
         closed = close_work_order(self.repo, order["id"])
         self.assertEqual(closed["status"], "closed")
         self.assertIsNone(active_work_order(self.repo))
+
+    def test_unchanged_workspace_cannot_pass_work_order_verification(self):
+        order = issue_work_order(self.repo, "goal", scope_paths=["src/**"], ttl_minutes=60)
+        pipeline = {"tool": "steadfast", "passed": True, "summary": {}, "steps": [],
+                    "manifest": ".steadfast/pipeline.json", "duration_seconds": 0.1}
+        with patch("steadfast.workorders.run_pipeline", return_value=pipeline):
+            with patch("steadfast.workorders.record_run", return_value={"run_id": "run-no-change"}):
+                result = verify_work_order(self.repo, order["id"])
+        self.assertFalse(result["passed"])
+        self.assertIn("WORK_ORDER_NO_CHANGES", [item["code"] for item in result["scope"]["findings"]])
+        self.assertEqual(show_work_order(self.repo, order["id"])["status"], "in_progress")
 
     def test_out_of_scope_changes_fail_work_order_verification(self):
         order = issue_work_order(

@@ -340,6 +340,13 @@ def verify_work_order(repo: Path, order_id: str) -> dict[str, Any]:
             path.startswith(ORDER_DIR + "/") or path in VOLATILE_PATHS or path.startswith(".steadfast/artifacts/")
         )]
     scope = [item for item in scope_findings(root, policy, changed)]
+    if not changed:
+        scope.append({
+            "severity": "error",
+            "code": "WORK_ORDER_NO_CHANGES",
+            "path": "",
+            "message": "No repository changes were produced for this work order; an unchanged workspace cannot be accepted as completed work.",
+        })
     if not goal_unchanged:
         scope.append({"severity": "error", "code": "WORK_ORDER_GOAL_CHANGED",
                       "path": str(order.get("goal_path", "")),

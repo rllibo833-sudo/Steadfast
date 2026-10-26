@@ -96,6 +96,11 @@ class WorkCycleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "integrity|chain"):
             cycle_history(self.repo)
 
+    def test_evidence_rejects_empty_files(self):
+        (self.repo / "empty.txt").write_text("", encoding="utf-8")
+        start_cycle(self.repo, "goal")
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            attach_evidence(self.repo, "AC-01", "empty.txt")
     def test_evidence_rejects_symlink_escape(self):
         outside = self.repo.parent / (self.repo.name + "-outside.txt")
         outside.write_text("outside evidence", encoding="utf-8")

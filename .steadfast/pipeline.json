@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "id": "unit-tests",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "timeout": 180
+    },
+    {
+      "id": "documentation",
+      "command": [
+        "python",
+        "-m",
+        "steadfast",
+        "docs-check"
+      ],
+      "depends_on": [
+        "unit-tests"
+      ],
+      "timeout": 60
+    },
+    {
+      "id": "security",
+      "command": [
+        "python",
+        "-m",
+        "steadfast",
+        "security-check"
+      ],
+      "depends_on": [
+        "unit-tests"
+      ],
+      "timeout": 60
+    },
+    {
+      "id": "audit-report",
+      "command": [
+        "python",
+        "-m",
+        "steadfast",
+        "report",
+        "--format",
+        "json"
+      ],
+      "depends_on": [
+        "unit-tests"
+      ],
+      "timeout": 60
+    }
+  ]
+}

@@ -12,6 +12,7 @@ from .gitops import changed_paths
 from .goals import goal_report
 from .inventory import inventory_report
 from .policy import init_policy, load_policy
+from .pipeline import run_pipeline
 from .release import release_report
 from .report import render_json, render_markdown
 from .sarif import render_sarif
@@ -39,6 +40,9 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("goal-check", help="Validate goal files and dependency graph")
     commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
     commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
+    pipeline = commands.add_parser("pipeline", help="Execute a validated dependency-aware verification pipeline")
+    pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
+    pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
     baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
     baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
     baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")
@@ -110,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
             _print_findings(findings)
             print(f"Security check: {'FAIL' if _has_errors(findings) else 'PASS'} ({len(findings)} findings)")
             return 1 if _has_errors(findings) else 0
+
+        if args.command == "pipeline":
+            result = run_pipeline(repo, Path(args.manifest), max_workers=args.workers)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["passed"] else 1
 
         if args.command == "baseline-update":
             destination = write_baseline(repo, getattr(args, "base", None))

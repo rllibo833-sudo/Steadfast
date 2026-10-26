@@ -16,6 +16,7 @@ steadfast docs-check
 steadfast inventory
 steadfast goal-check
 steadfast release-check
+steadfast pipeline
 ```
 
 The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
@@ -28,6 +29,7 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
 - `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.
 - `steadfast security-check`: scan implementation files for common hardcoded-secret patterns, risky dynamic execution, and workflow trust-boundary issues. Findings are conservative signals for review, not a full security proof.
+- `steadfast pipeline [--manifest FILE] [--workers N]`: execute a versioned JSON pipeline as a dependency graph; independent steps run concurrently, failed dependencies are skipped, timeouts are bounded, and output is returned as structured JSON. Commands use argument arrays with `shell=False`; no shell interpolation is performed.
 - `steadfast inventory`: produce a deterministic file inventory with SHA-256 digests, file sizes, classification, and budget utilization.
 - `steadfast goal-check`: validate Markdown goal metadata, dependencies, cycles, acceptance criteria, and the configured active-goal limit.
 - `steadfast release-check`: evaluate release prerequisites without publishing or modifying a release.
@@ -51,9 +53,13 @@ Edit `.steadfast/policy.json` to define:
 
 The line count includes nonblank lines that do not begin with `#`; it is a rough budget signal, not a language-aware complexity metric. The 20,000-line target will be pursued through useful capabilities, adapters, parsers, validators, reporting, and integrations—not duplicated or generated filler.
 
+## Verification pipeline
+
+`.steadfast/pipeline.json` defines verification steps with `id`, `command` (an argument array), optional `depends_on`, `cwd`, `timeout`, `env`, and `continue_on_error`. Dependencies are validated before execution; unknown steps and cycles are rejected. Independent steps run concurrently up to the configured worker count. A step timeout is limited to one hour, captured output is bounded, and manifest-provided environment values are redacted from captured output. Treat manifests as executable configuration: review commands before running a pipeline.
+
 ## Structured evidence
 
-Use the `steadfast.evidence` module for machine-readable verification records. Each record requires a claim, exact command, integer exit code, result, and ISO-8601 verification timestamp. Optional commit, environment, and limitation fields preserve context. The library validates records and writes files atomically. It deliberately does not invent successful outcomes or execute arbitrary commands on the user's behalf.
+Use the `steadfast.evidence` module for machine-readable verification records. Each record requires a claim, exact command, integer exit code, result, and ISO-8601 verification timestamp. Optional commit, environment, and limitation fields preserve context. The library validates records and writes files atomically. It does not invent successful outcomes; command execution is handled separately by the explicit, reviewed verification pipeline.
 
 ## Goal graph
 

@@ -226,9 +226,6 @@ def complete_cycle(repo: Path) -> dict[str, Any]:
     recorded_workspace = verification.get("workspace_sha256")
     if not recorded_workspace:
         raise ValueError("completion blocked: verification has no workspace fingerprint; rerun verification")
-    current_workspace = _workspace_fingerprint(repo)
-    if current_workspace != recorded_workspace:
-        raise ValueError("completion blocked: workspace changed after verification; rerun the configured pipeline and scope check")
     missing = []
     for item in task["acceptance"]:
         proof = item.get("evidence")
@@ -243,6 +240,9 @@ def complete_cycle(repo: Path) -> dict[str, Any]:
             missing.append(item["id"])
     if missing:
         raise ValueError("completion blocked: missing/changed evidence: " + ", ".join(missing))
+    current_workspace = _workspace_fingerprint(repo)
+    if current_workspace != recorded_workspace:
+        raise ValueError("completion blocked: workspace changed after verification; rerun the configured pipeline and scope check")
     task["status"], task["completed_at"] = "completed", now()
     save(repo, state, "task_completed", {"criteria_count": len(task["acceptance"])})
     return task

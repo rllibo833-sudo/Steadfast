@@ -297,6 +297,11 @@ def _evidence_file(repo: Path, relative: str) -> Path:
         raise ValueError("evidence path resolves outside repository") from exc
     if not path.is_file():
         raise ValueError("evidence must be an existing regular file")
+    size = path.stat().st_size
+    if size == 0:
+        raise ValueError("evidence file must not be empty")
+    if size > 16 * 1024 * 1024:
+        raise ValueError("evidence file exceeds 16 MiB verification limit")
     return path
 
 def attach_evidence(repo: Path, criterion_id: str, relative: str, note: str = "") -> dict[str, Any]:

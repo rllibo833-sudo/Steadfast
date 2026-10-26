@@ -1,0 +1,12 @@
+# Project-scoped Codex MCP configuration.
+# Codex loads this file only after the repository is trusted.
+[mcp_servers.steadfast]
+command = "python"
+args = ["-m", "steadfast", "--repo", ".", "mcp-server"]
+cwd = "."
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+default_tools_approval_mode = "auto"
+
+[mcp_servers.steadfast.env]
+PYTHONPATH = "src"

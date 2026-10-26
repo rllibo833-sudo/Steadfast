@@ -23,8 +23,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Confirm package version exists on PyPI
-        env:
-          PACKAGE_VERSION: ${{ fromJson(file('server.json')).packages[0].version }}
         run: |
           python - <<'PY'
           import json, os, urllib.request, time

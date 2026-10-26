@@ -59,4 +59,15 @@ jobs:
         run: mcp-publisher login github-oidc
 
       - name: Publish Steadfast to Official MCP Registry
-        run: mcp-publisher publish server.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_file="$(mktemp)"
+          if mcp-publisher publish server.json 2>&1 | tee "$output_file"; then
+            exit 0
+          fi
+          if grep -Eqi 'cannot publish duplicate version|already exists' "$output_file"; then
+            echo "This exact server version is already in the official MCP Registry; treating publication as idempotent success."
+            exit 0
+          fi
+          exit 1

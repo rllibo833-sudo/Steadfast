@@ -129,8 +129,13 @@ class CliTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 result = main(["--repo", directory, "verify"])
             report = json.loads(output.getvalue())
-            self.assertEqual(result, 0, output.getvalue())
-            self.assertTrue(report["passed"])
+            # A freshly initialized policy-only directory is intentionally not
+            # release-ready: documentation sync requires package entrypoints and
+            # README coverage. The important contract here is that verify reports
+            # that blocker without executing the configured pipeline.
+            self.assertEqual(result, 1, output.getvalue())
+            self.assertFalse(report["passed"])
+            self.assertIn("documentation", report["blocking_components"])
             self.assertEqual(report["check"], "unified-control-plane")
             self.assertIn("audit", report["components"])
             self.assertIn("security", report["components"])

@@ -30,6 +30,7 @@ from .impact import analyze_change_impact
 from .workorders import close_work_order, issue_work_order, list_work_orders, show_work_order, verify_work_order
 from .ecosystem import ecosystem_report
 from .trust import evaluate_component_policy
+from .sitecheck import site_check_report
 
 
 def parser() -> argparse.ArgumentParser:
@@ -60,6 +61,8 @@ def parser() -> argparse.ArgumentParser:
     impact.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git")
     commands.add_parser("code-truth", help="Derive product facts from source code and flag stale documented CLI examples")
     commands.add_parser("security-check", help="Scan source patterns and GitHub workflow trust boundaries")
+    site_check = commands.add_parser("site-check", help="Audit a local static website for search discovery and broken internal links")
+    site_check.add_argument("site", help="Repository-relative static site directory, such as docs/ or site/")
     serve = commands.add_parser("serve", help="Open the local read-only Project Console in a browser")
     serve.add_argument("--host", default="127.0.0.1", help="Loopback host (remote hosts are refused)")
     serve.add_argument("--port", type=int, default=8765, help="Local HTTP port (0 selects an available port)")
@@ -236,6 +239,11 @@ def main(argv: list[str] | None = None) -> int:
             result = ecosystem_report(repo)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 1 if args.strict and result["untrusted_mcp_servers"] else 0
+
+        if args.command == "site-check":
+            result = site_check_report(repo, args.site)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if result["errors"] else 0
 
         if args.command == "discover":
             skill_files = sorted(

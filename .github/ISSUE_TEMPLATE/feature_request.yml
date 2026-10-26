@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose an improvement tied to a developer's real task
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: user
+    attributes:
+      label: Who has this problem?
+      description: Developer, maintainer, team, or other user.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are they trying to do?
+      description: Explain the task and what makes it difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: What tools or manual steps do you use today?
+    validations:
+      required: false
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Smallest useful outcome
+      description: Describe a result someone could try and judge—not just a subsystem or technology.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Example or evidence
+      description: A sample workflow, screenshot, command, or anonymized case is helpful.
+    validations:
+      required: false

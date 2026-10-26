@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible problem affecting a real workflow
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for helping improve Steadfast. Please do not include secrets or private source code."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the task you were trying to complete and the result.
+      placeholder: "I ran ... and observed ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include commands and a minimal example if possible.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Steadfast version and environment
+      placeholder: "version, Python version, OS, agent/client"
+    validations:
+      required: false

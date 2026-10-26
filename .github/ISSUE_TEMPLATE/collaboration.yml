@@ -1,0 +1,42 @@
+name: Collaboration or integration
+description: Suggest a concrete integration, pilot, contribution, or partnership
+title: "[Collaboration]: "
+labels: ["collaboration"]
+body:
+  - type: markdown
+    attributes:
+      value: "Use this to propose a practical collaboration. Do not post private contact details, credentials, or confidential business information."
+  - type: dropdown
+    id: type
+    attributes:
+      label: Collaboration type
+      options:
+        - Try Steadfast in a real workflow
+        - Developer or maintainer contribution
+        - Agent or tool integration
+        - Team or community pilot
+        - Research or product partnership
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What problem or audience would this serve?
+      description: Describe the people and workflow involved.
+    validations:
+      required: true
+  - type: textarea
+    id: contribution
+    attributes:
+      label: What could each side contribute?
+      description: Keep it concrete; an initial small experiment is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: first_step
+    attributes:
+      label: Suggested first step
+      description: For example, test one workflow, build a small adapter, or review a demo.
+    validations:
+      required: true

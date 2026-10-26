@@ -27,7 +27,7 @@ from .code_truth import code_truth_report
 from .session_ledger import session_report, verify_session_ledger
 from .evidence_bundle import build_evidence_bundle, verify_evidence_bundle
 from .impact import analyze_change_impact
-from .workorders import close_work_order, issue_work_order, list_work_orders, show_work_order, verify_work_order
+from .workorders import close_work_order, issue_work_order, list_work_orders, render_work_order_prompt, show_work_order, verify_work_order
 from .ecosystem import ecosystem_report
 from .trust import evaluate_component_policy
 from .sitecheck import site_check_report
@@ -125,6 +125,8 @@ def parser() -> argparse.ArgumentParser:
     work_order_list.add_argument("--limit", type=int, default=100)
     work_order_show = work_order_sub.add_parser("show", help="Show a work order contract")
     work_order_show.add_argument("order_id")
+    work_order_prompt = work_order_sub.add_parser("prompt", help="Render a copy-ready agent instruction from a work order")
+    work_order_prompt.add_argument("order_id")
     work_order_verify = work_order_sub.add_parser("verify", help="Run pipeline and validate scope against the issued contract")
     work_order_verify.add_argument("order_id")
     work_order_close = work_order_sub.add_parser("close", help="Close a work order after passing verification")
@@ -416,6 +418,9 @@ def main(argv: list[str] | None = None) -> int:
                 result = list_work_orders(repo, args.limit)
             elif args.work_order_action == "show":
                 result = show_work_order(repo, args.order_id)
+            elif args.work_order_action == "prompt":
+                print(render_work_order_prompt(repo, args.order_id))
+                return 0
             elif args.work_order_action == "verify":
                 result = verify_work_order(repo, args.order_id)
             else:

@@ -7,6 +7,7 @@ from .checks import evidence_findings, product_code_lines
 from .contracts import contract_findings, validate_policy_file
 from .policy import load_policy
 from .security import security_findings, workflow_findings
+from .docsync import docs_sync_report
 
 
 def release_findings(repo: Path, report: dict[str, Any] | None = None) -> list[dict[str, str]]:
@@ -24,6 +25,14 @@ def release_findings(repo: Path, report: dict[str, Any] | None = None) -> list[d
         item for item in security_findings(repo, policy) + workflow_findings(repo)
         if item.get("severity") == "error"
     )
+    # For initialized Python packages, broken CLI/module entrypoints block release.
+    # Policy-only repositories without packaging metadata remain supported.
+    if (repo / "pyproject.toml").is_file():
+        docs = docs_sync_report(repo)
+        findings.extend(
+            item for item in docs.get("findings", [])
+            if item.get("severity") == "error"
+        )
     lines, files = product_code_lines(repo, policy)
     budget = policy.get("product_code_budget", 20000)
     if lines > budget:

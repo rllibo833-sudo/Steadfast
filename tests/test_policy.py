@@ -1,8 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+
+from steadfast.checks import (
+    documentation_findings, evidence_findings, product_code_lines, scope_findings,
+)
 from steadfast.policy import init_policy, load_policy
-from steadfast.checks import scope_findings, product_code_lines
+
 
 class PolicyTests(unittest.TestCase):
     def setUp(self):
@@ -22,15 +26,39 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(path.read_text(), "custom goal")
 
     def test_outside_scope_is_error(self):
-        findings = scope_findings(self.repo, self.policy, ["src/app.py", "random/new_feature.py"])
+        findings = scope_findings(
+            self.repo, self.policy, ["src/app.py", "random/new_feature.py"]
+        )
         self.assertEqual([f["path"] for f in findings], ["random/new_feature.py"])
 
-    def test_budget_counts_implementation_lines(self):
+    def test_parent_traversal_is_rejected_even_if_allowlisted(self):
+        self.policy["allowed_paths"].append("../outside.py")
+        findings = scope_findings(self.repo, self.policy, ["../outside.py"])
+        self.assertEqual(findings[0]["code"], "INVALID_REPOSITORY_PATH")
+
+    def test_budget_counts_nonblank_noncomment_implementation_lines(self):
         src = self.repo / "src"
         src.mkdir()
         (src / "app.py").write_text("x = 1\n\n# comment\ny = 2\n", encoding="utf-8")
-        total, _ = product_code_lines(self.repo, self.policy)
+        total, files = product_code_lines(self.repo, self.policy)
         self.assertEqual(total, 2)
+        self.assertEqual(files, ["src/app.py"])
+
+    def test_docs_drift_warning_only_when_implementation_changes_alone(self):
+        self.assertEqual(
+            documentation_findings(self.policy, ["src/app.py"])[0]["code"],
+            "DOCS_NOT_CHANGED",
+        )
+        self.assertEqual(
+            documentation_findings(self.policy, ["src/app.py", "README.md"]), []
+        )
+
+    def test_missing_evidence_is_reported(self):
+        findings = evidence_findings(
+            self.repo, {"required_evidence": ["evidence/missing.md"]}
+        )
+        self.assertEqual(findings[0]["code"], "EVIDENCE_MISSING")
+
 
 if __name__ == "__main__":
     unittest.main()

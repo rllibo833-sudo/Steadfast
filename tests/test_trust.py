@@ -57,5 +57,24 @@ class ComponentPolicyTests(unittest.TestCase):
         self.assertEqual(tool["inputSchema"]["required"], ["kind", "name"])
         self.assertEqual(_tool_args("steadfast_trust_check", {"kind": "plugin", "name": "format", "permissions": ["repo:read"]}), ["trust-check", "--kind", "plugin", "--name", "format", "--permission", "repo:read"])
 
+
+    def test_rejects_malformed_policy_collection_shapes(self):
+        for trust in (
+            {"blocked_components": "plugin:bad"},
+            {"trusted_components": {"kind": "plugin", "name": "bad", "permissions": []}},
+            {"trusted_components": [{"kind": "plugin", "name": "bad", "permissions": "repo:read"}]},
+            {"trusted_components": [{"kind": "plugin", "name": "bad", "permissions": []}, {"kind": "plugin", "name": "bad", "permissions": []}]},
+            {"trusted_components": [None]},
+        ):
+            with self.subTest(trust=trust):
+                root = self.make_repo({"version": 1, "ecosystem_trust": trust})
+                with self.assertRaises(ValueError):
+                    evaluate_component_policy(root, "plugin", "bad")
+
+    def test_rejects_duplicate_requested_permissions(self):
+        root = self.make_repo({"version": 1, "ecosystem_trust": {}})
+        with self.assertRaises(ValueError):
+            evaluate_component_policy(root, "plugin", "bad", ["repo:read", "repo:read"])
+
 if __name__ == "__main__":
     unittest.main()

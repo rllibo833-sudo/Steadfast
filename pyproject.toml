@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "steadfast-governance"
-version = "0.4.0"
+version = "0.4.1"
 description = "Local-first repository governance CLI for coding-agent scope, evidence, security signals, and release checks."
 readme = "README.md"
 requires-python = ">=3.10"

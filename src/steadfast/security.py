@@ -115,7 +115,7 @@ def workflow_findings(repo: Path) -> list[dict[str, str]]:
                 "message": "Workflow grants contents: write; verify that write permission is essential.",
             })
         for line_number, line in enumerate(text.splitlines(), start=1):
-            if re.search(r"(?m)^\s*run:\s*.*\$\{\{\s*github\.event\.(?:issue|pull_request|comment|review|review_comment)\.", line):
+            if re.search(r"(?m)^\s*(?:-\s*)?run:\s*.*\$\{\{\s*github\.event\.(?:issue|pull_request|comment|review|review_comment)\.", line):
                 findings.append({
                     "severity": "error", "code": "UNTRUSTED_EVENT_SHELL_INTERPOLATION",
                     "path": rel,

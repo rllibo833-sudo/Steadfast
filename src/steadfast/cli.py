@@ -5,8 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+from .baseline import compare_baseline, write_baseline
 from .checks import run_audit, scope_findings, evidence_findings
+from .docsync import docs_sync_report
 from .gitops import changed_paths
+from .goals import goal_report
 from .inventory import inventory_report
 from .policy import init_policy, load_policy
 from .release import release_report
@@ -32,7 +35,12 @@ def parser() -> argparse.ArgumentParser:
     report.add_argument("--format", choices=("markdown", "json", "sarif"), default="markdown")
     commands.add_parser("inventory", help="Inventory repository files and implementation budget")
     commands.add_parser("release-check", help="Evaluate release prerequisites without publishing")
-
+    commands.add_parser("goal-check", help="Validate goal files and dependency graph")
+    commands.add_parser("docs-check", help="Check CLI/documentation and package entrypoint alignment")
+    baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
+    baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
+    baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")
+    baseline_update.add_argument("--base", help="Compare changes against BASE...HEAD")
     return root
 
 
@@ -42,6 +50,10 @@ def _print_findings(findings: list[dict[str, str]]) -> None:
             f"{finding['severity'].upper()} {finding['code']}: "
             f"{finding['path']} — {finding['message']}"
         )
+
+
+def _has_errors(findings: list[dict[str, str]]) -> bool:
+    return any(item.get("severity") == "error" for item in findings)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,17 +73,16 @@ def main(argv: list[str] | None = None) -> int:
             paths = args.changed if args.changed is not None else changed_paths(repo)
             findings = scope_findings(repo, policy, paths)
             _print_findings(findings)
-            print(f"Scope check: {'PASS' if not findings else 'FAIL'} ({len(paths)} paths)")
-            return 0 if not findings else 1
+            print(f"Scope check: {'FAIL' if findings else 'PASS'} ({len(paths)} paths)")
+            return 1 if _has_errors(findings) else 0
 
         if args.command == "evidence-check":
             if args.evidence:
                 policy["required_evidence"] = [args.evidence]
             findings = evidence_findings(repo, policy)
             _print_findings(findings)
-            failed = any(item["severity"] == "error" for item in findings)
-            print(f"Evidence check: {'FAIL' if failed else 'PASS'}")
-            return 1 if failed else 0
+            print(f"Evidence check: {'FAIL' if _has_errors(findings) else 'PASS'}")
+            return 1 if _has_errors(findings) else 0
 
         if args.command == "inventory":
             print(json.dumps(inventory_report(repo), indent=2, ensure_ascii=False))
@@ -81,6 +92,26 @@ def main(argv: list[str] | None = None) -> int:
             result = release_report(repo)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["ready"] else 1
+
+        if args.command == "goal-check":
+            result = goal_report(repo, policy)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if _has_errors(result["findings"]) else 0
+
+        if args.command == "docs-check":
+            result = docs_sync_report(repo)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if _has_errors(result["findings"]) else 0
+
+        if args.command == "baseline-update":
+            destination = write_baseline(repo, getattr(args, "base", None))
+            print(f"Baseline written: {destination.relative_to(repo).as_posix()}")
+            return 0
+
+        if args.command == "baseline-check":
+            result = compare_baseline(repo, getattr(args, "base", None))
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result.get("ready", False) else 1
 
         report = run_audit(repo, getattr(args, "base", None))
         if args.command == "report":

@@ -24,7 +24,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "steadfast_trust_check",
         "description": "Evaluate owner-approved permissions for a skill, plugin, or MCP server. This reports policy only and never executes the component.",
-        "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["skill", "plugin", "mcp"]}, "name": {"type": "string", "minLength": 1}, "permissions": {"type": "array", "items": {"type": "string", "minLength": 1}}, "required": ["kind", "name"], "additionalProperties": False},
+        "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["skill", "plugin", "mcp"]}, "name": {"type": "string", "minLength": 1}, "permissions": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "required": ["kind", "name"], "additionalProperties": False},
     },
     {
         "name": "steadfast_report",

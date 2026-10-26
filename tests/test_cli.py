@@ -47,6 +47,25 @@ class CliTests(unittest.TestCase):
             self.assertFalse(report["cost_policy"]["paid_runner_required"])
             self.assertEqual(report["supported_integrations"], ["claude", "cursor", "codex"])
 
+    def test_onboard_sets_up_foundation_and_preserves_existing_agent_instructions(self):
+        import contextlib
+        import io
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text("maintainer-owned instructions\\n", encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "onboard", "--agent", "codex"]), 0)
+            result = json.loads(output.getvalue())
+            self.assertEqual(result["status"], "ready")
+            self.assertTrue((root / ".steadfast" / "policy.json").is_file())
+            self.assertTrue((root / ".agents" / "skills" / "steadfast-governance" / "SKILL.md").is_file())
+            self.assertEqual((root / "AGENTS.md").read_text(encoding="utf-8"), "maintainer-owned instructions\\n")
+            self.assertIn("AGENTS.md", result["preserved_existing_files"])
+            self.assertFalse(result["external_registration_required"])
+
     def test_python_module_entrypoint_exists(self):
         self.assertTrue(
             (Path(__file__).parents[1] / "src" / "steadfast" / "__main__.py").is_file()

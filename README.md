@@ -182,3 +182,8 @@ steadfast serve
 \`\`\`
 
 The Project Console includes an Automation Studio panel with one-click execution and recent-run history. Runs are recorded in \`.steadfast/automation-runs.jsonl\`. Workflows can be customized in \`.steadfast/automations.json\`, but each step must reference a registered built-in action. Workflow files cannot inject shell commands, Python imports, arbitrary URLs, or dynamic expressions. These are project-operations automations, not a general desktop/RPA agent; they do not click arbitrary third-party apps or generate images/videos.
+
+
+### Run automations from GitHub on a phone
+
+The manual GitHub Actions workflow is named **Steadfast Automation Studio**. From the repository's Actions tab, choose that workflow, tap **Run workflow**, select \`quick-health\`, \`release-review\`, or \`work-queue\`, and start it. The run summary shows the outcome; a JSON artifact contains per-step results and run history. This uses the repository's existing GitHub account and a GitHub-hosted runner; no Termux installation, model API key, or extra third-party account is required. GitHub Actions availability and repository permissions still apply.

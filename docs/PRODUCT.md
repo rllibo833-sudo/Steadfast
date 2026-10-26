@@ -61,3 +61,8 @@ The Project Console supports work-cycle actions for starting a goal, attaching e
 The console now exposes a one-click workflow runner for repeatable local project operations. Three built-in workflows compose fixed internal actions for quick health, release review, and next-work planning. A JSON manifest may select registered action IDs, but it cannot define shell commands or import arbitrary code. Each run stores per-step outcomes and timestamps in \`.steadfast/automation-runs.jsonl\`. No hosted service, account, or model key is required for these built-in workflows.
 
 This automation scope is intentionally bounded to repository/project operations. It is not yet a general-purpose digital automation system and does not include image/video generation or arbitrary desktop control.
+
+
+## Phone-accessible execution
+
+The \`.github/workflows/steadfast-automation.yml\` workflow allows a maintainer to start one of the built-in workflows from GitHub's Actions interface, including the mobile website/app. It uses read-only repository permissions, validates the selected workflow against a fixed list, publishes a run summary, and uploads a short-lived JSON artifact. This avoids requiring the user to install Python or run Termux, but it is still a GitHub Actions workflow rather than a standalone hosted SaaS app.

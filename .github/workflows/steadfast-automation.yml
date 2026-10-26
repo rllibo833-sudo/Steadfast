@@ -1,0 +1,109 @@
+name: Steadfast Automation Studio
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: "Choose a built-in local automation"
+        required: true
+        type: choice
+        options:
+          - quick-health
+          - release-review
+          - work-queue
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steadfast-automation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-automation:
+    name: Run ${{ inputs.workflow }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Steadfast
+        run: python -m pip install --disable-pip-version-check -e .
+      - name: Run selected workflow
+        id: run
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$WORKFLOW_ID" in
+            quick-health|release-review|work-queue) ;;
+            *) echo "Unsupported workflow selection" >&2; exit 2 ;;
+          esac
+          mkdir -p .steadfast
+          set +e
+          steadfast automations run "$WORKFLOW_ID" > .steadfast/automation-output.json
+          result=$?
+          set -e
+          echo "exit_code=$result" >> "$GITHUB_OUTPUT"
+          echo "Selected workflow: $WORKFLOW_ID"
+          echo "Automation exit code: $result"
+          exit 0
+      - name: Summarize result
+        if: always()
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow }}
+          AUTOMATION_EXIT_CODE: ${{ steps.run.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(".steadfast/automation-output.json")
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          if not path.exists():
+              summary.write_text("# Steadfast Automation\n\nNo result file was produced.\n", encoding="utf-8")
+              raise SystemExit(0)
+          data = json.loads(path.read_text(encoding="utf-8"))
+          lines = [
+              "# Steadfast Automation Result",
+              "",
+              "- Workflow: " + str(data.get("workflow_name", os.environ.get("WORKFLOW_ID", "unknown"))),
+              "- Status: **" + str(data.get("status", "unknown")) + "**",
+              "- Run ID: " + str(data.get("run_id", "unknown")),
+              "- Steps completed: " + str(data.get("step_count", 0)),
+              "- Process exit code: " + str(os.environ.get("AUTOMATION_EXIT_CODE", "unknown")),
+              "",
+              "## Step details",
+              "",
+              "| Step | Status | Description |",
+              "|---|---|---|",
+          ]
+          for item in data.get("steps", []):
+              description = str(item.get("description", "")).replace("|", "\\|").replace("\n", " ")
+              lines.append("| " + str(item.get("action", "")) + " | " + str(item.get("status", "unknown")) + " | " + description + " |")
+          summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+      - name: Upload automation result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadfast-automation-${{ inputs.workflow }}-${{ github.run_id }}
+          path: |
+            .steadfast/automation-output.json
+            .steadfast/automation-runs.jsonl
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce workflow result
+        if: always()
+        env:
+          AUTOMATION_EXIT_CODE: ${{ steps.run.outputs.exit_code }}
+        run: |
+          if [ "${AUTOMATION_EXIT_CODE:-2}" != "0" ]; then
+            echo "Automation did not pass; inspect the summary and uploaded artifact."
+            exit 1
+          fi

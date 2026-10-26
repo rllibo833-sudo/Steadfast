@@ -85,6 +85,8 @@ class AgentGuardTests(unittest.TestCase):
             generated = integration_files(agent)
             self.assertTrue(generated)
             self.assertTrue(all(content.strip() for content in generated.values()))
+        claude = json.loads(integration_files("claude")[".claude/settings.local.json"])
+        self.assertIn("Stop", claude["hooks"])
 
     def test_integration_status_tracks_missing_files(self) -> None:
         status = integration_status(self.repo)

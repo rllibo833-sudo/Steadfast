@@ -128,3 +128,8 @@ The cycle stores the current task in `.steadfast/work-cycle.json` and appends ev
 ### Work cycle in the Project Console
 
 The local Project Console now displays the current work-cycle task, acceptance-evidence coverage, latest verification result, changed paths and recent events. Agent hook responses also include the current cycle status so connected coding agents can keep task context visible while the existing path and destructive-command policy remains in force. The console remains read-only; task changes are made through the `steadfast cycle` CLI.
+
+
+### Agent completion gate
+
+Claude Code integration also installs a `Stop` hook. When an active Steadfast cycle exists, the hook blocks the agent's completion event until the cycle is marked completed by passing the configured pipeline/scope checks and attaching unchanged evidence files for every acceptance criterion. Repositories without an active cycle retain the existing hook behavior. This gate only enforces the cycle state; it cannot independently judge whether evidence is semantically convincing.

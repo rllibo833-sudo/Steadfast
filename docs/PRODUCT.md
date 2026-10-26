@@ -34,3 +34,8 @@ The cycle binds goal checklist items to repository-local evidence and observed p
 ### Console and agent integration
 
 The Project Console surfaces the work-cycle state and recent journal events alongside audit, security, evidence and release signals. Agent hook responses carry a compact task context (task ID, goal ID and status), and generated skill instructions direct agents to inspect the cycle, attach per-criterion evidence, and run the configured verification gate before completion claims. The hook context is advisory; path and destructive-command findings remain the enforced decisions, and the local console does not mutate repository state.
+
+
+### Agent completion gate
+
+The Claude Code integration wires a `Stop` hook into the same policy evaluator used for tool events. If a task cycle exists and has not reached `completed`, the completion event is blocked with an actionable reason. A cycle reaches completion only after configured verification and evidence-integrity checks pass. No active cycle means no new completion restriction, preserving use in repositories that have not adopted goal checklists. Hook protocol behavior should still be checked against the installed agent version.

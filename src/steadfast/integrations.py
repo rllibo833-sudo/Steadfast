@@ -165,8 +165,11 @@ def integration_files(agent: str) -> dict[str, str]:
         raise ValueError(f"Unknown agent {agent!r}; choose one of: {', '.join(SUPPORTED_AGENTS)}")
     skill = _skill_text({"claude": "Claude Code", "cursor": "Cursor", "codex": "Codex"}[agent])
     if agent == "claude":
-        config = {"hooks": {"PreToolUse": [{"matcher": "Write|Edit|MultiEdit|Bash",
-            "hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}]}}
+        config = {"hooks": {
+            "PreToolUse": [{"matcher": "Write|Edit|MultiEdit|Bash",
+                "hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}],
+            "Stop": [{"hooks": [{"type": "command", "command": "steadfast agent-hook", "timeout": 5}]}]
+        }}
         return {".claude/settings.local.json": json.dumps(config, indent=2) + "\n",
                 ".claude/skills/steadfast-governance/SKILL.md": skill}
     if agent == "cursor":

@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from steadfast.pipeline import PipelineError, load_pipeline, run_pipeline
@@ -81,6 +82,19 @@ class PipelineManifestTests(unittest.TestCase):
             self.assertEqual(result["steps"][0]["status"], "timed_out")
             self.assertFalse(result["passed"])
 
+    def test_unlisted_host_secrets_are_not_inherited(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_manifest(root, {
+                "version": 1,
+                "steps": [{"id": "secret", "command": [
+                    sys.executable, "-c",
+                    'import os; print(os.getenv("STEADFAST_HOST_SECRET", "absent"))'
+                ]}],
+            })
+            with mock.patch.dict("os.environ", {"STEADFAST_HOST_SECRET": "host-secret-value"}):
+                result = run_pipeline(root)
+            self.assertEqual(result["steps"][0]["stdout"].strip(), "absent")
     def test_env_values_are_redacted_from_captured_output(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

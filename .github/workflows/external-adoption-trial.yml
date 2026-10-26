@@ -1,0 +1,89 @@
+name: External repository adoption trial
+
+on:
+  push:
+    paths:
+      - ".github/workflows/external-adoption-trial.yml"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Public GitHub repository to inspect
+        required: true
+        default: golles/ha-kamstrup_403
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  audit-public-repository:
+    name: Run Steadfast against a real external repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out Steadfast
+        uses: actions/checkout@v4
+        with:
+          path: steadfast-source
+
+      - name: Check out target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.repository || 'golles/ha-kamstrup_403' }}
+          path: target-repository
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install published Steadfast package
+        run: python -m pip install --disable-pip-version-check --upgrade steadfast-governance
+
+      - name: Run verification and report
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          steadfast --repo target-repository verify > steadfast-verify.json 2> steadfast-verify.stderr
+          verify_code=$?
+          steadfast --repo target-repository report --format markdown > steadfast-report.md 2> steadfast-report.stderr
+          report_code=$?
+          set -e
+          echo "verify_exit_code=$verify_code" >> "$GITHUB_OUTPUT"
+          echo "report_exit_code=$report_code" >> "$GITHUB_OUTPUT"
+          echo "Repository: ${{ github.event.inputs.repository || 'golles/ha-kamstrup_403' }}" > audit-summary.txt
+          echo "Steadfast verify exit code: $verify_code" >> audit-summary.txt
+          echo "Steadfast report exit code: $report_code" >> audit-summary.txt
+          echo "Commit inspected: $(git -C target-repository rev-parse HEAD)" >> audit-summary.txt
+          cat audit-summary.txt
+          if [ ! -s steadfast-verify.json ]; then
+            echo "Steadfast verify produced no JSON output" >&2
+            exit 2
+          fi
+          if [ ! -s steadfast-report.md ]; then
+            echo "Steadfast report produced no Markdown output" >&2
+            exit 2
+          fi
+          python -m json.tool steadfast-verify.json > /dev/null
+          # Exit code 1 can represent policy findings; preserve the evidence rather than
+          # misclassifying a findings-bearing audit as a broken CLI.
+          if [ "$verify_code" -gt 1 ] || [ "$report_code" -gt 1 ]; then
+            exit 2
+          fi
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadfast-external-audit
+          path: |
+            audit-summary.txt
+            steadfast-verify.json
+            steadfast-verify.stderr
+            steadfast-report.md
+            steadfast-report.stderr
+          if-no-files-found: warn
+          retention-days: 30

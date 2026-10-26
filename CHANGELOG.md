@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added a copy-ready consumer GitHub Actions workflow and an adoption guide focused on real-repository evaluation and actionable feedback.
 - Aligned initialized default policy with the repository policy, including agent path rules, protected paths, and documentation paths.
 - Hardened policy loading against non-object JSON roots, non-string allowlist entries, and boolean code budgets.
 - Added regression tests for policy parity and malformed configuration.

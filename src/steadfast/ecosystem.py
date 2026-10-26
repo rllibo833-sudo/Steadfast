@@ -189,9 +189,14 @@ def ecosystem_report(repo: Path) -> dict[str, Any]:
     if policy_error:
         errors.append({"path": ".steadfast/policy.json", "error": policy_error})
     status = "attention_required" if errors or any(s["status"] == "blocked" for s in servers) else "review_required" if untrusted else "indexed"
+    trusted_components = trust.get("trusted_components", []) if isinstance(trust.get("trusted_components", []), list) else []
+    blocked_components = trust.get("blocked_components", []) if isinstance(trust.get("blocked_components", []), list) else []
     return {"schema_version": 1, "repository_root": str(root), "status": status,
             "integrations": integration_status(root), "skills": _skill_inventory(root), "mcp_servers": servers,
             "installed_extensions": extension_inventory(),
+            "component_policy": {"trusted_components": trusted_components, "blocked_components": blocked_components,
+                                 "policy_source": ".steadfast/policy.json#ecosystem_trust",
+                                 "execution_enforcement": "not_implemented"},
             "untrusted_mcp_servers": untrusted, "duplicate_mcp_server_names": duplicates, "configuration_errors": errors,
             "trust_policy": {"require_trust": require_trust, "trusted_mcp_servers": sorted(trusted),
                              "blocked_mcp_servers": sorted(blocked), "source": ".steadfast/policy.json#ecosystem_trust"},

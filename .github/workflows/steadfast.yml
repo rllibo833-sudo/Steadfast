@@ -33,6 +33,7 @@ jobs:
           steadfast inventory
           steadfast goal-check
           steadfast docs-check
+          steadfast code-truth
           steadfast security-check
           steadfast report --format json
           steadfast report --format sarif

@@ -6,7 +6,7 @@ from typing import Any
 
 from .contracts import contract_findings
 from .gitops import changed_paths, is_repo
-from .policy import load_policy
+from .policy import load_policy\nfrom .security import security_findings, workflow_findings
 
 
 def matches(path: str, patterns: list[str]) -> bool:
@@ -114,7 +114,7 @@ def run_audit(repo: Path, base: str | None = None) -> dict[str, Any]:
         scope_findings(repo, policy, paths)
         + evidence_findings(repo, policy)
         + documentation_findings(policy, paths)
-        + contract_findings(repo, policy)
+        + contract_findings(repo, policy)\n        + security_findings(repo, policy)\n        + workflow_findings(repo)
     )
     budget = policy["product_code_budget"]
     if count > budget:

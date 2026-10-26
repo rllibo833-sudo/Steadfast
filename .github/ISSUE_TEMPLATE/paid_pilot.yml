@@ -1,0 +1,62 @@
+name: Paid pilot or adoption request
+description: Propose a bounded Steadfast evaluation, implementation, or support engagement
+title: "[Pilot]: "
+labels: ["collaboration"]
+body:
+  - type: markdown
+    attributes:
+      value: "Use this form to discuss scope only. Do not post private contact details, credentials, customer source code, or confidential commercial terms in a public issue. A submission is not a contract or a promise of availability."
+  - type: dropdown
+    id: engagement
+    attributes:
+      label: Engagement type
+      options:
+        - Community evaluation (no paid commitment)
+        - Paid repository-governance pilot
+        - Agent or CI integration
+        - Maintainer support
+        - Sponsored capability
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Team and workflow
+      description: Describe the kind of team and coding-agent workflow, without identifying confidential customers.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What recurring failure, review burden, or risk should Steadfast help address?
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Observable success criteria
+      description: What specific result would make this pilot useful? Avoid promises such as zero vulnerabilities.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope and constraints
+      description: One repository, relevant integrations, allowed paths, timing, and data-handling constraints. Do not paste private code or secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: contribution
+    attributes:
+      label: What each side can contribute
+      description: For example, test time, review, integration work, sponsorship, or a bounded implementation.
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Expectations
+      options:
+        - label: I understand this public issue is a discussion, not a contract, confirmed partnership, or guarantee that paid work is available.
+          required: true

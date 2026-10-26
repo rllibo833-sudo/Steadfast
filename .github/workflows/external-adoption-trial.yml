@@ -42,6 +42,9 @@ jobs:
       - name: Install published Steadfast package
         run: python -m pip install --disable-pip-version-check --upgrade steadfast-governance
 
+      - name: Initialize temporary policy for an unconfigured target
+        run: steadfast --repo target-repository init
+
       - name: Run verification and report
         id: audit
         shell: bash

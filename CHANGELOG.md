@@ -8,6 +8,7 @@
 - Hardened agent command guards to detect destructive commands chained with shell operators, with regression coverage for dangerous and harmless chains.
 - Extended the guard to inspect nested shell launchers such as `bash -c`, `sh -c`, and `env`, while preserving harmless quoted text.
 - Protected all `.steadfast/` policy, work-cycle, work-order, and evidence-ledger files from direct agent file-write tools to prevent easy governance-state tampering; runtime APIs remain responsible for legitimate state transitions.
+- Expanded recursive forced-deletion detection to cover split (`rm -r -f`), reordered (`rm -f -r`), combined (`rm -fr`), and long-form flags.
 - GitHub Actions status must be verified from a real workflow run; pushed commits are not themselves proof of CI success.
 
 ## 0.1.0 — initial scaffold

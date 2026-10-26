@@ -260,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
                     "skills": ecosystem["skills"],
                     "skill_entry_points": ecosystem["installed_extensions"]["skills"],
                     "plugins": ecosystem["installed_extensions"]["plugins"],
+                    "component_policy": ecosystem["component_policy"],
                     "mcp_status": {
                         "repository_servers": ecosystem["mcp_servers"],
                         "installed_server_entry_points": ecosystem["installed_extensions"]["mcp_servers"],

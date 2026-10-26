@@ -61,6 +61,8 @@ def parser() -> argparse.ArgumentParser:
     integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
     commands.add_parser("integration-status", help="Show installed coding-agent integrations")
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
+    onboard = commands.add_parser("onboard", help="Set up Steadfast policy and selected coding-agent integrations in one command")
+    onboard.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
     automations = commands.add_parser("automations", help="List and run local, allowlisted automation workflows")
     automation_sub = automations.add_subparsers(dest="automation_action", required=True)
     automation_sub.add_parser("list", help="List available workflows and built-in actions")
@@ -163,6 +165,22 @@ def main(argv: list[str] | None = None) -> int:
             result = [install_integration(repo, agent, overwrite=args.overwrite) for agent in agents]
             print(json.dumps({"integrations": result}, indent=2, ensure_ascii=False))
             return 0
+        if args.command == "onboard":
+            created = init_policy(repo)
+            agents = ("claude", "cursor", "codex") if args.agent == "all" else (args.agent,)
+            integrations = [install_integration(repo, agent, overwrite=False) for agent in agents]
+            result = {
+                "status": "ready",
+                "created_foundation_files": [Path(path).as_posix() for path in created],
+                "integrations": integrations,
+                "preserved_existing_files": sorted(path for item in integrations for path in item["preserved"]),
+                "next_command": "steadfast --repo . discover",
+                "external_registration_required": False,
+                "note": "This prepares repository-local guidance and hooks; it does not grant GitHub permissions or register third-party accounts.",
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
+
 
         if args.command == "automations":
             if args.automation_action == "list": result = list_automations(repo)

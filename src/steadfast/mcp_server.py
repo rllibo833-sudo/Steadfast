@@ -7,8 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any, TextIO
 
+from . import __version__
+
 PROTOCOL_VERSION = "2024-11-05"
-SERVER_INFO = {"name": "steadfast", "version": "0.2.0"}
+SERVER_INFO = {"name": "steadfast", "version": __version__}
 
 TOOLS: list[dict[str, Any]] = [
     {

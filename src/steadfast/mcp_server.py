@@ -81,6 +81,41 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "steadfast_work_order_issue",
+        "description": "Issue a bounded work contract for a configured, dependency-ready goal. This writes a work-order record but does not execute an agent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "goal_id": {"type": "string", "minLength": 1},
+                "owner": {"type": "string", "maxLength": 120},
+                "ttl_minutes": {"type": "integer", "minimum": 5, "maximum": 10080},
+                "scope_paths": {"type": "array", "items": {"type": "string", "minLength": 1}}
+            },
+            "required": ["goal_id"],
+            "additionalProperties": False
+        }
+    },
+    {
+        "name": "steadfast_work_order_verify",
+        "description": "Verify a work order's scope and integrity and run the repository's configured validation pipeline. May execute commands from the validated pipeline manifest.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"order_id": {"type": "string", "minLength": 12, "maxLength": 12}},
+            "required": ["order_id"],
+            "additionalProperties": False
+        }
+    },
+    {
+        "name": "steadfast_work_order_close",
+        "description": "Close a work order only after successful verification.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"order_id": {"type": "string", "minLength": 12, "maxLength": 12}},
+            "required": ["order_id"],
+            "additionalProperties": False
+        }
+    },
+    {
         "name": "steadfast_inventory",
         "description": "Return a repository inventory and implementation-budget summary.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -168,6 +203,36 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if not isinstance(order_id, str) or len(order_id) != 12 or any(c not in "0123456789abcdef" for c in order_id):
             raise ValueError("order_id must be 12 lowercase hexadecimal characters")
         return ["work-order", "show", order_id]
+    if name == "steadfast_work_order_issue":
+        unknown = set(arguments) - {"goal_id", "owner", "ttl_minutes", "scope_paths"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        goal_id = arguments.get("goal_id")
+        owner = arguments.get("owner", "")
+        ttl = arguments.get("ttl_minutes", 240)
+        scope = arguments.get("scope_paths")
+        if not isinstance(goal_id, str) or not goal_id.strip():
+            raise ValueError("goal_id must be a non-empty string")
+        if not isinstance(owner, str) or len(owner) > 120:
+            raise ValueError("owner must be text of at most 120 characters")
+        if isinstance(ttl, bool) or not isinstance(ttl, int) or not 5 <= ttl <= 10080:
+            raise ValueError("ttl_minutes must be an integer from 5 to 10080")
+        if scope is not None and (not isinstance(scope, list) or any(not isinstance(p, str) or not p.strip() for p in scope)):
+            raise ValueError("scope_paths must be an array of non-empty strings")
+        result = ["work-order", "issue", goal_id, "--owner", owner, "--ttl-minutes", str(ttl)]
+        if scope is not None:
+            result.append("--scope")
+            result.extend(scope)
+        return result
+    if name in {"steadfast_work_order_verify", "steadfast_work_order_close"}:
+        unknown = set(arguments) - {"order_id"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        order_id = arguments.get("order_id")
+        if not isinstance(order_id, str) or len(order_id) != 12 or any(c not in "0123456789abcdef" for c in order_id):
+            raise ValueError("order_id must be 12 lowercase hexadecimal characters")
+        action = "verify" if name.endswith("_verify") else "close"
+        return ["work-order", action, order_id]
     if name == "steadfast_inventory":
         if arguments:
             raise ValueError("steadfast_inventory accepts no arguments")
@@ -200,9 +265,9 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": SERVER_INFO,
                 "instructions": (
-                    "Steadfast provides read-only repository governance, ecosystem inventory, and work-order inspection tools. "
-                    "The ecosystem inventory never executes configured MCP server commands and applies owner-controlled trust labels only. "
-                    "Tools never run arbitrary shell commands or edit application source files. Treat heuristic impact results as advisory."
+                    "Steadfast provides repository governance tools and an explicit scoped work-order lifecycle. "
+                    "Issuing and closing work orders update only Steadfast control records. The work-order verify tool runs the configured validated pipeline, which may execute commands from the repository's pipeline manifest. "
+                    "The ecosystem inventory never executes configured MCP server commands. Tools do not edit application source files. Treat heuristic impact results as advisory."
                 ),
             },
         }

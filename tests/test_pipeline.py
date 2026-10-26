@@ -46,7 +46,7 @@ class PipelineManifestTests(unittest.TestCase):
                 "version": 1,
                 "steps": [{"id": "bad", "command": ["python", "-V"], "cwd": "../outside"}],
             })
-            with self.assertRaisesRegex(PipelineError, "cwd resolves outside"):
+            with self.assertRaisesRegex(PipelineError, "repository-relative"):
                 run_pipeline(root)
 
     def test_executes_steps_and_skips_failed_dependencies(self):

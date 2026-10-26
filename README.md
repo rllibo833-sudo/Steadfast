@@ -16,7 +16,8 @@ steadfast docs-check
 steadfast inventory
 steadfast goal-check
 steadfast release-check
-steadfast pipeline
+steadfast pipeline --record .steadfast/runs.jsonl
+steadfast pipeline-history --limit 20
 ```
 
 The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
@@ -29,7 +30,8 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 - `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This is a presence check, not proof that a claim is true.
 - `steadfast docs-check`: compare CLI command declarations and package entrypoints with project documentation.
 - `steadfast security-check`: scan implementation files for common hardcoded-secret patterns, risky dynamic execution, and workflow trust-boundary issues. Findings are conservative signals for review, not a full security proof.
-- `steadfast pipeline [--manifest FILE] [--workers N]`: execute a versioned JSON pipeline as a dependency graph; independent steps run concurrently, failed dependencies are skipped, timeouts are bounded, and output is returned as structured JSON. Commands use argument arrays with `shell=False`; no shell interpolation is performed.
+- `steadfast pipeline [--manifest FILE] [--workers N] [--record FILE]`: execute a versioned JSON pipeline as a dependency graph; independent steps run concurrently, failed dependencies are skipped, timeouts are bounded, and output is returned as structured JSON. `--record` appends an immutable run summary to JSONL history without overwriting earlier records. Commands use argument arrays with `shell=False`; no shell interpolation is performed.
+- `steadfast pipeline-history [--history FILE] [--limit N] [--status all|passed|failed]`: inspect recent pipeline executions, newest first, with outcome filtering. Corrupt complete records are reported rather than silently discarded.
 - `steadfast inventory`: produce a deterministic file inventory with SHA-256 digests, file sizes, classification, and budget utilization.
 - `steadfast goal-check`: validate Markdown goal metadata, dependencies, cycles, acceptance criteria, and the configured active-goal limit.
 - `steadfast release-check`: evaluate release prerequisites without publishing or modifying a release.

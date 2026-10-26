@@ -11,6 +11,7 @@ from .docsync import docs_sync_report
 from .gitops import changed_paths
 from .goals import goal_report
 from .inventory import inventory_report
+from .history import read_history, record_run
 from .policy import init_policy, load_policy
 from .pipeline import run_pipeline
 from .release import release_report
@@ -43,6 +44,11 @@ def parser() -> argparse.ArgumentParser:
     pipeline = commands.add_parser("pipeline", help="Execute a validated dependency-aware verification pipeline")
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
     pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
+    pipeline.add_argument("--record", help="Append the result to a repository-relative JSONL history file")
+    history = commands.add_parser("pipeline-history", help="Inspect recent recorded pipeline executions")
+    history.add_argument("--history", default=".steadfast/runs.jsonl", help="Repository-relative JSONL history file")
+    history.add_argument("--limit", type=int, default=20, help="Maximum recent runs to display (1-1000)")
+    history.add_argument("--status", choices=("all", "passed", "failed"), default="all", help="Filter runs by outcome")
     baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
     baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
     baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")
@@ -117,8 +123,16 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "pipeline":
             result = run_pipeline(repo, Path(args.manifest), max_workers=args.workers)
+            if args.record:
+                record = record_run(repo, args.record, result)
+                result["history_record"] = {"path": args.record, "run_id": record["run_id"]}
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["passed"] else 1
+
+        if args.command == "pipeline-history":
+            result = read_history(repo, args.history, limit=args.limit, status=args.status)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
 
         if args.command == "baseline-update":
             destination = write_baseline(repo, getattr(args, "base", None))

@@ -129,11 +129,20 @@ class AgentGuardTests(unittest.TestCase):
             generated = integration_files(agent)
             self.assertTrue(generated)
             self.assertTrue(all(content.strip() for content in generated.values()))
-        claude = json.loads(integration_files("claude")[".claude/settings.local.json"])
+        claude_files = integration_files("claude")
+        claude = json.loads(claude_files[".claude/settings.local.json"])
         self.assertIn("Stop", claude["hooks"])
-        cursor = json.loads(integration_files("cursor")[".cursor/hooks.json"])
+        claude_mcp = json.loads(claude_files[".mcp.json"])
+        self.assertEqual(claude_mcp["mcpServers"]["steadfast"]["args"],
+                         ["-m", "steadfast", "--repo", ".", "mcp-server"])
+        cursor_files = integration_files("cursor")
+        cursor = json.loads(cursor_files[".cursor/hooks.json"])
         self.assertIn("beforeShellExecution", cursor["hooks"])
         self.assertIn("stop", cursor["hooks"])
+        cursor_mcp = json.loads(cursor_files[".cursor/mcp.json"])
+        self.assertEqual(cursor_mcp["mcpServers"]["steadfast"]["command"], "python")
+        self.assertIn(".mcp.json", integration_files("claude"))
+        self.assertIn(".cursor/mcp.json", integration_files("cursor"))
 
     def test_integration_status_tracks_missing_files(self) -> None:
         status = integration_status(self.repo)

@@ -27,9 +27,18 @@ def _inside(root: Path, relative: str, field: str) -> Path:
     candidate = Path(relative)
     if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
         raise PipelineError(f"{field} must be a repository-relative path")
-    resolved = (root / candidate).resolve()
+    root = root.resolve()
+    lexical = root / candidate
+    # Reject symlinks in every existing path component before resolving: checking
+    # only the resolved path loses evidence that the requested path was a symlink.
+    current = root
+    for part in candidate.parts:
+        current = current / part
+        if current.is_symlink():
+            raise PipelineError(f"{field} cannot traverse symlinks")
+    resolved = lexical.resolve()
     try:
-        resolved.relative_to(root.resolve())
+        resolved.relative_to(root)
     except ValueError as exc:
         raise PipelineError(f"{field} resolves outside the repository") from exc
     return resolved
@@ -199,10 +208,14 @@ def run_pipeline(
     manifest_path = manifest or Path(".steadfast/pipeline.json")
     if manifest_path.is_absolute():
         try:
-            manifest_path.resolve().relative_to(root)
-        except ValueError as exc:
-            raise PipelineError("pipeline manifest must be inside the repository") from exc
-        manifest_path = manifest_path.resolve()
+            relative_manifest = manifest_path.relative_to(root)
+        except ValueError:
+            try:
+                relative_manifest = manifest_path.resolve().relative_to(root)
+            except ValueError as exc:
+                raise PipelineError("pipeline manifest must be inside the repository") from exc
+            raise PipelineError("pipeline manifest path must not traverse symlinks")
+        manifest_path = _inside(root, relative_manifest.as_posix(), "pipeline manifest")
     else:
         manifest_path = _inside(root, manifest_path.as_posix(), "pipeline manifest")
     if not isinstance(max_workers, int) or isinstance(max_workers, bool) or not 1 <= max_workers <= MAX_WORKERS:

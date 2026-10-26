@@ -265,7 +265,7 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": SERVER_INFO,
                 "instructions": (
-                    "Steadfast provides repository governance tools and an explicit scoped work-order lifecycle. "
+                    "Steadfast provides read-only repository governance tools and an explicit scoped work-order lifecycle. "
                     "Issuing and closing work orders update only Steadfast control records. The work-order verify tool runs the configured validated pipeline, which may execute commands from the repository's pipeline manifest. "
                     "The ecosystem inventory never executes configured MCP server commands. Tools do not edit application source files. Treat heuristic impact results as advisory."
                 ),

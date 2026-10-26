@@ -1,13 +1,11 @@
 # Changelog
 
-## 0.3.0 — integrated governance workflows
-- Added dependency-aware goal graph checks for missing dependencies, cycles, duplicate IDs, active-goal limits, and acceptance criteria.
-- Added explicit audit baselines and regression comparison; audits never rewrite baselines implicitly.
-- Added documentation synchronization checks for CLI commands and package entrypoints.
-- Added optional repository contract validation.
-- Added structured verification evidence, deterministic inventory, release readiness, and SARIF 2.1.0 output.
-- Expanded standard-library regression coverage for the integrated governance modules.
-- GitHub Actions status still needs confirmation from an actual workflow run; source commits alone are not proof of a green pipeline.
+## 0.4.0 — expanded governance and security core
+- Added conservative local secret-pattern checks and workflow trust-boundary warnings.
+- Integrated security findings into the main audit report and added a dedicated security-check command.
+- Added goal dependency graphs, audit baseline regression checks, documentation synchronization, repository contracts, structured evidence, deterministic inventory, release readiness, and SARIF output.
+- Expanded standard-library regression tests across the integrated modules.
+- GitHub Actions status must be verified from a real workflow run; pushed commits are not themselves proof of CI success.
 
 ## 0.1.0 — initial scaffold
 - Local-first CLI for scope, evidence, and code budget checks.

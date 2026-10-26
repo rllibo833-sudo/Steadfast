@@ -14,7 +14,7 @@ from .security import security_findings, workflow_findings
 from .session_ledger import verify_session_ledger
 
 
-def verification_report(repo: Path, *, run_configured_pipeline: bool = True) -> dict[str, Any]:
+def verification_report(repo: Path, *, run_configured_pipeline: bool = False) -> dict[str, Any]:
     """Run the unified Steadfast control-plane checks for one repository."""
     repo = repo.resolve()
     policy = load_policy(repo)

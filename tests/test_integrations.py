@@ -154,6 +154,14 @@ class AgentGuardTests(unittest.TestCase):
         self.assertEqual(cursor_mcp["mcpServers"]["steadfast"]["command"], "python")
         self.assertIn(".mcp.json", integration_files("claude"))
         self.assertIn(".cursor/mcp.json", integration_files("cursor"))
+        codex_files = integration_files("codex")
+        codex_config = codex_files[".codex/config.toml"]
+        self.assertIn("[mcp_servers.steadfast]", codex_config)
+        self.assertIn('args = ["-m", "steadfast", "--repo", ".", "mcp-server"]', codex_config)
+        self.assertIn('PYTHONPATH = "src"', codex_config)
+        self.assertIn(".codex/config.toml", codex_files)
+        self.assertIn("one cohesive delivery", codex_files[".agents/skills/steadfast-governance/SKILL.md"])
+        self.assertIn("docs-check or code-truth", codex_files[".agents/skills/steadfast-governance/SKILL.md"])
 
     def test_integration_status_tracks_missing_files(self) -> None:
         status = integration_status(self.repo)

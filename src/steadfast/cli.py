@@ -105,6 +105,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 1 if _has_errors(result["findings"]) else 0
 
+        if args.command == "security-check":
+            findings = security_findings(repo, policy) + workflow_findings(repo)
+            _print_findings(findings)
+            print(f"Security check: {'FAIL' if _has_errors(findings) else 'PASS'} ({len(findings)} findings)")
+            return 1 if _has_errors(findings) else 0
+
         if args.command == "baseline-update":
             destination = write_baseline(repo, getattr(args, "base", None))
             print(f"Baseline written: {destination.relative_to(repo).as_posix()}")

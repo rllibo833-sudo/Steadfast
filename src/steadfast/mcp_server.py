@@ -22,6 +22,11 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "steadfast_trust_check",
+        "description": "Evaluate owner-approved permissions for a skill, plugin, or MCP server. This reports policy only and never executes the component.",
+        "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["skill", "plugin", "mcp"]}, "name": {"type": "string", "minLength": 1}, "permissions": {"type": "array", "items": {"type": "string", "minLength": 1}}, "required": ["kind", "name"], "additionalProperties": False},
+    },
+    {
         "name": "steadfast_report",
         "description": "Run the read-only governance report and return structured JSON findings.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -94,6 +99,20 @@ def _tool_args(name: str, arguments: Any) -> list[str]:
         if arguments:
             raise ValueError("steadfast_ecosystem accepts no arguments")
         return ["ecosystem"]
+    if name == "steadfast_trust_check":
+        unknown = set(arguments) - {"kind", "name", "permissions"}
+        if unknown:
+            raise ValueError("unknown argument(s): " + ", ".join(sorted(unknown)))
+        kind, component_name = arguments.get("kind"), arguments.get("name")
+        permissions = arguments.get("permissions", [])
+        if kind not in {"skill", "plugin", "mcp"} or not isinstance(component_name, str) or not component_name.strip():
+            raise ValueError("kind and non-empty name are required")
+        if not isinstance(permissions, list) or any(not isinstance(item, str) or not item.strip() for item in permissions):
+            raise ValueError("permissions must be an array of non-empty strings")
+        result = ["trust-check", "--kind", kind, "--name", component_name]
+        for permission in permissions:
+            result.extend(["--permission", permission])
+        return result
     if name == "steadfast_report":
         if arguments:
             raise ValueError("steadfast_report accepts no arguments")

@@ -65,6 +65,19 @@ class AutomationTests(unittest.TestCase):
             run_automation(self.repo, "not-real")
         self.assertEqual(automation_history(self.repo)["count"], 0)
 
+    def test_manifest_symlink_inside_repository_is_rejected(self):
+        real = self.repo / ".steadfast" / "real.json"
+        real.write_text(json.dumps({"schema_version": 1, "workflows": [
+            {"id": "safe", "name": "Safe", "steps": ["audit"]}
+        ]}), encoding="utf-8")
+        link = self.repo / ".steadfast" / "automations.json"
+        try:
+            link.symlink_to(real)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks are not available on this platform")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            list_automations(self.repo)
+
     def test_history_rejects_corrupt_records(self):
         path = self.repo / ".steadfast" / "automation-runs.jsonl"
         path.write_text("{broken\n", encoding="utf-8")

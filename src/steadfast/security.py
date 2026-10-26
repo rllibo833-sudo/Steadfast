@@ -11,7 +11,7 @@ SECRET_ASSIGNMENT = re.compile(
     r"""(?i)\b(api[_-]?key|client[_-]?secret|password|access[_-]?token)\s*[:=]\s*(['"])([^'"]{12,})\2"""
 )
 AWS_ACCESS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
-PRIVATE_KEY_MARKER = "-----BEGIN PRIVATE KEY-----"
+PRIVATE_KEY_MARKER = "-----BEGIN " + "PRIVATE KEY-----"
 UNSAFE_EXEC_PATTERNS = (
     (re.compile(r"\beval\s*\("), "DYNAMIC_EVAL", "Dynamic eval call needs a security review."),
     (re.compile(r"\bexec\s*\("), "DYNAMIC_EXEC", "Dynamic exec call needs a security review."),

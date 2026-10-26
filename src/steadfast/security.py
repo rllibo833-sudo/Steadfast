@@ -34,7 +34,7 @@ def _source_files(repo: Path, policy: dict[str, Any]) -> Iterable[Path]:
         if not path.is_file() or path.is_symlink():
             continue
         relative = path.relative_to(repo).as_posix()
-        if matches(relative, ignored) or not matches(relative, roots):
+        if _matches(relative, ignored) or not _matches(relative, roots):
             continue
         if path.suffix.lower() not in {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".hpp", ".cuk", ".sh", ".yaml", ".yml", ".toml", ".json"}:
             continue

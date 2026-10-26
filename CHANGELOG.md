@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- Shortened the README to focus on first use and moved detailed CLI guidance into dedicated docs.
+- Expanded `.gitignore` for common Python build, test, environment, and editor artifacts.
+- Clarified PyPI package metadata without changing runtime dependencies or the released package version.
+
+
 ## 0.4.0 — expanded governance and security core
 - Added conservative local secret-pattern checks and workflow trust-boundary warnings.
 - Integrated security findings into the main audit report and added a dedicated security-check command.

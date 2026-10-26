@@ -37,6 +37,10 @@ class AgentGuardTests(unittest.TestCase):
             "bash -c 'rm -rf /tmp/target'",
             "sh -c \"git reset --hard HEAD\"",
             "env bash -c 'rm -rf /tmp/target'",
+            "rm -r -f /tmp/target",
+            "rm -f -r /tmp/target",
+            "rm --recursive --force /tmp/target",
+            "rm -fr /tmp/target",
         ):
             with self.subTest(command=command):
                 self.assertIsNotNone(_dangerous_command(command), command)

@@ -90,8 +90,19 @@ def _dangerous_command(command: str) -> str | None:
             if not segment:
                 continue
             base, args = Path(segment[0]).name, segment[1:]
-            if base == "sudo":
+            if base in {"sudo", "doas", "pkexec"}:
                 return "Privileged command requires explicit human review."
+            if base == "find" and "-delete" in args:
+                return "find -delete is blocked by the default agent guard."
+            if base == "find" and "-exec" in args:
+                index = args.index("-exec")
+                nested = inspect(" ".join(args[index + 1:]), depth + 1)
+                if nested:
+                    return nested
+            if base == "busybox" and args and Path(args[0]).name == "rm":
+                nested = inspect(" ".join(shlex.quote(arg) for arg in args), depth + 1)
+                if nested:
+                    return nested
             if base == "rm":
                 # Recognize combined, split, and long-form recursive/force flags.
                 # Do not require recursive and force to appear in the same argument.

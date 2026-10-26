@@ -26,7 +26,7 @@ class SkillRouterTests(unittest.TestCase):
             self.assertEqual(result["status"], "matched")
             self.assertEqual(result["skills"][0]["name"], "python-debugging")
             self.assertEqual(result["execution"], "not_performed")
-            self.assertIn("traceback", result["skills"][0]["matched_terms"])
+            self.assertIn("debug", result["skills"][0]["matched_terms"])
 
     def test_discovers_agent_native_skill_roots_and_is_deterministic(self):
         with tempfile.TemporaryDirectory() as directory:

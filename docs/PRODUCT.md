@@ -39,3 +39,8 @@ The Project Console surfaces the work-cycle state and recent journal events alon
 ### Agent completion gate
 
 The Claude Code integration wires a `Stop` hook into the same policy evaluator used for tool events. If a task cycle exists and has not reached `completed`, the completion event is blocked with an actionable reason. A cycle reaches completion only after configured verification and evidence-integrity checks pass. No active cycle means no new completion restriction, preserving use in repositories that have not adopted goal checklists. Hook protocol behavior should still be checked against the installed agent version.
+
+
+## Finding lifecycle engine
+
+The finding ledger reconciles live audit, goal, security and workflow findings with persistent triage records. Stable fingerprints preserve owner, due date, priority, state and resolution metadata across scans. Disappeared findings are automatically marked resolved; if the same fingerprint returns, the entry is reopened. Explicit resolution requires a reason. Every lifecycle change is appended to a SHA-256 hash-chained JSONL journal whose integrity is checked before additional events are written or history is read. Metrics expose open risk by priority, accepted risk and overdue items. The Project Console renders the latest ledger snapshot read-only; mutation remains an explicit CLI operation. Hash chaining detects edits but is not a signature and cannot prevent a privileged actor from rewriting the entire journal.

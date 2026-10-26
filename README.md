@@ -18,6 +18,9 @@ steadfast goal-check
 steadfast release-check
 steadfast pipeline --record .steadfast/runs.jsonl
 steadfast pipeline-history --limit 20
+steadfast findings scan
+steadfast findings list --state open --priority high
+steadfast findings metrics
 ```
 
 The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
@@ -38,6 +41,12 @@ The equivalent module entry point is `python -m steadfast`. Initialization is no
 - `steadfast baseline-update`: explicitly save the current audit finding baseline.
 - `steadfast baseline-check`: compare current findings with the saved baseline and fail on newly introduced findings.
 - `steadfast report [--format markdown|json|sarif]`: emit a human-readable report, JSON, or SARIF 2.1.0 for code-scanning integrations.
+- `steadfast findings scan`: refresh the durable finding ledger from live audit, goal, security, and workflow checks; newly absent findings are reconciled as resolved, and reappearing resolved findings reopen.
+- `steadfast findings list [--state STATE] [--priority PRIORITY] [--query TEXT]`: filter tracked findings by lifecycle state, risk priority, or text.
+- `steadfast findings triage ID [--state open|triaged|accepted] [--owner NAME] [--priority LEVEL] [--due-date YYYY-MM-DD]`: preserve assignment and accepted-risk decisions across scans.
+- `steadfast findings resolve ID REASON [--false-positive]`: record an explicit resolution; a still-live finding will reopen on the next scan.
+- `steadfast findings history [--finding-id ID]`: inspect the tamper-evident finding event chain.
+- `steadfast findings metrics`: summarize risk by priority, accepted risk, and overdue items.
 
 Exit codes: `0` no error findings, `1` one or more policy errors or baseline regressions, `2` usage or runtime error. Documentation drift and a missing changelog are warnings rather than automatic failures.
 
@@ -133,3 +142,8 @@ The local Project Console now displays the current work-cycle task, acceptance-e
 ### Agent completion gate
 
 Claude Code integration also installs a `Stop` hook. When an active Steadfast cycle exists, the hook blocks the agent's completion event until the cycle is marked completed by passing the configured pipeline/scope checks and attaching unchanged evidence files for every acceptance criterion. Repositories without an active cycle retain the existing hook behavior. This gate only enforces the cycle state; it cannot independently judge whether evidence is semantically convincing.
+
+
+## Finding lifecycle
+
+The finding ledger persists triage metadata across scans in `.steadfast/finding-ledger.json`; transitions are appended to `.steadfast/finding-events.jsonl` as a SHA-256 hash-chained event stream. Findings have stable fingerprints, risk priorities, owner, due date, state, and resolution notes. A scan automatically resolves findings no longer emitted by the current configured checks and reopens them if they return. This is a reconciliation aid, not proof that a fix is correct: the live checks must cover the underlying issue, and accepted risk remains visible in metrics. The Project Console reads the ledger without mutating it.

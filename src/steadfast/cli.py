@@ -20,6 +20,7 @@ from .report import render_json, render_markdown
 from .sarif import render_sarif
 from .security import security_findings, workflow_findings
 from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
+from .findings import finding_history, finding_metrics, list_findings, resolve_finding, scan_findings, triage_finding
 
 
 def parser() -> argparse.ArgumentParser:
@@ -68,6 +69,29 @@ def parser() -> argparse.ArgumentParser:
     block = sub.add_parser("block", help="Block a task"); block.add_argument("reason")
     proof = sub.add_parser("evidence", help="Attach evidence to an acceptance criterion"); proof.add_argument("criterion_id"); proof.add_argument("path"); proof.add_argument("--note", default="")
     history = sub.add_parser("history", help="Read work-cycle event history"); history.add_argument("--limit", type=int, default=20)
+    findings = commands.add_parser("findings", help="Manage the durable audit finding lifecycle")
+    finding_sub = findings.add_subparsers(dest="finding_action", required=True)
+    finding_sub.add_parser("scan", help="Refresh live findings and reconcile resolved items")
+    finding_list = finding_sub.add_parser("list", help="List findings with filters")
+    finding_list.add_argument("--state", choices=("all", "open", "triaged", "accepted", "fixed", "false_positive"), default="all")
+    finding_list.add_argument("--priority", choices=("all", "critical", "high", "medium", "low"), default="all")
+    finding_list.add_argument("--query", default="")
+    finding_list.add_argument("--limit", type=int, default=200)
+    finding_triage = finding_sub.add_parser("triage", help="Assign owner, priority, due date or state")
+    finding_triage.add_argument("finding_id")
+    finding_triage.add_argument("--state", choices=("open", "triaged", "accepted"))
+    finding_triage.add_argument("--owner")
+    finding_triage.add_argument("--priority", choices=("critical", "high", "medium", "low"))
+    finding_triage.add_argument("--due-date", default=None)
+    finding_triage.add_argument("--note", default="")
+    finding_resolve = finding_sub.add_parser("resolve", help="Record a reason for resolving a finding")
+    finding_resolve.add_argument("finding_id")
+    finding_resolve.add_argument("resolution")
+    finding_resolve.add_argument("--false-positive", action="store_true")
+    finding_hist = finding_sub.add_parser("history", help="Inspect hash-chained finding events")
+    finding_hist.add_argument("--finding-id", default="")
+    finding_hist.add_argument("--limit", type=int, default=100)
+    finding_sub.add_parser("metrics", help="Show open risk, accepted risk and overdue items")
     baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
     baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
     baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")
@@ -182,6 +206,22 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2, ensure_ascii=False))
             if args.cycle_action == "verify" and not result.get("passed"): return 1
             return 0
+
+        if args.command == "findings":
+            if args.finding_action == "scan":
+                result = scan_findings(repo)
+            elif args.finding_action == "list":
+                result = list_findings(repo, args.state, args.priority, args.query, args.limit)
+            elif args.finding_action == "triage":
+                result = triage_finding(repo, args.finding_id, args.state, args.owner, args.priority, args.due_date, args.note)
+            elif args.finding_action == "resolve":
+                result = resolve_finding(repo, args.finding_id, args.resolution, args.false_positive)
+            elif args.finding_action == "history":
+                result = finding_history(repo, args.finding_id, args.limit)
+            else:
+                result = finding_metrics(repo)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 1 if args.finding_action == "scan" and result["summary"].get("audit_passed") is False else 0
 
         if args.command == "baseline-update":
             destination = write_baseline(repo, getattr(args, "base", None))

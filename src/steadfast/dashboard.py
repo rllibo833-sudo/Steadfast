@@ -18,6 +18,7 @@ from .policy import load_policy
 from .release import release_report
 from .security import security_findings, workflow_findings
 from .workcycle import cycle_history, cycle_status
+from .findings import finding_metrics, list_findings
 
 APP_VERSION = "0.2.0"
 MAX_FILE_BYTES = 256_000
@@ -108,6 +109,8 @@ def build_snapshot(repo: Path) -> dict[str, object]:
         "severity": dict(severity),
         "work_cycle": cycle_status(repo),
         "work_cycle_history": cycle_history(repo, limit=8),
+        "finding_ledger": list_findings(repo, limit=25),
+        "finding_metrics": finding_metrics(repo),
     }
 
 
@@ -151,6 +154,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card metric"><label>Repository files</label><strong id="fileCount">—</strong><small id="fileHint">Readable workspace inventory</small></div>
 <div class="card metric"><label>Release readiness</label><strong id="releaseState">—</strong><small id="releaseHint">Evidence-based gate</small></div>
 <div class="card full" id="cyclePanel"><div class="section-head"><h2>Active work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><div id="cycleBody" class="rows"><div class="empty">No tracked task yet. Start one with steadfast cycle start.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
+<div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
 <div class="card side"><h2>Workspace actions</h2><div class="rows"><div class="rowitem"><div><b>Run a fresh scan</b><small>Recompute audit, security, goals and release gates.</small></div><button id="scanAgain">Run</button></div><div class="rowitem"><div><b>Inspect findings</b><small>Filter and review actionable results.</small></div><button data-tab="findings">Open</button></div><div class="rowitem"><div><b>Explore source files</b><small>Read files without changing the repository.</small></div><button data-tab="files">Open</button></div></div></div>
 <div class="card wide" id="findingsPanel"><div class="section-head"><h2>Actionable findings</h2><span id="findingTotal" class="pill">0</span></div><input id="findingSearch" class="search" placeholder="Filter by code, file, message…"><div id="findings" class="rows"><div class="empty">Loading findings…</div></div></div>
@@ -189,7 +193,7 @@ function render(){
  $("findingTotal").textContent=allFindings.length+" findings";
  $("footerVersion").textContent="v"+(snapshot.version||"");
  files=snapshot.files||[];$("fileTotal").textContent=files.length+" files";
- renderFindings();renderFiles();renderGates();renderCycle();
+ renderFindings();renderFiles();renderGates();renderCycle();renderLedger();
 }
 function renderFindings(){
  const q=$("findingSearch").value.trim().toLowerCase();
@@ -226,6 +230,19 @@ function renderCycle(){
  }
  $("cycleEventCount").textContent=events.length+" events";
  $("cycleEvents").innerHTML=events.length?events.slice(0,8).map(e=>'<div class="rowitem"><div><b>'+esc(e.event||"event")+'</b><small>'+esc(e.at||"")+' · '+esc(e.task_id||"")+'</small><small>'+esc(JSON.stringify(e.details||{}))+'</small></div></div>').join(""):'<div class="empty">No events recorded.</div>';
+}
+function renderLedger(){
+ const metrics=snapshot.finding_metrics||{},data=snapshot.finding_ledger||{},items=data.findings||[];
+ $("ledgerCount").textContent=metrics.scan_count?metrics.scan_count+" scans · "+(metrics.total||0)+" tracked":"Not scanned";
+ const metricRows=[
+  ["Open high risk",((metrics.open_by_priority||{}).critical||0)+((metrics.open_by_priority||{}).high||0)],
+  ["Accepted risk",metrics.accepted_risk||0],
+  ["Overdue",metrics.overdue||0]
+ ];
+ $("ledgerMetrics").innerHTML=metricRows.map(x=>'<div class="mini"><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></div>').join("");
+ const order={critical:0,high:1,medium:2,low:3};
+ items.sort((a,b)=>(order[a.priority]??2)-(order[b.priority]??2));
+ $("ledgerRows").innerHTML=items.length?items.slice(0,12).map(x=>'<div class="rowitem"><div><b>'+esc(x.code||x.id)+' · '+esc(x.path||"")+'</b><small>'+esc(x.message||"")+'</small><small>Owner: '+esc(x.owner||"Unassigned")+' · Due: '+esc(x.due_date||"—")+'</small></div><span class="pill '+(x.state==="fixed"||x.state==="false_positive"?"good":x.priority==="critical"||x.priority==="high"?"bad":"warn")+'">'+esc(x.state)+" / "+esc(x.priority)+'</span></div>').join(""):'<div class="empty">No tracked findings yet. Use <code>steadfast findings scan</code> from the repository root; dashboard reads the ledger without mutating it.</div>';
 }
 function renderFiles(){
  const q=$("fileSearch").value.trim().toLowerCase();

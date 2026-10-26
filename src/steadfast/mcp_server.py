@@ -251,4 +251,4 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="steadfast-mcp")
     parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
     args = parser.parse_args()
-    return serve_stdio(Path(args.repo))
+    return serve_stdio(Path(args.repo), stdin=sys.stdin, stdout=sys.stdout)

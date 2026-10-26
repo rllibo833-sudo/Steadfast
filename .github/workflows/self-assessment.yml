@@ -2,12 +2,6 @@ name: Steadfast Self-Assessment
 
 on:
   workflow_dispatch:
-    inputs:
-      include_evidence_bundle:
-        description: "Include the source-free, hash-verified governance evidence ZIP"
-        required: true
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -90,3 +84,14 @@ jobs:
             .steadfast/share/evidence-bundle.zip
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Preserve honest verification status
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(cat .steadfast/share/verification-exit-code.txt)"
+          if [ "$status" != "0" ]; then
+            echo "Self-assessment artifact was uploaded, but unified verification returned $status."
+            exit 1
+          fi

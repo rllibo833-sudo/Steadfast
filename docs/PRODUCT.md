@@ -83,3 +83,8 @@ See [the practical coding-agent skills tutorial](AGENT_SKILLS_TUTORIAL.md) for s
 ### Agent hook protocol enforcement
 
 Hook adapters emit event-specific response formats instead of one generic JSON shape: Claude Code `PreToolUse` uses `hookSpecificOutput`, Stop uses `decision: block` with a reason, and Cursor shell execution uses `permission: allow|deny`. Cursor's top-level shell command is evaluated by the same destructive-command policy as Claude's nested Bash input. When a tracked cycle exists, Stop/SubagentStop is blocked until the cycle is completed; the message tells the agent to attach acceptance evidence, run verification, and complete the cycle. An absent work cycle is not itself blocked, to avoid trapping untracked sessions. Codex integration remains instruction/skill-based because this implementation does not claim a Codex native hook.
+
+
+## Agent session evidence
+
+Each valid agent-hook event is recorded in a bounded local JSONL ledger with session/tool identity, policy decision, finding codes, scoped paths, redacted bounded metadata and a hash-chain link. The `sessions` CLI reports per-session activity and verifies chain integrity; the Project Console surfaces recent events. Ledger write failure converts the hook result to a block rather than silently losing the audit trail. The chain is tamper-evident, not signed or immutable against an attacker who can rewrite all repository state.

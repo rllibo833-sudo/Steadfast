@@ -24,6 +24,7 @@ from .findings import finding_history, finding_metrics, list_findings, resolve_f
 from .planner import execution_plan, explain_goal
 from .automations import automation_history, list_automations, run_automation
 from .code_truth import code_truth_report
+from .session_ledger import session_report, verify_session_ledger
 
 
 def parser() -> argparse.ArgumentParser:
@@ -70,6 +71,12 @@ def parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
     pipeline.add_argument("--workers", type=int, default=4, help="Maximum concurrent independent steps (1-16)")
     pipeline.add_argument("--record", help="Append the result to a repository-relative JSONL history file")
+    sessions = commands.add_parser("sessions", help="Inspect coding-agent session history and integrity")
+    session_sub = sessions.add_subparsers(dest="session_action", required=True)
+    session_list = session_sub.add_parser("list", help="Summarize agent sessions and tool decisions")
+    session_list.add_argument("--limit", type=int, default=100)
+    session_list.add_argument("--session-id", default="")
+    session_sub.add_parser("verify", help="Verify the append-only session ledger hash chain")
     history = commands.add_parser("pipeline-history", help="Inspect recent recorded pipeline executions")
     history.add_argument("--history", default=".steadfast/runs.jsonl", help="Repository-relative JSONL history file")
     history.add_argument("--limit", type=int, default=20, help="Maximum recent runs to display (1-1000)")
@@ -221,6 +228,11 @@ def main(argv: list[str] | None = None) -> int:
                 result["history_record"] = {"path": args.record, "run_id": record["run_id"]}
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["passed"] else 1
+
+        if args.command == "sessions":
+            result = verify_session_ledger(repo) if args.session_action == "verify" else session_report(repo, args.limit, args.session_id)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if args.session_action != "verify" or result.get("valid") else 1
 
         if args.command == "pipeline-history":
             result = read_history(repo, args.history, limit=args.limit, status=args.status)

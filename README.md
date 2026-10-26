@@ -204,3 +204,16 @@ For practical agent/skills setup, follow [the coding-agent skills tutorial](docs
 ### Agent hook enforcement
 
 Claude Code `PreToolUse` responses use its event-specific `hookSpecificOutput.permissionDecision` schema; Cursor shell hooks use Cursor's native `permission` response schema and inspect the top-level `command` field. Claude-compatible Stop hooks can block a tracked task that has not passed the work-cycle completion gate. Cursor's installed hook set includes shell-command and stop checks with fail-closed hook configuration. Codex currently receives repository instructions and skills, not an equivalent native enforcement hook. See the [Claude Code hook contract](https://docs.anthropic.com/en/docs/claude-code/hooks) and [Cursor hooks contract](https://cursor.com/docs/hooks).
+
+
+## Agent session ledger
+
+Every valid coding-agent hook event is appended to `.steadfast/agent-sessions.jsonl` with its policy decision, finding codes, session/tool identity, scoped paths, bounded metadata and a SHA-256 hash-chain link. Secret-like fields are redacted and command previews are bounded and redacted; a separate command digest supports correlation without retaining the full command.
+
+```sh
+steadfast --repo . sessions list --limit 100
+steadfast --repo . sessions list --session-id SESSION_ID
+steadfast --repo . sessions verify
+```
+
+The Project Console displays recent agent events and allowed/blocked counts. Hook decisions fail closed if an event cannot be recorded. The ledger may contain repository paths and short command previews, so review retention and access before sharing it. Hash chaining detects tampering but is not a digital signature and cannot prevent an attacker with repository write access from rewriting the entire chain.

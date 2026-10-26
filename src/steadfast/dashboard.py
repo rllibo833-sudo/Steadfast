@@ -95,6 +95,10 @@ def build_snapshot(repo: Path) -> dict[str, object]:
     inventory = inventory_report(repo)
     files = _walk_files(repo)
     severity = Counter(str(item.get("severity", "info")) for item in security + evidence + goals.get("findings", []))
+    try:
+        agent_sessions = session_report(repo, limit=12)
+    except (SessionLedgerError, OSError, ValueError) as exc:
+        agent_sessions = {"ledger": ".steadfast/agent-sessions.jsonl", "integrity": "invalid", "error": str(exc), "total_events": 0, "returned_events": 0, "decisions": {}, "tools": {}, "sessions": [], "events": []}
     return {
         "product": "Steadfast",
         "version": APP_VERSION,
@@ -159,6 +163,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card full" id="planPanel"><div class="section-head"><h2>Next work to execute</h2><span id="planCount" class="pill">0 ready</span></div><div id="planBody" class="rows"><div class="empty">Loading execution plan…</div></div><small class="muted">Recommendations respect goal dependencies. Risk matching is heuristic; it does not prove causality.</small></div>
 <div class="card full" id="automationPanel"><div class="section-head"><h2>Automation Studio</h2><span class="pill">Local · no API key</span></div><p class="muted">Run built-in project workflows with one tap. These use fixed local actions; no arbitrary shell commands or repository uploads.</p><div id="automationList" class="rows"><div class="empty">Loading local automations…</div></div><p id="automationMessage" class="muted" role="status" aria-live="polite"></p><div class="section-head" style="margin-top:14px"><h2>Recent automation runs</h2><span id="automationHistoryCount" class="muted">0 runs</span></div><div id="automationHistory" class="rows"><div class="empty">No runs yet.</div></div></div>
 <div class="card full" id="cyclePanel"><div class="section-head"><h2>Work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><p class="muted">Manage the active goal, attach proof, run verification, and close the task only when gates pass.</p><div class="actions" style="margin:12px 0"><form id="cycleStartForm" class="actions"><input id="cycleGoal" placeholder="Goal ID (e.g. goal)" required maxlength="64" aria-label="Goal ID"><input id="cycleTitle" placeholder="Task title (optional)" maxlength="160" aria-label="Task title"><button type="submit">Start task</button></form><button id="cycleVerify" type="button">Run verification</button><button id="cycleComplete" type="button">Complete task</button></div><form id="cycleEvidenceForm" class="actions"><select id="cycleCriterion" aria-label="Acceptance criterion" required><option value="">Select criterion</option></select><input id="cycleEvidencePath" placeholder="Repository file path for evidence" required maxlength="512" aria-label="Evidence file path"><input id="cycleEvidenceNote" placeholder="Evidence note (optional)" maxlength="500" aria-label="Evidence note"><button type="submit">Attach evidence</button></form><form id="cycleBlockForm" class="actions" style="margin-top:10px"><input id="cycleBlockReason" placeholder="Reason to block task" maxlength="500" aria-label="Block reason" required><button type="submit">Block task</button></form><p id="cycleActionMessage" class="muted" role="status" aria-live="polite"></p><div id="cycleBody" class="rows"><div class="empty">No tracked task yet.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
+<div class="card full" id="agentSessionsPanel"><div class="section-head"><h2>Agent session ledger</h2><span id="agentSessionCount" class="pill">0 events</span></div><p class="muted">Tool decisions recorded by installed agent hooks. Secret-like fields are redacted; verify the append-only hash chain with <code>steadfast sessions verify</code>.</p><div id="agentSessionSummary" class="split"></div><div id="agentSessionRows" class="rows"><div class="empty">No agent hook events recorded yet.</div></div></div>
 <div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
 <div class="card side"><h2>Workspace actions</h2><div class="rows"><div class="rowitem"><div><b>Run a fresh scan</b><small>Recompute audit, security, goals and release gates.</small></div><button id="scanAgain">Run</button></div><div class="rowitem"><div><b>Inspect findings</b><small>Filter and review actionable results.</small></div><button data-tab="findings">Open</button></div><div class="rowitem"><div><b>Explore source files</b><small>Read files without changing the repository.</small></div><button data-tab="files">Open</button></div></div></div>
@@ -199,7 +204,7 @@ function render(){
  $("findingTotal").textContent=allFindings.length+" findings";
  $("footerVersion").textContent="v"+(snapshot.version||"");
  files=snapshot.files||[];$("fileTotal").textContent=files.length+" files";
- renderFindings();renderFiles();renderGates();renderCycle();renderPlan();renderLedger();
+ renderFindings();renderFiles();renderGates();renderCycle();renderPlan();renderLedger();renderAgentSessions();
 }
 function renderFindings(){
  const q=$("findingSearch").value.trim().toLowerCase();
@@ -270,6 +275,16 @@ function renderCycle(){
  $("cycleEvidenceForm").querySelector("button").disabled=!active;
  $("cycleEventCount").textContent=events.length+" events";
  $("cycleEvents").innerHTML=events.length?events.slice(0,8).map(e=>'<div class="rowitem"><div><b>'+esc(e.event||"event")+'</b><small>'+esc(e.at||"")+' · '+esc(e.task_id||"")+'</small><small>'+esc(JSON.stringify(e.details||{}))+'</small></div></div>').join(""):'<div class="empty">No events recorded.</div>';
+}
+function renderAgentSessions(){
+ const report=snapshot.agent_sessions||{},sessions=report.sessions||[],events=report.events||[];
+ $("agentSessionCount").textContent=(report.total_events||0)+" events";
+ const decisions=report.decisions||{};
+ $("agentSessionSummary").innerHTML=[
+  ["Allowed",decisions.allow||0],["Blocked",decisions.block||0],["Sessions",sessions.length]
+ ].map(x=>'<div class="mini"><strong>'+esc(x[1])+'</strong><small>'+esc(x[0])+'</small></div>').join("");
+ if(report.integrity==="invalid"){$("agentSessionCount").className="pill bad";$("agentSessionCount").textContent="Ledger invalid";$("agentSessionRows").innerHTML='<div class="finding"><b>Session ledger integrity error</b><p>'+esc(report.error||"Unknown error")+"</p></div>";return;}
+ $("agentSessionRows").innerHTML=events.length?events.slice(0,12).map(e=>'<div class="rowitem"><div><b>'+esc(e.tool_name||"unknown tool")+' · '+esc(e.event_name||"event")+' '+(e.decision==="block"?pill("BLOCKED","bad"):pill("ALLOWED","good"))+'</b><small>'+esc(e.at||"")+' · session '+esc(e.session_id||"default")+'</small><small>'+esc((e.paths||[]).join(", ")||e.command_preview||"No path/command metadata")+'</small><small>'+esc((e.finding_codes||[]).join(", ")||"No policy findings")+'</small></div></div>').join(""):'<div class="empty">No agent hook events recorded yet. Install an agent integration and use its hooks to populate this ledger.</div>';
 }
 function renderLedger(){
  const metrics=snapshot.finding_metrics||{},data=snapshot.finding_ledger||{},items=data.findings||[];

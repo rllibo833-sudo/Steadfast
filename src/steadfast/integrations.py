@@ -155,6 +155,14 @@ def run_hook(repo: Path, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout)
         if not isinstance(event, dict):
             raise ValueError("Hook event must be a JSON object")
         result = evaluate_event(repo, event)
+        try:
+            from .session_ledger import record_agent_event
+            result["session_ledger"] = record_agent_event(repo, event, result)
+        except (OSError, ValueError, json.JSONDecodeError) as ledger_error:
+            result = dict(result)
+            result["decision"], result["continue"] = "block", False
+            result["reason"] = (str(result.get("reason", "")) + "; " if result.get("reason") else "") + "Agent session evidence could not be recorded: " + str(ledger_error)
+            result.setdefault("findings", []).append({"severity": "error", "code": "AGENT_LEDGER_WRITE_FAILED", "path": "", "message": str(ledger_error)})
         output = _hook_output(event, result)
         exit_code = 0
     except (json.JSONDecodeError, ValueError, OSError) as exc:

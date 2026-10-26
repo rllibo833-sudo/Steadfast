@@ -67,16 +67,27 @@ def _shell_command(event: dict[str, Any]) -> str:
 
 
 def _dangerous_command(command: str) -> str | None:
+    # shlex.split() treats shell operators attached to words (for example
+    # "safe;rm") as ordinary text. Use punctuation-aware lexing so chained
+    # commands cannot hide a destructive operation after a harmless prefix.
     try:
-        tokens = shlex.split(command, posix=True)
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
     except ValueError:
         return "Shell command has malformed quoting; review it manually."
+
+    operators = {";", "&&", "||", "|", "&", "||", ";;", ";&", "|&"}
     segments: list[list[str]] = [[]]
     for token in tokens:
-        if token in {";", "&&", "||", "|"}:
+        if token and all(char in ";&|" for char in token):
+            # Any shell control operator terminates the current command. Treat
+            # unusual operator runs conservatively rather than merging tokens.
             segments.append([])
         else:
             segments[-1].append(token)
+
     for segment in segments:
         if not segment:
             continue

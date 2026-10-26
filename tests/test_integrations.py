@@ -34,6 +34,9 @@ class AgentGuardTests(unittest.TestCase):
             "echo safe && rm -rf /tmp/target",
             "echo safe|rm -rf /tmp/target",
             "printf safe;sudo rm -rf /tmp/target",
+            "bash -c 'rm -rf /tmp/target'",
+            "sh -c \"git reset --hard HEAD\"",
+            "env bash -c 'rm -rf /tmp/target'",
         ):
             with self.subTest(command=command):
                 self.assertIsNotNone(_dangerous_command(command), command)
@@ -42,6 +45,7 @@ class AgentGuardTests(unittest.TestCase):
         from steadfast.integrations import _dangerous_command
 
         self.assertIsNone(_dangerous_command("echo safe; printf done"))
+        self.assertIsNone(_dangerous_command("echo 'rm -rf /tmp/target'"))
 
     def test_allowed_source_path_is_allowed(self) -> None:
         result = evaluate_event(self.repo, {

@@ -146,7 +146,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 </style>
 </head>
 <body>
-<header><div class="brand"><div class="mark">S</div><div><strong>Steadfast</strong><small>Project quality console</small></div></div><div class="actions"><span id="live" class="status"><span class="dot"></span> Local read-only</span><button id="refresh">Refresh scan</button></div></header>
+<header><div class="brand"><div class="mark">S</div><div><strong>Steadfast</strong><small>Project quality console</small></div></div><div class="actions"><span id="live" class="status"><span class="dot"></span> Local console</span><button id="refresh">Refresh scan</button></div></header>
 <main class="wrap">
 <section class="intro"><div><div class="eyebrow">Repository intelligence</div><h1>Project overview</h1><p class="sub" id="root">Connecting to local workspace…</p></div><div class="actions"><button data-tab="findings">Review findings</button><button data-tab="files">Browse source</button></div></section>
 <div id="notice" class="notice" hidden></div>
@@ -163,7 +163,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card wide" id="findingsPanel"><div class="section-head"><h2>Actionable findings</h2><span id="findingTotal" class="pill">0</span></div><input id="findingSearch" class="search" placeholder="Filter by code, file, message…"><div id="findings" class="rows"><div class="empty">Loading findings…</div></div></div>
 <div class="card side"><h2>Goal and release gates</h2><div id="gates" class="rows"><div class="empty">Loading gates…</div></div></div>
 <div class="card full" id="filesPanel"><div class="section-head"><h2>Source explorer</h2><span class="pill" id="fileTotal">0 files</span></div><div class="grid"><div class="card wide"><input id="fileSearch" class="search" placeholder="Find a file by path…"><div id="fileList" class="file-list"></div></div><div class="card side"><div class="section-head"><h2 id="viewerTitle">File preview</h2><span id="viewerSize" class="muted"></span></div><pre id="viewer" class="viewer">Select a text file to inspect it. Files are never modified.</pre></div></div></div>
-</section><footer>Runs on your device · No external service · Read-only repository access · <span id="footerVersion">Steadfast</span></footer>
+</section><footer>Runs on your device · No external service · Task controls enabled · source files unchanged · <span id="footerVersion">Steadfast</span></footer>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -376,7 +376,7 @@ def serve_dashboard(repo: Path, host: str = "127.0.0.1", port: int = 8765) -> No
     actual_host, actual_port = server.server_address[:2]
     print(f"Steadfast Project Console: http://{actual_host}:{actual_port}")
     print(f"Workspace: {root}")
-    print("Read-only mode. Press Ctrl+C to stop.")
+    print("Local task controls enabled; repository source files are never edited by the console. Press Ctrl+C to stop.")
     try:
         server.serve_forever(poll_interval=0.4)
     except KeyboardInterrupt:

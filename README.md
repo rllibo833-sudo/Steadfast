@@ -152,3 +152,8 @@ The finding ledger persists triage metadata across scans in `.steadfast/finding-
 ## Dependency-aware execution planner
 
 Run `steadfast plan` to get the next eligible goals in dependency order, with a transparent heuristic that highlights goals potentially related to open findings. Use `steadfast plan --goal GOAL_ID` to inspect a goal's acceptance criteria and dependencies. Proposed goals are excluded by default; `--include-proposed` shows them in the unready list. The planner is read-only and does not claim to fix findings or automatically change goal status. The Project Console displays the same ready queue.
+
+
+### Operate the work cycle from the Project Console
+
+Run `steadfast --repo . serve` and open the printed loopback URL. The Work cycle panel can start a configured goal, attach a repository-local evidence file to an acceptance criterion, execute the configured verification pipeline, block a task with a reason, or request completion. The server binds only to loopback and issues a per-process action token; state-changing requests require that token and reject cross-origin requests. The console can change Steadfast's task metadata and journal, but does not edit application source files. A successful HTTP response is not a guarantee that a task passed: inspect the verification result and evidence before completion.

@@ -49,3 +49,8 @@ The finding ledger reconciles live audit, goal, security and workflow findings w
 ## Dependency-aware execution planner
 
 The planner computes a topological ordering of configured goals, reports missing dependencies and cycles, filters goals whose prerequisites are not done, and ranks currently ready goals using a transparent path/token match against open findings. This risk association is heuristic and advisory only. `steadfast plan` and `steadfast plan --goal GOAL_ID` are read-only; implementation and verification still use the work-cycle and configured pipeline.
+
+
+### Interactive local work-cycle controls
+
+The Project Console supports work-cycle actions for starting a goal, attaching evidence, running the configured pipeline and scope checks, blocking a task, and requesting completion. State-changing HTTP requests are limited to loopback clients and require a random per-process token issued in the HTML response; cross-origin requests are rejected. The console only mutates Steadfast work-cycle state and its event history, not source code. Completion remains governed by the work-cycle evidence and verification checks.

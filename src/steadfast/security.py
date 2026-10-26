@@ -12,6 +12,15 @@ SECRET_ASSIGNMENT = re.compile(
 )
 AWS_ACCESS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
 PRIVATE_KEY_MARKER = "-----BEGIN " + "PRIVATE KEY-----"
+RISKY_API_PATTERNS = (
+    (re.compile(r"\btempfile\.mktemp\s*\("), "INSECURE_TEMPFILE", "tempfile.mktemp can race with another process; use a securely created temporary file."),
+    (re.compile(r"\bos\.system\s*\("), "OS_SYSTEM_CALL", "os.system invokes a command shell; prefer argument-array subprocess APIs."),
+    (re.compile(r"\b(?:hashlib\.)?md5\s*\("), "WEAK_HASH_MD5", "MD5 is unsuitable for security-sensitive integrity or password hashing."),
+    (re.compile(r"\b(?:hashlib\.)?sha1\s*\("), "WEAK_HASH_SHA1", "SHA-1 is unsuitable for collision-resistant security decisions."),
+    (re.compile(r"\bverify\s*=\s*False\b"), "TLS_VERIFY_DISABLED", "TLS certificate verification is disabled."),
+    (re.compile(r"\byaml\.load\s*\("), "YAML_LOAD_REVIEW", "yaml.load can construct unsafe objects unless a safe loader is explicitly used."),
+    (re.compile(r"\bpickle\.(?:load|loads)\s*\("), "UNTRUSTED_PICKLE_REVIEW", "Pickle deserialization can execute code; never load untrusted data."),
+)
 UNSAFE_EXEC_PATTERNS = (
     (re.compile(r"\beval\s*\("), "DYNAMIC_EVAL", "Dynamic eval call needs a security review."),
     (re.compile(r"\bexec\s*\("), "DYNAMIC_EXEC", "Dynamic exec call needs a security review."),
@@ -73,7 +82,7 @@ def security_findings(repo: Path, policy: dict[str, Any]) -> list[dict[str, str]
                         "path": relative,
                         "message": f"Possible hardcoded {match.group(1)} at line {line_number}; secret value redacted.",
                     })
-            for pattern, code, message in UNSAFE_EXEC_PATTERNS:
+            for pattern, code, message in (*UNSAFE_EXEC_PATTERNS, *RISKY_API_PATTERNS):
                 if pattern.search(line):
                     findings.append({
                         "severity": "warning", "code": code, "path": relative,
@@ -106,6 +115,12 @@ def workflow_findings(repo: Path) -> list[dict[str, str]]:
                 "message": "Workflow grants contents: write; verify that write permission is essential.",
             })
         for line_number, line in enumerate(text.splitlines(), start=1):
+            if re.search(r"(?m)^\s*run:\s*.*\$\{\{\s*github\.event\.(?:issue|pull_request|comment|review|review_comment)\.", line):
+                findings.append({
+                    "severity": "error", "code": "UNTRUSTED_EVENT_SHELL_INTERPOLATION",
+                    "path": rel,
+                    "message": f"Untrusted GitHub event data is interpolated directly into a shell command at line {line_number}; pass it through an environment variable and quote it.",
+                })
             if re.search(r"(?m)\buses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@v\d+", line):
                 findings.append({
                     "severity": "warning", "code": "ACTION_TAG_NOT_PINNED",

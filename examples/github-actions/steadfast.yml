@@ -1,0 +1,59 @@
+name: Steadfast repository checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  steadfast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Steadfast
+        run: python -m pip install --disable-pip-version-check --upgrade steadfast-governance
+
+      - name: Verify repository
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          steadfast verify --repo . > steadfast-verification.json
+          result=$?
+          set -e
+          echo "exit_code=$result" >> "$GITHUB_OUTPUT"
+          steadfast report --repo . --format markdown > steadfast-report.md
+          exit 0
+
+      - name: Upload report for maintainer review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadfast-report-\${{ github.run_id }}
+          path: |
+            steadfast-verification.json
+            steadfast-report.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce verification result
+        if: always()
+        shell: bash
+        env:
+          VERIFY_EXIT_CODE: \${{ steps.verify.outputs.exit_code }}
+        run: |
+          if [ "\${VERIFY_EXIT_CODE:-2}" != "0" ]; then
+            echo "Steadfast verification reported findings or an execution error; inspect the uploaded report."
+            exit 1
+          fi

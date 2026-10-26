@@ -29,6 +29,24 @@ class CliTests(unittest.TestCase):
             self.assertEqual(main(["--repo", directory, "init"]), 0)
             self.assertEqual(main(["--repo", directory, "plan"]), 0)
 
+
+    def test_discover_emits_machine_readable_capability_map(self):
+        import contextlib
+        import io
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(main(["--repo", directory, "init"]), 0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(["--repo", directory, "discover"]), 0)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["schema_version"], 1)
+            self.assertIn("policy", report["entrypoints"])
+            self.assertFalse(report["cost_policy"]["paid_runner_required"])
+            self.assertEqual(report["supported_integrations"], ["claude", "cursor", "codex"])
+
     def test_python_module_entrypoint_exists(self):
         self.assertTrue(
             (Path(__file__).parents[1] / "src" / "steadfast" / "__main__.py").is_file()

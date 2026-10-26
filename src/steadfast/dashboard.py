@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import secrets
 import threading
 import time
 from collections import Counter
@@ -16,7 +17,7 @@ from .inventory import inventory_report
 from .policy import load_policy
 from .release import release_report
 from .security import security_findings, workflow_findings
-from .workcycle import cycle_history, cycle_status
+from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
 from .findings import finding_metrics, list_findings
 from .planner import execution_plan
 
@@ -115,8 +116,8 @@ def build_snapshot(repo: Path) -> dict[str, object]:
     }
 
 
-def _page() -> bytes:
-    return _HTML.encode("utf-8")
+def _page(token: str) -> bytes:
+    return _HTML.replace("__STEADFAST_ACTION_TOKEN__", token).encode("utf-8")
 
 
 _HTML = r"""<!doctype html>
@@ -155,7 +156,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card metric"><label>Repository files</label><strong id="fileCount">—</strong><small id="fileHint">Readable workspace inventory</small></div>
 <div class="card metric"><label>Release readiness</label><strong id="releaseState">—</strong><small id="releaseHint">Evidence-based gate</small></div>
 <div class="card full" id="planPanel"><div class="section-head"><h2>Next work to execute</h2><span id="planCount" class="pill">0 ready</span></div><div id="planBody" class="rows"><div class="empty">Loading execution plan…</div></div><small class="muted">Recommendations respect goal dependencies. Risk matching is heuristic; it does not prove causality.</small></div>
-<div class="card full" id="cyclePanel"><div class="section-head"><h2>Active work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><div id="cycleBody" class="rows"><div class="empty">No tracked task yet. Start one with steadfast cycle start.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
+<div class="card full" id="cyclePanel"><div class="section-head"><h2>Work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><p class="muted">Manage the active goal, attach proof, run verification, and close the task only when gates pass.</p><div class="actions" style="margin:12px 0"><form id="cycleStartForm" class="actions"><input id="cycleGoal" placeholder="Goal ID (e.g. goal)" required maxlength="64" aria-label="Goal ID"><input id="cycleTitle" placeholder="Task title (optional)" maxlength="160" aria-label="Task title"><button type="submit">Start task</button></form><button id="cycleVerify" type="button">Run verification</button><button id="cycleComplete" type="button">Complete task</button></div><form id="cycleEvidenceForm" class="actions"><select id="cycleCriterion" aria-label="Acceptance criterion" required><option value="">Select criterion</option></select><input id="cycleEvidencePath" placeholder="Repository file path for evidence" required maxlength="512" aria-label="Evidence file path"><input id="cycleEvidenceNote" placeholder="Evidence note (optional)" maxlength="500" aria-label="Evidence note"><button type="submit">Attach evidence</button></form><form id="cycleBlockForm" class="actions" style="margin-top:10px"><input id="cycleBlockReason" placeholder="Reason to block task" maxlength="500" aria-label="Block reason" required><button type="submit">Block task</button></form><p id="cycleActionMessage" class="muted" role="status" aria-live="polite"></p><div id="cycleBody" class="rows"><div class="empty">No tracked task yet.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
 <div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
 <div class="card side"><h2>Workspace actions</h2><div class="rows"><div class="rowitem"><div><b>Run a fresh scan</b><small>Recompute audit, security, goals and release gates.</small></div><button id="scanAgain">Run</button></div><div class="rowitem"><div><b>Inspect findings</b><small>Filter and review actionable results.</small></div><button data-tab="findings">Open</button></div><div class="rowitem"><div><b>Explore source files</b><small>Read files without changing the repository.</small></div><button data-tab="files">Open</button></div></div></div>
@@ -166,6 +167,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 </main>
 <script>
 const $=id=>document.getElementById(id);
+const actionToken="__STEADFAST_ACTION_TOKEN__";
 let snapshot=null, allFindings=[], files=[];
 async function api(path){const r=await fetch(path,{headers:{Accept:"application/json"}});const data=await r.json();if(!r.ok)throw new Error(data.error||("HTTP "+r.status));return data;}
 function esc(value){return String(value==null?"":value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -240,6 +242,15 @@ function renderCycle(){
   ];
   $("cycleBody").innerHTML=rows.map(x=>'<div class="rowitem"><div><b>'+esc(x[0])+'</b><small>'+esc(x[1])+'</small><small>'+esc(x[2])+'</small></div></div>').join("");
  }
+ const criterionSelect=$("cycleCriterion"), previousCriterion=criterionSelect.value;
+ const options=task?(task.acceptance||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.id+' · '+x.criterion+(x.evidence?' (evidence attached)':''))+'</option>').join(""):"";
+ criterionSelect.innerHTML='<option value="">Select criterion</option>'+options;
+ if(previousCriterion && task && task.acceptance.some(x=>x.id===previousCriterion))criterionSelect.value=previousCriterion;
+ const active=!!task&&["in_progress","verifying"].includes(task.status);
+ $("cycleVerify").disabled=!active;$("cycleComplete").disabled=!active;
+ $("cycleBlockForm").querySelector("button").disabled=!active;
+ $("cycleStartForm").querySelector("button").disabled=active;
+ $("cycleEvidenceForm").querySelector("button").disabled=!active;
  $("cycleEventCount").textContent=events.length+" events";
  $("cycleEvents").innerHTML=events.length?events.slice(0,8).map(e=>'<div class="rowitem"><div><b>'+esc(e.event||"event")+'</b><small>'+esc(e.at||"")+' · '+esc(e.task_id||"")+'</small><small>'+esc(JSON.stringify(e.details||{}))+'</small></div></div>').join(""):'<div class="empty">No events recorded.</div>';
 }
@@ -269,10 +280,23 @@ async function openFile(path){
 }
 async function refresh(){
  $("refresh").disabled=true;$("scanAgain").disabled=true;$("live").innerHTML='<span class="dot warn"></span> Scanning…';setNotice("");
- try{snapshot=await api("/api/overview?refresh=1");render();$("live").innerHTML='<span class="dot"></span> Local read-only';}
+ try{snapshot=await api("/api/overview?refresh=1");render();$("live").innerHTML='<span class="dot"></span> Local console';}
  catch(e){setNotice("Scan failed: "+e.message);$("live").innerHTML='<span class="dot bad"></span> Scan failed';}
  finally{$("refresh").disabled=false;$("scanAgain").disabled=false;}
 }
+async function cycleAction(action,payload){
+ $("cycleActionMessage").textContent="Working…";
+ const response=await fetch("/api/cycle/"+action,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json","X-Steadfast-Token":actionToken},body:JSON.stringify(payload||{})});
+ const data=await response.json();
+ if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+ $("cycleActionMessage").textContent=action==="verify"?(data.result.passed?"Verification passed.":"Verification failed; task remains open."):"Action completed: "+action;
+ await refresh();
+}
+$("cycleStartForm").addEventListener("submit",async e=>{e.preventDefault();try{await cycleAction("start",{goal_id:$("cycleGoal").value.trim(),title:$("cycleTitle").value.trim()});}catch(err){$("cycleActionMessage").textContent=err.message;}});
+$("cycleEvidenceForm").addEventListener("submit",async e=>{e.preventDefault();try{await cycleAction("evidence",{criterion_id:$("cycleCriterion").value,path:$("cycleEvidencePath").value.trim(),note:$("cycleEvidenceNote").value.trim()});}catch(err){$("cycleActionMessage").textContent=err.message;}});
+$("cycleVerify").addEventListener("click",async()=>{try{await cycleAction("verify",{});}catch(err){$("cycleActionMessage").textContent=err.message;}});
+$("cycleComplete").addEventListener("click",async()=>{if(!confirm("Complete this task only if all evidence and verification are correct?"))return;try{await cycleAction("complete",{});}catch(err){$("cycleActionMessage").textContent=err.message;}});
+$("cycleBlockForm").addEventListener("submit",async e=>{e.preventDefault();try{await cycleAction("block",{reason:$("cycleBlockReason").value.trim()});}catch(err){$("cycleActionMessage").textContent=err.message;}});
 $("refresh").addEventListener("click",refresh);$("scanAgain").addEventListener("click",refresh);
 $("findingSearch").addEventListener("input",renderFindings);$("fileSearch").addEventListener("input",renderFiles);
 $("fileList").addEventListener("click",e=>{const item=e.target.closest("[data-path]");if(item)openFile(item.dataset.path);});
@@ -311,7 +335,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path in {"/", "/index.html"}:
-            self._send(200, _page(), "text/html; charset=utf-8")
+            self._send(200, _page(self.server.action_token), "text/html; charset=utf-8")
             return
         if parsed.path == "/health":
             self._json(200, {"ok": True, "product": "Steadfast", "version": APP_VERSION})
@@ -346,8 +370,52 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:
-        # There are intentionally no write endpoints: this console is a read-only view.
-        self._json(405, {"error": "This dashboard is read-only"})
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/cycle/"):
+            self._json(404, {"error": "Not found"})
+            return
+        token = self.headers.get("X-Steadfast-Token", "")
+        origin, host = self.headers.get("Origin", ""), self.headers.get("Host", "")
+        if not secrets.compare_digest(token, self.server.action_token):
+            self._json(403, {"error": "Missing or invalid local action token"})
+            return
+        if origin and urlparse(origin).netloc != host:
+            self._json(403, {"error": "Cross-origin action rejected"})
+            return
+        if self.client_address[0] not in {"127.0.0.1", "::1"}:
+            self._json(403, {"error": "Actions are restricted to loopback clients"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length < 0 or length > 64000:
+            self._json(413, {"error": "Action payload must be at most 64 KB"})
+            return
+        try:
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                raise ValueError("Content-Type must be application/json")
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("Action payload must be a JSON object")
+            action = parsed.path.removeprefix("/api/cycle/")
+            if action == "start":
+                result = start_cycle(self.repo, str(payload.get("goal_id", "")), str(payload.get("title", "")))
+            elif action == "evidence":
+                result = attach_evidence(self.repo, str(payload.get("criterion_id", "")), str(payload.get("path", "")), str(payload.get("note", "")))
+            elif action == "verify":
+                result = verify_cycle(self.repo)
+            elif action == "complete":
+                result = complete_cycle(self.repo)
+            elif action == "block":
+                result = block_cycle(self.repo, str(payload.get("reason", "")))
+            else:
+                self._json(404, {"error": "Unknown work-cycle action"})
+                return
+            self._json(200, {"ok": True, "result": result})
+        except (OSError, UnicodeError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+            self._json(400, {"error": str(exc)})
+
 
     def do_PUT(self) -> None:
         self._json(405, {"error": "This dashboard is read-only"})
@@ -372,6 +440,7 @@ def serve_dashboard(repo: Path, host: str = "127.0.0.1", port: int = 8765) -> No
         raise ValueError(f"Repository directory does not exist: {root}")
     server = DashboardServer((host, port), DashboardHandler)
     server.repo = root  # type: ignore[attr-defined]
+    server.action_token = secrets.token_urlsafe(32)  # type: ignore[attr-defined]
     actual_host, actual_port = server.server_address[:2]
     print(f"Steadfast Project Console: http://{actual_host}:{actual_port}")
     print(f"Workspace: {root}")

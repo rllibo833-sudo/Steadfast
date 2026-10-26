@@ -67,7 +67,7 @@ jobs:
                       lines.append("- Blocking components: " + ", ".join(map(str, data["blocking_components"])))
               except (ValueError, OSError):
                   lines.append("Result file could not be parsed.")
-          lines += ["", "## Files", "", "Download the workflow artifact to inspect the Markdown report, JSON reports, and optional evidence ZIP."]
+          lines += ["", "## Files", "", "Download the workflow artifact to inspect the Markdown report, JSON reports, and hash-verified evidence ZIP."]
           summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
       - name: Upload shareable assessment

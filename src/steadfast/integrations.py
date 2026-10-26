@@ -92,8 +92,19 @@ def _dangerous_command(command: str) -> str | None:
             base, args = Path(segment[0]).name, segment[1:]
             if base == "sudo":
                 return "Privileged command requires explicit human review."
-            if base == "rm" and any(a == "-rf" or (a.startswith("-") and "r" in a and "f" in a) for a in args):
-                return "Recursive forced deletion is blocked by the default agent guard."
+            if base == "rm":
+                # Recognize combined, split, and long-form recursive/force flags.
+                # Do not require recursive and force to appear in the same argument.
+                recursive = any(
+                    arg == "--recursive" or (arg.startswith("-") and not arg.startswith("--") and "r" in arg[1:])
+                    for arg in args
+                )
+                forced = any(
+                    arg == "--force" or (arg.startswith("-") and not arg.startswith("--") and "f" in arg[1:])
+                    for arg in args
+                )
+                if recursive and forced:
+                    return "Recursive forced deletion is blocked by the default agent guard."
             if base == "git" and args and args[0] == "push" and any(a in {"--force", "-f", "--force-with-lease"} for a in args):
                 return "Force-push is blocked by the default agent guard."
             if base == "git" and args and args[0] == "reset" and "--hard" in args:

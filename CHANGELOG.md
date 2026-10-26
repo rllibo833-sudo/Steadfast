@@ -13,6 +13,7 @@
 - Release readiness also blocks broken CLI/module entrypoint contracts for packaged projects.
 - Fixed the security scanner's source-suffix filter so `.env` and `.env.*` files are inspected rather than silently skipped.
 - Pipeline commands now inherit a minimal runtime environment instead of every host/CI environment variable, reducing accidental exposure of runner secrets.
+- Work-cycle evidence now rejects empty files and caps individual proof artifacts at 16 MiB before hashing.
 - GitHub Actions status must be verified from a real workflow run; pushed commits are not themselves proof of CI success.
 
 ## 0.1.0 — initial scaffold

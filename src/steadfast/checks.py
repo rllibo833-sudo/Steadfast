@@ -20,8 +20,16 @@ def matches(path: str, patterns: list[str]) -> bool:
     return False
 
 
+IMPLEMENTATION_SUFFIXES = {
+    ".py", ".pyi", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".vue", ".svelte",
+    ".go", ".rs", ".java", ".kt", ".kts", ".c", ".h", ".cc", ".cpp", ".hpp", ".hh",
+    ".cs", ".fs", ".php", ".rb", ".swift", ".scala", ".dart", ".r", ".lua", ".sh", ".cuk",
+    ".html", ".css", ".scss", ".sass", ".sql",
+}
+
+
 def product_code_lines(repo: Path, policy: dict[str, Any]) -> tuple[int, list[str]]:
-    """Count nonblank, non-comment lines in configured implementation paths."""
+    """Count implementation source lines, excluding generated metadata and data/config files."""
     files: list[str] = []
     total = 0
     ignored = policy.get("ignored_paths", [])
@@ -31,7 +39,9 @@ def product_code_lines(repo: Path, policy: dict[str, Any]) -> tuple[int, list[st
         rel = path.relative_to(repo).as_posix()
         if not matches(rel, policy.get("implementation_paths", ["src/**"])):
             continue
-        if matches(rel, ignored):
+        if path.suffix.lower() not in IMPLEMENTATION_SUFFIXES:
+            continue
+        if any(part.endswith(".egg-info") for part in path.parts) or matches(rel, ignored):
             continue
         try:
             lines = path.read_text(encoding="utf-8").splitlines()

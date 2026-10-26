@@ -44,6 +44,18 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(total, 2)
         self.assertEqual(files, ["src/app.py"])
 
+    def test_budget_excludes_generated_metadata_and_non_code_files(self):
+        src = self.repo / "src"
+        src.mkdir()
+        metadata = src / "package.egg-info"
+        metadata.mkdir()
+        (metadata / "entry_points.txt").write_text("steadfast = package.cli:main\n", encoding="utf-8")
+        (src / "manifest.json").write_text('{"generated": true}\n', encoding="utf-8")
+        (src / "real.py").write_text("def run():\n    return True\n", encoding="utf-8")
+        total, files = product_code_lines(self.repo, self.policy)
+        self.assertEqual(total, 2)
+        self.assertEqual(files, ["src/real.py"])
+
     def test_docs_drift_warning_only_when_implementation_changes_alone(self):
         self.assertEqual(
             documentation_findings(self.policy, ["src/app.py"])[0]["code"],

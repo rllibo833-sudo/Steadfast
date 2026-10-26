@@ -18,7 +18,7 @@ SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build",
 def _files(root: Path, suffixes: set[str]) -> list[Path]:
     result = []
     for current, dirs, names in os.walk(root, followlinks=False):
-        dirs[:] = [name for name in dirs if name not in SKIP and not (Path(current) / name).is_symlink()]
+        dirs[:] = [name for name in dirs if name not in SKIP and not name.endswith(".egg-info") and not (Path(current) / name).is_symlink()]
         for name in names:
             path = Path(current) / name
             if not path.is_symlink() and path.suffix.lower() in suffixes:

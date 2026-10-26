@@ -35,6 +35,34 @@ class AgentGuardTests(unittest.TestCase):
         self.assertEqual(result["findings"], [])
         self.assertEqual(result["work_cycle"]["status"], "not_started")
 
+    def test_file_write_blocks_protected_policy_even_when_globally_allowed(self) -> None:
+        result = evaluate_event(self.repo, {
+            "hook_event_name": "PreToolUse", "tool_name": "Write",
+            "tool_input": {"file_path": ".steadfast/policy.json"},
+        })
+        self.assertEqual(result["decision"], "block")
+        self.assertIn("AGENT_PROTECTED_PATH", [item["code"] for item in result["findings"]])
+
+    def test_read_only_tool_does_not_apply_write_role_gate(self) -> None:
+        result = evaluate_event(self.repo, {
+            "hook_event_name": "PreToolUse", "tool_name": "Read",
+            "tool_input": {"file_path": ".steadfast/policy.json"},
+        })
+        self.assertEqual(result["decision"], "allow")
+
+    def test_media_write_uses_media_allowlist_and_rejects_source_code(self) -> None:
+        allowed = evaluate_event(self.repo, {
+            "tool_name": "Write", "steadfast_role": "media",
+            "tool_input": {"file_path": "assets/cover.png"},
+        })
+        self.assertEqual(allowed["decision"], "allow")
+        denied = evaluate_event(self.repo, {
+            "tool_name": "Write", "steadfast_role": "media",
+            "tool_input": {"file_path": "src/steadfast/sample.py"},
+        })
+        self.assertEqual(denied["decision"], "block")
+        self.assertIn("AGENT_ROLE_SCOPE_DENIED", [item["code"] for item in denied["findings"]])
+
     def test_path_outside_allowlist_is_blocked(self) -> None:
         result = evaluate_event(self.repo, {
             "tool_name": "Write",

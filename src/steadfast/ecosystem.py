@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 from .integrations import integration_status
+from .skill_router import read_skill_metadata
 
 MCP_CONFIG_PATHS = (".mcp.json", ".cursor/mcp.json", ".vscode/mcp.json", ".claude/mcp.json")
 CODEX_CONFIG_PATH = ".codex/config.toml"
@@ -78,11 +79,8 @@ def _skill_inventory(repo: Path) -> list[dict[str, str]]:
             except (OSError, UnicodeError):
                 found[relative] = {"path": relative, "sha256": "", "name": path.parent.name, "status": "unreadable"}
                 continue
-            name = path.parent.name
-            for line in source.splitlines()[:12]:
-                if line.strip().lower().startswith("name:"):
-                    name = line.split(":", 1)[1].strip().strip(chr(34) + "'") or name
-                    break
+            metadata, _ = read_skill_metadata(source)
+            name = metadata.get("name") or path.parent.name
             found[relative] = {"path": relative, "sha256": hashlib.sha256(content).hexdigest(), "name": name, "status": "indexed"}
     return [found[key] for key in sorted(found)]
 

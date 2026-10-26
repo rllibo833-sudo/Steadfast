@@ -40,7 +40,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: steadfast-report-\${{ github.run_id }}
+          name: steadfast-report-${{ github.run_id }}
           path: |
             steadfast-verification.json
             steadfast-report.md
@@ -51,7 +51,7 @@ jobs:
         if: always()
         shell: bash
         env:
-          VERIFY_EXIT_CODE: \${{ steps.verify.outputs.exit_code }}
+          VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
         run: |
           if [ "${VERIFY_EXIT_CODE:-2}" != "0" ]; then
             echo "Steadfast verification reported findings or an execution error; inspect the uploaded report."

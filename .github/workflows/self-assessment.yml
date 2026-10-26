@@ -1,0 +1,93 @@
+name: Steadfast Self-Assessment
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_evidence_bundle:
+        description: "Include the source-free, hash-verified governance evidence ZIP"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steadfast-self-assessment-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  assess:
+    name: Build a shareable repository assessment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Steadfast
+        run: python -m pip install --disable-pip-version-check -e .
+      - name: Generate assessment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .steadfast/share
+          steadfast --repo . verify > .steadfast/share/verification.json || verify_status=$?
+          verify_status=${verify_status:-0}
+          steadfast --repo . report --format markdown > .steadfast/share/assessment.md
+          steadfast --repo . discover > .steadfast/share/capabilities.json
+          steadfast --repo . evidence-bundle build --output .steadfast/share/evidence-bundle.zip
+          steadfast --repo . evidence-bundle verify .steadfast/share/evidence-bundle.zip > .steadfast/share/bundle-verification.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path(".steadfast/share/verification.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          data["workflow_verification_exit_code"] = int("${{ steps.assess.outputs.verify_status || '0' }}") if False else data.get("exit_code")
+          p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          PY
+          echo "Verification command exit code: $verify_status"
+          echo "$verify_status" > .steadfast/share/verification-exit-code.txt
+      - name: Summarize assessment
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path(".steadfast/share")
+          summary = Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          lines = ["# Steadfast self-assessment", "", "This is a point-in-time report of the public repository, not a security certification."]
+          for name, label in [("verification.json", "Unified verification"), ("bundle-verification.json", "Evidence bundle integrity")]:
+              path = root / name
+              lines += ["", "## " + label, ""]
+              if not path.exists():
+                  lines.append("Result file unavailable; inspect workflow logs.")
+                  continue
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+                  lines.append("- Status: **" + str(data.get("status", data.get("passed", "unknown"))) + "**")
+                  if "blocking_components" in data:
+                      lines.append("- Blocking components: " + ", ".join(map(str, data["blocking_components"])))
+              except (ValueError, OSError):
+                  lines.append("Result file could not be parsed.")
+          lines += ["", "## Files", "", "Download the workflow artifact to inspect the Markdown report, JSON reports, and optional evidence ZIP."]
+          summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+      - name: Upload shareable assessment
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadfast-self-assessment-${{ github.run_id }}
+          path: |
+            .steadfast/share/assessment.md
+            .steadfast/share/verification.json
+            .steadfast/share/verification-exit-code.txt
+            .steadfast/share/capabilities.json
+            .steadfast/share/bundle-verification.json
+            .steadfast/share/evidence-bundle.zip
+          if-no-files-found: warn
+          retention-days: 30

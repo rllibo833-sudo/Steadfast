@@ -54,3 +54,10 @@ The planner computes a topological ordering of configured goals, reports missing
 ### Interactive local work-cycle controls
 
 The Project Console supports work-cycle actions for starting a goal, attaching evidence, running the configured pipeline and scope checks, blocking a task, and requesting completion. State-changing HTTP requests are limited to loopback clients and require a random per-process token issued in the HTML response; cross-origin requests are rejected. The console only mutates Steadfast work-cycle state and its event history, not source code. Completion remains governed by the work-cycle evidence and verification checks.
+
+
+## Local Automation Studio
+
+The console now exposes a one-click workflow runner for repeatable local project operations. Three built-in workflows compose fixed internal actions for quick health, release review, and next-work planning. A JSON manifest may select registered action IDs, but it cannot define shell commands or import arbitrary code. Each run stores per-step outcomes and timestamps in \`.steadfast/automation-runs.jsonl\`. No hosted service, account, or model key is required for these built-in workflows.
+
+This automation scope is intentionally bounded to repository/project operations. It is not yet a general-purpose digital automation system and does not include image/video generation or arbitrary desktop control.

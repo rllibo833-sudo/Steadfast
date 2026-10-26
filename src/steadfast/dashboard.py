@@ -20,6 +20,7 @@ from .security import security_findings, workflow_findings
 from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
 from .findings import finding_metrics, list_findings
 from .planner import execution_plan
+from .automations import automation_history, list_automations, run_automation
 
 APP_VERSION = "0.2.0"
 MAX_FILE_BYTES = 256_000
@@ -156,6 +157,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}.noti
 <div class="card metric"><label>Repository files</label><strong id="fileCount">—</strong><small id="fileHint">Readable workspace inventory</small></div>
 <div class="card metric"><label>Release readiness</label><strong id="releaseState">—</strong><small id="releaseHint">Evidence-based gate</small></div>
 <div class="card full" id="planPanel"><div class="section-head"><h2>Next work to execute</h2><span id="planCount" class="pill">0 ready</span></div><div id="planBody" class="rows"><div class="empty">Loading execution plan…</div></div><small class="muted">Recommendations respect goal dependencies. Risk matching is heuristic; it does not prove causality.</small></div>
+<div class="card full" id="automationPanel"><div class="section-head"><h2>Automation Studio</h2><span class="pill">Local · no API key</span></div><p class="muted">Run built-in project workflows with one tap. These use fixed local actions; no arbitrary shell commands or repository uploads.</p><div id="automationList" class="rows"><div class="empty">Loading local automations…</div></div><p id="automationMessage" class="muted" role="status" aria-live="polite"></p><div class="section-head" style="margin-top:14px"><h2>Recent automation runs</h2><span id="automationHistoryCount" class="muted">0 runs</span></div><div id="automationHistory" class="rows"><div class="empty">No runs yet.</div></div></div>
 <div class="card full" id="cyclePanel"><div class="section-head"><h2>Work cycle</h2><span id="cycleStatus" class="pill">No task</span></div><p class="muted">Manage the active goal, attach proof, run verification, and close the task only when gates pass.</p><div class="actions" style="margin:12px 0"><form id="cycleStartForm" class="actions"><input id="cycleGoal" placeholder="Goal ID (e.g. goal)" required maxlength="64" aria-label="Goal ID"><input id="cycleTitle" placeholder="Task title (optional)" maxlength="160" aria-label="Task title"><button type="submit">Start task</button></form><button id="cycleVerify" type="button">Run verification</button><button id="cycleComplete" type="button">Complete task</button></div><form id="cycleEvidenceForm" class="actions"><select id="cycleCriterion" aria-label="Acceptance criterion" required><option value="">Select criterion</option></select><input id="cycleEvidencePath" placeholder="Repository file path for evidence" required maxlength="512" aria-label="Evidence file path"><input id="cycleEvidenceNote" placeholder="Evidence note (optional)" maxlength="500" aria-label="Evidence note"><button type="submit">Attach evidence</button></form><form id="cycleBlockForm" class="actions" style="margin-top:10px"><input id="cycleBlockReason" placeholder="Reason to block task" maxlength="500" aria-label="Block reason" required><button type="submit">Block task</button></form><p id="cycleActionMessage" class="muted" role="status" aria-live="polite"></p><div id="cycleBody" class="rows"><div class="empty">No tracked task yet.</div></div><div class="section-head" style="margin-top:14px"><h2>Recent cycle events</h2><span id="cycleEventCount" class="muted">0 events</span></div><div id="cycleEvents" class="rows"><div class="empty">No events recorded.</div></div></div>
 <div class="card full" id="ledgerPanel"><div class="section-head"><h2>Finding lifecycle</h2><span id="ledgerCount" class="pill">Ledger not scanned</span></div><div id="ledgerMetrics" class="split"></div><div id="ledgerRows" class="rows"><div class="empty">Run <code>steadfast findings scan</code> to create a durable finding ledger.</div></div></div>
 <div class="card wide"><div class="section-head"><h2>Quality signals</h2><span id="generated" class="muted">—</span></div><div class="split"><div class="mini"><strong id="errors">—</strong><small>Errors</small></div><div class="mini"><strong id="warnings">—</strong><small>Warnings</small></div><div class="mini"><strong id="goals">—</strong><small>Goal findings</small></div></div><div class="bar"><span id="healthbar"></span></div><p class="muted" id="healthText">A scan summarizes the current workspace.</p></div>
@@ -223,6 +225,21 @@ function renderPlan(){
   return;
  }
  $("planBody").innerHTML=queue.slice(0,8).map(item=>'<div class="rowitem"><div><b>#'+esc(item.execution_rank||"—")+' · '+esc(item.title||item.goal_id)+'</b><small>'+esc(item.goal_id)+' · '+esc(item.goal_path)+' · '+esc(item.acceptance_count)+' acceptance criteria</small><small>'+esc(item.recommended_action)+' · related open-risk weight '+esc(item.risk_score)+'</small></div><span class="pill good">Ready</span></div>').join("");
+}
+async function loadAutomations(){
+ const list=await api("/api/automations"),history=await api("/api/automations/history");
+ $("automationList").innerHTML=(list.workflows||[]).map(w=>'<div class="rowitem"><div><b>'+esc(w.name)+'</b><small>'+esc(w.description)+'</small><small>'+esc(w.steps.join(" → "))+'</small></div><button type="button" data-automation="'+esc(w.id)+'">Run</button></div>').join("");
+ $("automationList").querySelectorAll("[data-automation]").forEach(button=>button.addEventListener("click",async()=>{
+  const id=button.getAttribute("data-automation");button.disabled=true;$("automationMessage").textContent="Running "+id+"…";
+  try{const response=await fetch("/api/automations/run",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json","X-Steadfast-Token":actionToken},body:JSON.stringify({workflow_id:id})});const data=await response.json();if(!response.ok)throw new Error(data.error||("Workflow "+(data.result&&data.result.status||"failed")));const result=data.result;$("automationMessage").textContent=result.workflow_name+": "+result.status+" ("+result.step_count+" steps).";await loadAutomations();}
+  catch(e){$("automationMessage").textContent="Automation failed: "+e.message;try{renderAutomationHistory(await api("/api/automations/history"));}catch(_){}}
+  finally{button.disabled=false;}
+ }));
+ renderAutomationHistory(history);
+}
+function renderAutomationHistory(history){
+ const runs=history.runs||[];$("automationHistoryCount").textContent=runs.length+" runs";
+ $("automationHistory").innerHTML=runs.length?runs.slice(0,8).map(r=>'<div class="rowitem"><div><b>'+esc(r.workflow_name)+' · '+esc(r.status)+'</b><small>'+esc(r.started_at)+' · '+esc(r.run_id)+'</small><small>'+esc((r.steps||[]).map(x=>x.action+":"+x.status).join(" · "))+'</small></div><span class="pill '+(r.status==="passed"?"good":"bad")+'">'+esc(r.step_count)+' steps</span></div>').join(""):'<div class="empty">No automation runs yet. Choose a workflow above.</div>';
 }
 function renderCycle(){
  const cycle=snapshot.work_cycle||{},task=cycle.task,events=(snapshot.work_cycle_history||{}).events||[];
@@ -302,7 +319,8 @@ $("findingSearch").addEventListener("input",renderFindings);$("fileSearch").addE
 $("fileList").addEventListener("click",e=>{const item=e.target.closest("[data-path]");if(item)openFile(item.dataset.path);});
 $("fileList").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("[data-path]")){e.preventDefault();openFile(e.target.dataset.path);}});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{const target=b.dataset.tab==="files"?$("filesPanel"):$("findingsPanel");target.scrollIntoView({behavior:"smooth",block:"start"});}));
-api("/api/overview").then(data=>{snapshot=data;render();$("live").innerHTML='<span class="dot"></span> Local read-only';}).catch(e=>setNotice("Could not load workspace: "+e.message));
+api("/api/overview").then(data=>{snapshot=data;render();$("live").innerHTML='<span class="dot"></span> Local console';}).catch(e=>setNotice("Could not load workspace: "+e.message));
+loadAutomations().catch(e=>{$("automationMessage").textContent=e.message;});
 </script>
 </body>
 </html>"""
@@ -340,6 +358,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/health":
             self._json(200, {"ok": True, "product": "Steadfast", "version": APP_VERSION})
             return
+        if parsed.path == "/api/automations":
+            try:
+                self._json(200, list_automations(self.repo))
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+                self._json(400, {"error": str(exc)})
+            return
+        if parsed.path == "/api/automations/history":
+            try:
+                self._json(200, automation_history(self.repo, 20))
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if parsed.path == "/api/overview":
             try:
                 self._json(200, build_snapshot(self.repo))
@@ -371,7 +401,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if not parsed.path.startswith("/api/cycle/"):
+        is_cycle = parsed.path.startswith("/api/cycle/")
+        is_automation = parsed.path == "/api/automations/run"
+        if not is_cycle and not is_automation:
             self._json(404, {"error": "Not found"})
             return
         token = self.headers.get("X-Steadfast-Token", "")
@@ -398,6 +430,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("Action payload must be a JSON object")
+            if is_automation:
+                result = run_automation(self.repo, str(payload.get("workflow_id", "")))
+                self._json(200 if result.get("status") == "passed" else 409, {"ok": result.get("status") == "passed", "result": result})
+                return
             action = parsed.path.removeprefix("/api/cycle/")
             if action == "start":
                 result = start_cycle(self.repo, str(payload.get("goal_id", "")), str(payload.get("title", "")))

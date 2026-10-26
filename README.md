@@ -1,6 +1,6 @@
 # Steadfast
 
-**Keep coding agents aligned with the repository's actual state.** Steadfast is a local-first governance toolkit for scope control, repository contracts, evidence records, documentation synchronization, release readiness, goal dependencies, audit baselines, and implementation-budget reporting. It does not generate code, require an AI API, or send repository contents to a hosted service.
+**Keep coding agents aligned with the repository's actual state.** Steadfast is a local-first project operations app for repository health checks, evidence-gated task cycles, coding-agent guardrails, and one-click repeatable automations. It includes a local web console and a closed registry of built-in workflow actions. It does not generate code, require an AI API, or send repository contents to a hosted service.
 
 ## Quick start
 
@@ -21,6 +21,9 @@ steadfast pipeline-history --limit 20
 steadfast findings scan
 steadfast findings list --state open --priority high
 steadfast findings metrics
+steadfast automations list
+steadfast automations run quick-health
+steadfast automations history
 ```
 
 The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
@@ -157,3 +160,25 @@ Run `steadfast plan` to get the next eligible goals in dependency order, with a 
 ### Operate the work cycle from the Project Console
 
 Run `steadfast --repo . serve` and open the printed loopback URL. The Work cycle panel can start a configured goal, attach a repository-local evidence file to an acceptance criterion, execute the configured verification pipeline, block a task with a reason, or request completion. The server binds only to loopback and issues a per-process action token; state-changing requests require that token and reject cross-origin requests. The console can change Steadfast's task metadata and journal, but does not edit application source files. A successful HTTP response is not a guarantee that a task passed: inspect the verification result and evidence before completion.
+
+
+## Local Automation Studio
+
+Run built-in repeatable project workflows without registering for a hosted service or supplying an AI/API key:
+
+- \`quick-health\`: audit, source/workflow security scan, and required-evidence check.
+- \`release-review\`: release readiness, security scan, and implementation inventory.
+- \`work-queue\`: refresh the finding ledger, calculate risk metrics, and build the dependency-aware next-work queue.
+
+Commands:
+
+\`\`\`sh
+steadfast automations list
+steadfast automations run quick-health
+steadfast automations run release-review
+steadfast automations run work-queue
+steadfast automations history
+steadfast serve
+\`\`\`
+
+The Project Console includes an Automation Studio panel with one-click execution and recent-run history. Runs are recorded in \`.steadfast/automation-runs.jsonl\`. Workflows can be customized in \`.steadfast/automations.json\`, but each step must reference a registered built-in action. Workflow files cannot inject shell commands, Python imports, arbitrary URLs, or dynamic expressions. These are project-operations automations, not a general desktop/RPA agent; they do not click arbitrary third-party apps or generate images/videos.

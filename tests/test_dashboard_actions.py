@@ -75,6 +75,17 @@ class DashboardActionTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["result"]["status"], "in_progress")
 
+    def test_automation_catalog_is_available_in_console(self):
+        status, body = self.request("GET", "/api/automations")
+        self.assertEqual(status, 200)
+        result = json.loads(body)
+        self.assertIn("quick-health", [item["id"] for item in result["workflows"]])
+
+    def test_automation_run_requires_local_action_token(self):
+        status, body = self.request("POST", "/api/automations/run", {"workflow_id": "quick-health"})
+        self.assertEqual(status, 403)
+        self.assertIn(b"token", body.lower())
+
     def test_unknown_action_is_not_found(self):
         status, _ = self.request("POST", "/api/cycle/erase", {}, {
             "X-Steadfast-Token": self.server.action_token,

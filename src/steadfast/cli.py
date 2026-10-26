@@ -22,6 +22,7 @@ from .security import security_findings, workflow_findings
 from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
 from .findings import finding_history, finding_metrics, list_findings, resolve_finding, scan_findings, triage_finding
 from .planner import execution_plan, explain_goal
+from .automations import automation_history, list_automations, run_automation
 
 
 def parser() -> argparse.ArgumentParser:
@@ -55,6 +56,13 @@ def parser() -> argparse.ArgumentParser:
     integrate.add_argument("--agent", choices=("claude", "cursor", "codex", "all"), default="all")
     integrate.add_argument("--overwrite", action="store_true", help="Explicitly replace existing integration files")
     commands.add_parser("integration-status", help="Show installed coding-agent integrations")
+    automations = commands.add_parser("automations", help="List and run local, allowlisted automation workflows")
+    automation_sub = automations.add_subparsers(dest="automation_action", required=True)
+    automation_sub.add_parser("list", help="List available workflows and built-in actions")
+    automation_run = automation_sub.add_parser("run", help="Run one named workflow")
+    automation_run.add_argument("workflow_id")
+    automation_hist = automation_sub.add_parser("history", help="Show recent automation runs")
+    automation_hist.add_argument("--limit", type=int, default=20)
     commands.add_parser("agent-hook", help="Read one JSON tool event from stdin and emit an allow/block decision")
     pipeline = commands.add_parser("pipeline", help="Execute a validated dependency-aware verification pipeline")
     pipeline.add_argument("--manifest", default=".steadfast/pipeline.json", help="Repository-relative pipeline JSON manifest")
@@ -136,6 +144,14 @@ def main(argv: list[str] | None = None) -> int:
             agents = ("claude", "cursor", "codex") if args.agent == "all" else (args.agent,)
             result = [install_integration(repo, agent, overwrite=args.overwrite) for agent in agents]
             print(json.dumps({"integrations": result}, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "automations":
+            if args.automation_action == "list": result = list_automations(repo)
+            elif args.automation_action == "run": result = run_automation(repo, args.workflow_id)
+            else: result = automation_history(repo, args.limit)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            if args.automation_action == "run" and result.get("status") != "passed": return 1
             return 0
 
         if args.command == "integration-status":

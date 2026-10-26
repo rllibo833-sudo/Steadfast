@@ -284,6 +284,7 @@ def triage_finding(
         item["owner"] = owner.strip()
     if priority is not None:
         item["priority"] = priority
+        item["priority_source"] = "manual"
     if due_date is not None:
         item["due_date"] = due_date or None
     item["updated_at"] = _now()

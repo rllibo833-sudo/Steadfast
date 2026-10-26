@@ -42,6 +42,7 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--repo", default=".", help="Repository root (default: current directory)")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="Create starter policy, goal, and evidence files")
+    commands.add_parser("verify", help="Run unified control-plane checks")
     audit = commands.add_parser("audit", help="Run configured governance checks")
     audit.add_argument("--base", help="Compare changes against BASE...HEAD")
     scope = commands.add_parser("scope-check", help="Check changed paths against allowlist")

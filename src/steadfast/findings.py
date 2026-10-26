@@ -202,9 +202,11 @@ def scan_findings(repo: Path) -> dict[str, Any]:
         else:
             unchanged += 1
         # Refresh live facts only; preserve user triage metadata.
-        for key in ("severity", "code", "path", "message", "priority", "sources"):
+        for key in ("severity", "code", "path", "message", "sources"):
             if key in raw:
                 old[key] = raw[key]
+        if old.get("priority_source") != "manual":
+            old["priority"] = raw["priority"]
         old["last_seen_at"] = _now()
         old["last_seen_scan"] = ledger.get("scan_count", 0) + 1
         old["updated_at"] = _now()

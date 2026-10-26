@@ -1,25 +1,48 @@
 from __future__ import annotations
-import argparse, json, sys
+
+import argparse
+import json
+import sys
 from pathlib import Path
+
 from .checks import run_audit, scope_findings, evidence_findings
 from .gitops import changed_paths
+from .inventory import inventory_report
 from .policy import init_policy, load_policy
+from .release import release_report
 from .report import render_json, render_markdown
+from .sarif import render_sarif
+
 
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="steadfast", description="Evidence-based governance for coding-agent repositories.")
-    p.add_argument("--repo", default=".", help="Repository root (default: current directory)")
-    sub = p.add_subparsers(dest="command", required=True)
-    sub.add_parser("init", help="Create starter policy, goal, and evidence files")
-    audit = sub.add_parser("audit", help="Run all configured governance checks")
+    root = argparse.ArgumentParser(
+        prog="steadfast",
+        description="Evidence-based governance for coding-agent repositories.",
+    )
+    root.add_argument("--repo", default=".", help="Repository root (default: current directory)")
+    commands = root.add_subparsers(dest="command", required=True)
+    commands.add_parser("init", help="Create starter policy, goal, and evidence files")
+    audit = commands.add_parser("audit", help="Run configured governance checks")
     audit.add_argument("--base", help="Compare changes against BASE...HEAD")
-    scope = sub.add_parser("scope-check", help="Check changed paths against allowlist")
-    scope.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git working tree")
-    ev = sub.add_parser("evidence-check", help="Check required verification evidence")
-    ev.add_argument("--evidence", help="Check only this evidence file")
-    rep = sub.add_parser("report", help="Print complete audit report")
-    rep.add_argument("--format", choices=("markdown","json"), default="markdown")
-    return p
+    scope = commands.add_parser("scope-check", help="Check changed paths against allowlist")
+    scope.add_argument("--changed", nargs="*", help="Explicit changed paths; otherwise inspect Git")
+    evidence = commands.add_parser("evidence-check", help="Check required verification evidence")
+    evidence.add_argument("--evidence", help="Check only this evidence file")
+    report = commands.add_parser("report", help="Print a complete audit report")
+    report.add_argument("--format", choices=("markdown", "json", "sarif"), default="markdown")
+    commands.add_parser("inventory", help="Inventory repository files and implementation budget")
+    commands.add_parser("release-check", help="Evaluate release prerequisites without publishing")
+
+    return root
+
+
+def _print_findings(findings: list[dict[str, str]]) -> None:
+    for finding in findings:
+        print(
+            f"{finding['severity'].upper()} {finding['code']}: "
+            f"{finding['path']} — {finding['message']}"
+        )
+
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
@@ -27,31 +50,53 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "init":
             created = init_policy(repo)
-            print("Created:\n" + "\n".join(f"- {p}" for p in created) if created else "Policy files already exist; nothing overwritten.")
+            if created:
+                print("Created:\n" + "\n".join(f"- {path}" for path in created))
+            else:
+                print("Policy files already exist; nothing overwritten.")
             return 0
+
         policy = load_policy(repo)
         if args.command == "scope-check":
             paths = args.changed if args.changed is not None else changed_paths(repo)
             findings = scope_findings(repo, policy, paths)
-            for f in findings:
-                print(f"{f['severity'].upper()} {f['code']}: {f['path']} — {f['message']}")
+            _print_findings(findings)
             print(f"Scope check: {'PASS' if not findings else 'FAIL'} ({len(paths)} paths)")
             return 0 if not findings else 1
+
         if args.command == "evidence-check":
             if args.evidence:
                 policy["required_evidence"] = [args.evidence]
             findings = evidence_findings(repo, policy)
-            for f in findings:
-                print(f"{f['severity'].upper()} {f['code']}: {f['path']} — {f['message']}")
-            print(f"Evidence check: {'PASS' if not any(x['severity']=='error' for x in findings) else 'FAIL'}")
-            return 0 if not any(x["severity"] == "error" for x in findings) else 1
+            _print_findings(findings)
+            failed = any(item["severity"] == "error" for item in findings)
+            print(f"Evidence check: {'FAIL' if failed else 'PASS'}")
+            return 1 if failed else 0
+
+        if args.command == "inventory":
+            print(json.dumps(inventory_report(repo), indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "release-check":
+            result = release_report(repo)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["ready"] else 1
+
         report = run_audit(repo, getattr(args, "base", None))
-        output = render_json(report) if args.command == "report" and args.format == "json" else render_markdown(report)
-        print(output)
+        if args.command == "report":
+            if args.format == "json":
+                print(render_json(report))
+            elif args.format == "sarif":
+                print(render_sarif(report))
+            else:
+                print(render_markdown(report))
+        else:
+            print(render_markdown(report))
         return 0 if report["passed"] else 1
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError, RuntimeError) as exc:
         print(f"steadfast: error: {exc}", file=sys.stderr)
         return 2
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

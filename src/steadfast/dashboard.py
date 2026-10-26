@@ -10,8 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from .checks import run_audit
-from .evidence import evidence_findings
+from .checks import evidence_findings, run_audit
 from .goals import goal_report
 from .inventory import inventory_report
 from .policy import load_policy

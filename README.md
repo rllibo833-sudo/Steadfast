@@ -1,6 +1,6 @@
 # Steadfast
 
-**Keep coding agents aligned with the repository's actual state.** Steadfast is a small, local-first governance CLI that checks documentation drift, scope expansion, and whether completion claims have evidence. It does not generate code or require an AI API.
+**Keep coding agents aligned with the repository's actual state.** Steadfast is a local-first governance CLI for scope control, documentation-drift signals, evidence presence, and a configurable implementation-line budget. It does not generate code, require an AI API, or send repository contents to a hosted service.
 
 ## Quick start
 
@@ -14,43 +14,54 @@ steadfast scope-check
 steadfast evidence-check
 ```
 
-`steadfast init` creates `.steadfast/policy.json` and `.steadfast/goal.md`. Review and commit those files. The policy is deliberately small: it defines allowed paths, documentation paths, required evidence, and the product-code line budget.
+The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
 
 ## Commands
 
-- `steadfast audit [--base REF]`: checks repository state and reports likely documentation drift, generated/untracked files, and scope signals.
-- `steadfast scope-check [--changed PATH ...]`: rejects changed paths outside configured allowlists. By default it checks Git's working-tree changes against the current policy.
-- `steadfast evidence-check [--evidence FILE]`: checks required proof files and rejects empty evidence. It does not pretend that a passing test proves all product claims.
-- `steadfast report [--format markdown|json]`: emits a machine-readable report.
-- `steadfast init`: initializes policy files without overwriting existing ones.
+- `steadfast init`: create missing `.steadfast/policy.json`, `.steadfast/goal.md`, and `evidence/verification.md`.
+- `steadfast audit [--base REF]`: report changed paths, scope violations, required-evidence gaps, implementation-line budget usage, and a documentation-drift warning when implementation changes without a docs change.
+- `steadfast scope-check [--changed PATH ...]`: check explicit paths or the current Git working tree against `.steadfast/policy.json`.
+- `steadfast evidence-check [--evidence FILE]`: check that required evidence files exist and contain meaningful text. This checks presence/size, not whether the claim is true.
+- `steadfast report [--format markdown|json]`: print the complete audit report.
 
-Exit codes: `0` passed, `1` policy findings, `2` usage or runtime error.
+Exit codes: `0` no error findings, `1` one or more policy errors, `2` usage or runtime error. Documentation drift is a warning, not an automatic failure.
+
+## Policy
+
+Edit `.steadfast/policy.json` to define:
+
+- `allowed_paths`: paths agents may change.
+- `documentation_paths`: paths that count as documentation updates.
+- `required_evidence`: evidence files that must be present.
+- `implementation_paths` and `ignored_paths`: inputs to the product-code line budget.
+- `product_code_budget`: maximum counted implementation lines (starter default: 20,000).
+
+The line count includes nonblank lines that do not begin with `#`; it is a rough budget signal, not a language-aware complexity metric. Keep the allowlist narrow and review policy changes like code.
 
 ## GitHub Actions
 
-Copy `.github/workflows/steadfast.yml` into your repository. The workflow runs on pull requests and pushes, installs Steadfast, then runs its checks. Tune the allowlist in `.steadfast/policy.json` before enabling it as a required check.
+Copy `.github/workflows/steadfast.yml` into a repository to run the tests and governance checks on GitHub Actions. Before making it a required check, confirm your checkout depth and base-ref configuration support the comparisons you want, and tune the allowlist for your repository.
 
 ## Skills
 
-`skills/` contains portable instruction packs for common agent platforms. They are prompts and operating rules, not magical enforcement. Use them alongside the deterministic CLI checks.
+`skills/` contains portable instruction packs for repo auditing, scope guarding, evidence checking, documentation synchronization, and release readiness. These are agent instructions, not technical enforcement; use them alongside the CLI.
 
-## Principles
+## Principles and limitations
 
-1. **Repository reality wins:** policy and docs must not claim features without implementation evidence.
-2. **No silent scope growth:** changed paths must be explicitly allowed.
-3. **Evidence before completion:** record the exact commands and results used to verify work.
+1. **Repository reality wins:** claims should be backed by implementation and evidence.
+2. **No silent scope growth:** changed paths outside the allowlist are errors.
+3. **Evidence before completion:** record exact commands, exit codes, and meaningful outcomes.
 4. **Small core:** no server, database, model key, telemetry, or hosted dependency.
-5. **Human-controlled policy:** Steadfast reports and blocks; it does not silently rewrite project plans.
+5. **Human-controlled policy:** Steadfast reports and blocks; it does not silently rewrite plans.
 
-## Limitations
-
-Static checks cannot fully infer semantic correctness or prove a feature works. A reviewer must define meaningful evidence and keep policy paths current. GitHub Actions consume runner minutes; use only the checks your project needs.
+Static checks cannot prove semantic correctness, validate every test claim, or infer whether documentation is factually complete. Maintainers must define meaningful evidence and keep policy paths current.
 
 ## Development
 
 ```bash
 python -m unittest discover -s tests -v
 python -m steadfast --help
+steadfast audit --format json
 ```
 
 MIT licensed. See `LICENSE`.

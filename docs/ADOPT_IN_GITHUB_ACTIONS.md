@@ -1,30 +1,37 @@
 # Adopt Steadfast in GitHub Actions
 
-This is the lowest-friction way to evaluate Steadfast on a real repository. It runs on pull requests, publishes a readable report as a workflow artifact, and does not need an AI API key or a Steadfast-hosted service.
+Evaluate Steadfast against a real repository before deciding whether it belongs in a required check. The example uses the published PyPI package, needs no AI API key or hosted Steadfast service, and uploads a report for maintainer review.
 
-## 1. Add the workflow
+## Fastest trial
 
-Copy [the example workflow](../examples/github-actions/steadfast.yml) into your target repository at `.github/workflows/steadfast.yml`.
+1. Copy [the example workflow](../examples/github-actions/steadfast.yml) into your repository at `.github/workflows/steadfast.yml`.
+2. Commit it and open a pull request (or run it manually using **Actions → Steadfast repository checks → Run workflow**).
+3. Open the workflow run and download the `steadfast-report-<run-id>` artifact. Review both the JSON verification output and Markdown report.
+4. Treat findings as observations for the first few runs. Do not make the check a merge blocker until you have confirmed that the results are useful and understood the failure behavior.
 
-It installs the published `steadfast-governance` package, runs `steadfast verify`, and uploads the Markdown report even when verification reports a problem. Review the report and workflow permissions before making it a required branch-protection check.
+The workflow installs `steadfast-governance` from PyPI and runs `steadfast --repo . verify` followed by `steadfast --repo . report --format markdown`. It uploads available output even when verification fails, then returns a failing job status if verification was not successful. Review the report and permissions before enabling branch protection. The report is a governance signal, not proof that code is correct or secure.
 
-## 2. Start in observation mode
+## Evaluate it honestly
 
-For the first few pull requests, treat results as review signals rather than an automatic merge gate. Check:
-- whether findings identify a real issue or just noise;
-- whether the repository's policy and evidence expectations fit the team;
-- whether the report is useful to the maintainer who must act on it.
+For the first few pull requests, record:
+- **Actionable:** did it find a real problem the team could fix?
+- **Noise:** how many findings were irrelevant or repeated?
+- **Fit:** did the default policy match the repository, or require tuning?
+- **Cost:** was setup and report review worth the time?
+- **Repeatability:** did a later run produce useful, understandable results?
 
-Steadfast does not prove code is correct or secure, and its hooks are not a sandbox. Do not upload secrets or confidential source to public issues when sharing feedback.
+Do not send secrets, private source, customer data, or confidential repository details to public issues. Sanitize logs before sharing them. Steadfast's agent hooks are defense-in-depth, not a sandbox.
 
-## 3. Tune only after seeing real results
+## Tune after the baseline
 
-Run `steadfast init` in a disposable branch or use `steadfast onboard --agent codex` (replace `codex` with `claude`, `cursor`, or `all`) to generate local policy and agent guidance. Review generated files before committing them. Start with one concrete problem; avoid enabling every gate at once.
+If the trial shows value, run `steadfast init` in a disposable branch or use `steadfast onboard --agent codex` (replace `codex` with `claude`, `cursor`, or `all`). Review generated files before committing. Start with one concrete pain point rather than enabling every gate at once.
 
-## 4. Send useful feedback
+## Report the outcome
 
-Open a [collaboration/evaluation issue](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=collaboration.yml) with the workflow you tried, the command, sanitized output, what helped, and what was noisy. Never include tokens, private repository contents, or customer data.
+Open a [collaboration/evaluation issue](https://github.com/rllibo833-sudo/Steadfast/issues/new?template=collaboration.yml). The form records whether the package was installed, whether a real repository was evaluated, which version was used, the outcome, and whether a bounded pilot is of interest. Share sanitized results only.
 
-## What adoption success looks like
+## Adoption and commercial success criteria
 
-A successful evaluation means a maintainer outside the Steadfast project has installed it, run it against a real repository, and can point to a useful finding or repeatable workflow. Stars, downloads, and green CI alone are not proof of product-market fit.
+A **completed evaluation** means a maintainer outside the Steadfast project installed it, ran it against a real repository, and recorded whether at least one finding or repeatable workflow was useful. A **pilot** additionally needs an agreed repository, bounded scope, success criteria, and handover. **Paid traction** means a real paid engagement was agreed and payment received—not stars, downloads, commit count, or green CI.
+
+Track these stages from submitted evaluation issues: started → installed → run on real repo → repeated/useful → pilot scoped → paid. Count only evidence submitted by the evaluator; never infer customers from anonymous package downloads. If no outside evaluation has happened yet, report that plainly rather than calling internal CI adoption.

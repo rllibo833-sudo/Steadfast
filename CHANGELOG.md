@@ -5,6 +5,7 @@
 - Hardened policy loading against non-object JSON roots, non-string allowlist entries, and boolean code budgets.
 - Added regression tests for policy parity and malformed configuration.
 - Added a measurable policy-consistency goal and explicit repository automation workflows.
+- Hardened pipeline and automation path handling to reject symlink traversal before reading manifests or running steps, with regression tests.
 - Shortened the README to focus on first use and moved detailed CLI guidance into dedicated docs.
 - Expanded `.gitignore` for common Python build, test, environment, and editor artifacts.
 - Clarified PyPI package metadata without changing runtime dependencies or the released package version.

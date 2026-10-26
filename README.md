@@ -34,7 +34,7 @@ python -m pip install --upgrade "git+https://github.com/rllibo833-sudo/Steadfast
 | `steadfast discover` | Print a machine-readable capability map for tools and agents. |
 | `steadfast mcp-server` | Start the read-only MCP server for compatible agents. |
 
-See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough and the [command reference](docs/COMMANDS.md) for the full CLI list.
+See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough and the [command reference](docs/COMMANDS.md) for the full CLI list. For a copy-ready pull-request workflow and an adoption checklist, see [Adopt in GitHub Actions](docs/ADOPT_IN_GITHUB_ACTIONS.md).
 
 ## What it checks—and what it cannot
 

@@ -4,38 +4,21 @@
 
 ## Quick start
 
-Requires Python 3.10+ and Git.
+Requires Python 3.10+ and Git. For this repository, install Steadfast and connect Codex in two steps:
 
 ```bash
 python -m pip install -e .
-steadfast init
-steadfast onboard --agent all
-steadfast discover
-steadfast mcp-server
-steadfast audit
-steadfast scope-check
-steadfast evidence-check
-steadfast docs-check
-steadfast code-truth
-steadfast inventory
-steadfast goal-check
-steadfast release-check
-steadfast pipeline --record .steadfast/runs.jsonl
-steadfast pipeline-history --limit 20
-steadfast findings scan
-steadfast findings list --state open --priority high
-steadfast findings metrics
-steadfast automations list
-steadfast automations run quick-health
-steadfast automations history
+steadfast onboard --agent codex
 ```
 
-The equivalent module entry point is `python -m steadfast`. Initialization is non-destructive: existing policy, goal, and evidence files are never overwritten.
+Codex's project-scoped MCP configuration is `.codex/config.toml`; Codex loads it only after you trust this repository. The MCP server exposes read-only Steadfast tools. Codex also discovers the repository skill under `.agents/skills/`, while `AGENTS.md` keeps the work anchored to the goal, prevents repetitive test/fix loops, and requires code, tests, documentation, and verification to agree.
+
+For a compact health check, run `steadfast audit`, `steadfast pipeline`, `steadfast docs-check`, and `steadfast code-truth`. Use `steadfast cycle status` to resume the existing work cycle instead of inventing a parallel task process.
 
 ## Commands
 
 - `steadfast init`: create missing policy, goal, and verification-evidence files.
-- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing files. Claude Code and Cursor also receive repo-local MCP client configuration when those config files do not already exist; the MCP server runs with `python -m steadfast --repo . mcp-server` and requires the package to be installed in that environment.
+- `steadfast onboard [--agent claude|cursor|codex|all]`: create missing governance foundation files and install selected local agent guidance/hooks without overwriting existing files. Claude Code, Cursor, and Codex receive repo-local MCP client configuration when those config files do not already exist; Codex uses the trusted-project `.codex/config.toml` and `.agents/skills/` discovery path. The MCP server runs with `python -m steadfast --repo . mcp-server`; the project config adds `src` to `PYTHONPATH` so a source checkout can run it without installing the package first.
 - `steadfast discover`: emit a machine-readable JSON capability map for agents and tools.
 - `steadfast mcp-server`: expose read-only discovery, report, change-impact, plan, integration-status and inventory tools over the standard MCP stdio protocol; no API key or hosted service is required.
 - `steadfast impact-check [--base REF] [--changed PATH ...]`: classify changed paths, suggest review gates, and flag likely test/documentation gaps. Results are heuristic and do not prove semantic coverage.

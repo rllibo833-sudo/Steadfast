@@ -242,3 +242,13 @@ def serve_stdio(repo: Path, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdo
             stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
             stdout.flush()
     return 0
+
+
+def main() -> int:
+    """Console entry point for MCP stdio; repository root is the current directory."""
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="steadfast-mcp")
+    parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
+    args = parser.parse_args()
+    return serve_stdio(Path(args.repo))

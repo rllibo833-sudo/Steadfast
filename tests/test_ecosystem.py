@@ -68,5 +68,31 @@ class EcosystemReportTests(unittest.TestCase):
             self.assertEqual(report["status"], "attention_required")
             self.assertEqual(report["configuration_errors"][0]["path"], ".vscode/mcp.json")
 
+
+    def test_extension_inventory_reads_entry_point_metadata(self):
+        from unittest.mock import patch
+        from steadfast.ecosystem import extension_inventory
+
+        class Point:
+            def __init__(self, name, value, group, dist_name="sample", version="1.2"):
+                self.name, self.value, self.group = name, value, group
+                self.dist = type("Dist", (), {"name": dist_name, "version": version})()
+
+        class Points(list):
+            def select(self, *, group):
+                return [point for point in self if point.group == group]
+
+        points = Points([
+            Point("demo", "external:plugin", "steadfast.plugins"),
+            Point("scope-guard", "steadfast.integrations:scope_guard_skill", "steadfast.skills"),
+            Point("server", "server:main", "mcp.servers"),
+        ])
+        with patch("steadfast.ecosystem.metadata.entry_points", return_value=points):
+            result = extension_inventory()
+        self.assertEqual(result["plugins"][0]["name"], "demo")
+        self.assertEqual(result["skills"][0]["name"], "scope-guard")
+        self.assertEqual(result["mcp_servers"][0]["name"], "server")
+        self.assertEqual(result["discovery_policy"], "metadata_only_no_provider_code_executed")
+
 if __name__ == "__main__":
     unittest.main()

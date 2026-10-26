@@ -86,6 +86,46 @@ def _skill_inventory(repo: Path) -> list[dict[str, str]]:
             found[relative] = {"path": relative, "sha256": hashlib.sha256(content).hexdigest(), "name": name, "status": "indexed"}
     return [found[key] for key in sorted(found)]
 
+
+from importlib import metadata
+
+
+def _entry_point_records(group: str) -> list[dict[str, str]]:
+    """Read installed extension metadata without importing or executing providers."""
+    try:
+        points = metadata.entry_points()
+        selected = points.select(group=group) if hasattr(points, "select") else points.get(group, [])
+    except (ImportError, OSError, ValueError):
+        return []
+    records = []
+    for point in selected:
+        distribution = getattr(point, "dist", None)
+        records.append({
+            "name": str(point.name),
+            "value": str(point.value),
+            "group": group,
+            "distribution": str(getattr(distribution, "name", "") or ""),
+            "version": str(getattr(distribution, "version", "") or ""),
+            "status": "discovered_not_loaded",
+        })
+    return sorted(records, key=lambda item: (item["name"].casefold(), item["distribution"].casefold(), item["value"]))
+
+
+def discover_plugins() -> dict[str, Any]:
+    """Return metadata for installed Steadfast plugins; never import third-party code."""
+    records = _entry_point_records("steadfast.plugins")
+    return {"schema_version": 1, "plugins": [item for item in records if item["name"] != "auto"],
+            "loaded": False, "note": "Plugin entry points are inventoried only; discovery does not execute third-party code."}
+
+
+def extension_inventory() -> dict[str, Any]:
+    return {
+        "skills": _entry_point_records("steadfast.skills"),
+        "plugins": discover_plugins()["plugins"],
+        "mcp_servers": _entry_point_records("mcp.servers"),
+        "discovery_policy": "metadata_only_no_provider_code_executed",
+    }
+
 def ecosystem_report(repo: Path) -> dict[str, Any]:
     """Build a deterministic, non-executing map of skills and MCP server declarations."""
     root = repo.resolve()
@@ -151,6 +191,7 @@ def ecosystem_report(repo: Path) -> dict[str, Any]:
     status = "attention_required" if errors or any(s["status"] == "blocked" for s in servers) else "review_required" if untrusted else "indexed"
     return {"schema_version": 1, "repository_root": str(root), "status": status,
             "integrations": integration_status(root), "skills": _skill_inventory(root), "mcp_servers": servers,
+            "installed_extensions": extension_inventory(),
             "untrusted_mcp_servers": untrusted, "duplicate_mcp_server_names": duplicates, "configuration_errors": errors,
             "trust_policy": {"require_trust": require_trust, "trusted_mcp_servers": sorted(trusted),
                              "blocked_mcp_servers": sorted(blocked), "source": ".steadfast/policy.json#ecosystem_trust"},

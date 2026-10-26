@@ -170,5 +170,12 @@ class AgentGuardTests(unittest.TestCase):
         self.assertTrue(integration_status(self.repo)["claude"]["installed"])
 
 
+
+    def test_codex_integration_uses_installed_console_entrypoint(self) -> None:
+        from steadfast.integrations import integration_files
+        content = integration_files("codex")[".codex/config.toml"]
+        self.assertIn('command = "steadfast"', content)
+        self.assertIn('args = ["mcp-server"]', content)
+
 if __name__ == "__main__":
     unittest.main()

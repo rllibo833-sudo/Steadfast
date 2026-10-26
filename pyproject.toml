@@ -4,16 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "steadfast-governance"
-version = "0.1.0"
-description = "Evidence-based repository governance for coding agents."
+version = "0.1.1"
+description = "Evidence-based repository governance for coding agents. Central ecosystem hub for skills, plugins, and MCP."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Steadfast contributors"}]
-dependencies = []
+keywords = ["governance", "code-truth", "mcp", "ai-agents", "ecosystem"]
+dependencies = [
+  "mcp>=1.2.0",
+  "pyyaml>=6.0",
+  "rich>=13.0",
+]
 
 [project.scripts]
 steadfast = "steadfast.cli:main"
+
+[project.entry-points."mcp.servers"]
+steadfast = "steadfast.mcp_server:main"
+
+[project.entry-points."steadfast.skills"]
+doc-sync = "steadfast.integrations:doc_sync_skill"
+scope-guard = "steadfast.integrations:scope_guard_skill"
+evidence-check = "steadfast.integrations:evidence_check_skill"
+repo-audit = "steadfast.integrations:repo_audit_skill"
+release-readiness = "steadfast.integrations:release_readiness_skill"
+
+[project.entry-points."steadfast.plugins"]
+auto = "steadfast.ecosystem:discover_plugins"
+
+[project.urls]
+Homepage = "https://github.com/rllibo833-sudo/Steadfast"
+Repository = "https://github.com/rllibo833-sudo/Steadfast"
+Issues = "https://github.com/rllibo833-sudo/Steadfast/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

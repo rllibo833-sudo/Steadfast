@@ -239,11 +239,20 @@ def main(argv: list[str] | None = None) -> int:
                 path.relative_to(repo).as_posix()
                 for path in (repo / ".github" / "workflows").glob("*.yml")
             ) if (repo / ".github" / "workflows").is_dir() else []
+            from .ecosystem import ecosystem_report
+            ecosystem = ecosystem_report(repo)
             result = {
                 "schema_version": 1,
                 "product": "Steadfast",
-                "purpose": "Evidence-based repository governance for coding agents and developers",
+                "purpose": "Evidence-based repository governance and ecosystem discovery for coding agents and developers",
                 "repository_root": str(repo),
+                "ecosystem": {
+                    "skills": ecosystem["skills"],
+                    "installed_extensions": ecosystem["installed_extensions"],
+                    "mcp_servers": ecosystem["mcp_servers"],
+                    "integration_status": ecosystem["integrations"],
+                    "trust_status": ecosystem["status"],
+                },
                 "entrypoints": {
                     "agent_instructions": "AGENTS.md" if (repo / "AGENTS.md").is_file() else None,
                     "policy": ".steadfast/policy.json" if (repo / ".steadfast" / "policy.json").is_file() else None,

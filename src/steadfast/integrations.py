@@ -277,8 +277,8 @@ Steadfast is the repository governance source of truth.
     codex_mcp = """# Project-scoped Codex MCP connection.
 # Codex loads this configuration only after the repository is trusted.
 [mcp_servers.steadfast]
-command = "python"
-args = ["-m", "steadfast", "--repo", ".", "mcp-server"]
+command = "steadfast"
+args = ["mcp-server"]
 cwd = "."
 startup_timeout_sec = 10
 tool_timeout_sec = 60
@@ -319,9 +319,34 @@ def integration_status(repo: Path) -> dict[str, Any]:
     expected = {
         "claude": [".claude/settings.local.json", ".mcp.json", ".claude/skills/steadfast-governance/SKILL.md"],
         "cursor": [".cursor/hooks.json", ".cursor/mcp.json", ".cursor/rules/steadfast-governance.mdc"],
-        "codex": ["AGENTS.md", ".agents/skills/steadfast-governance/SKILL.md"],
+        "codex": ["AGENTS.md", ".agents/skills/steadfast-governance/SKILL.md", ".codex/config.toml"],
     }
     return {agent: {"installed": all((root / p).is_file() for p in paths),
                     "present": [p for p in paths if (root / p).is_file()],
                     "missing": [p for p in paths if not (root / p).is_file()]}
             for agent, paths in expected.items()}
+
+def _builtin_skill(name: str, command: str, description: str) -> dict[str, str]:
+    return {"name": name, "command": command, "description": description, "status": "available"}
+
+
+def doc_sync_skill() -> dict[str, str]:
+    return _builtin_skill("doc-sync", "docs-check", "Check documentation and CLI contract alignment.")
+
+
+def scope_guard_skill() -> dict[str, str]:
+    return _builtin_skill("scope-guard", "scope-check", "Check changed paths against repository policy.")
+
+
+def evidence_check_skill() -> dict[str, str]:
+    return _builtin_skill("evidence-check", "evidence-check", "Validate required verification evidence.")
+
+
+def repo_audit_skill() -> dict[str, str]:
+    return _builtin_skill("repo-audit", "audit", "Run configured repository governance checks.")
+
+
+def release_readiness_skill() -> dict[str, str]:
+    return _builtin_skill("release-readiness", "release-check", "Evaluate release prerequisites without publishing.")
+
+

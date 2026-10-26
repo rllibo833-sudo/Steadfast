@@ -97,5 +97,17 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(response["result"]["isError"])
 
 
+
+    def test_standalone_mcp_entrypoint_serves_stdio(self):
+        from io import StringIO
+        from unittest.mock import patch
+        from steadfast.mcp_server import main
+
+        stdin = StringIO('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}\\n')
+        stdout = StringIO()
+        with patch("sys.stdin", stdin), patch("sys.stdout", stdout), patch("sys.argv", ["steadfast-mcp", "--repo", str(self.repo)]):
+            self.assertEqual(main(), 0)
+        self.assertIn('"serverInfo"', stdout.getvalue())
+
 if __name__ == "__main__":
     unittest.main()

@@ -107,3 +107,19 @@ MIT licensed. See `LICENSE`.
 The supported integration targets are Claude Code, Cursor, and Codex. Claude gets a local settings hook and reusable skill; Cursor gets hook configuration and a repository rule; Codex gets an `AGENTS.md` contract and reusable skill. Install them into a target repository with `steadfast --repo /path/to/repo integrate --agent all`.
 
 The local read-only Project Console is available via `steadfast serve` at `http://127.0.0.1:8765` by default. It summarizes governance findings and provides a source-file preview without repository write endpoints.
+
+
+## Evidence-gated work cycle
+
+Use a goal checklist to track implementation through real verification:
+
+```sh
+steadfast --repo . cycle start goal
+steadfast --repo . cycle status
+steadfast --repo . cycle evidence AC-01 evidence/verification.md --note "Observed behavior"
+steadfast --repo . cycle verify
+steadfast --repo . cycle complete
+steadfast --repo . cycle history
+```
+
+The cycle stores the current task in `.steadfast/work-cycle.json` and appends events to `.steadfast/work-cycle.jsonl`. Completion is refused unless the latest configured pipeline and scope check passed, every acceptance criterion has a repository-local evidence file, and each evidence file still matches its recorded SHA-256 digest. File integrity provides traceability, not semantic proof; reviewers must still assess whether the evidence supports the criterion.

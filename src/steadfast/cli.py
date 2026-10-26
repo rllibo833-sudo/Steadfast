@@ -19,6 +19,7 @@ from .release import release_report
 from .report import render_json, render_markdown
 from .sarif import render_sarif
 from .security import security_findings, workflow_findings
+from .workcycle import attach_evidence, block_cycle, complete_cycle, cycle_history, cycle_status, start_cycle, verify_cycle
 
 
 def parser() -> argparse.ArgumentParser:
@@ -58,6 +59,15 @@ def parser() -> argparse.ArgumentParser:
     history.add_argument("--history", default=".steadfast/runs.jsonl", help="Repository-relative JSONL history file")
     history.add_argument("--limit", type=int, default=20, help="Maximum recent runs to display (1-1000)")
     history.add_argument("--status", choices=("all", "passed", "failed"), default="all", help="Filter runs by outcome")
+    cycle = commands.add_parser("cycle", help="Run an evidence-gated task work cycle")
+    sub = cycle.add_subparsers(dest="cycle_action", required=True)
+    start = sub.add_parser("start", help="Start a configured goal"); start.add_argument("goal_id"); start.add_argument("--title", default="")
+    sub.add_parser("status", help="Show current task")
+    sub.add_parser("verify", help="Run configured pipeline and scope checks")
+    sub.add_parser("complete", help="Complete only after verification and evidence pass")
+    block = sub.add_parser("block", help="Block a task"); block.add_argument("reason")
+    proof = sub.add_parser("evidence", help="Attach evidence to an acceptance criterion"); proof.add_argument("criterion_id"); proof.add_argument("path"); proof.add_argument("--note", default="")
+    history = sub.add_parser("history", help="Read work-cycle event history"); history.add_argument("--limit", type=int, default=20)
     baseline_check = commands.add_parser("baseline-check", help="Compare current audit with a saved baseline")
     baseline_check.add_argument("--base", help="Compare changes against BASE...HEAD")
     baseline_update = commands.add_parser("baseline-update", help="Explicitly replace the audit baseline")
@@ -159,6 +169,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "pipeline-history":
             result = read_history(repo, args.history, limit=args.limit, status=args.status)
             print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "cycle":
+            if args.cycle_action == "start": result = start_cycle(repo, args.goal_id, args.title)
+            elif args.cycle_action == "status": result = cycle_status(repo)
+            elif args.cycle_action == "verify": result = verify_cycle(repo)
+            elif args.cycle_action == "complete": result = complete_cycle(repo)
+            elif args.cycle_action == "block": result = block_cycle(repo, args.reason)
+            elif args.cycle_action == "evidence": result = attach_evidence(repo, args.criterion_id, args.path, args.note)
+            else: result = cycle_history(repo, args.limit)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            if args.cycle_action == "verify" and not result.get("passed"): return 1
             return 0
 
         if args.command == "baseline-update":

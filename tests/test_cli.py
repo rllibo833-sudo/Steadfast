@@ -108,9 +108,6 @@ class CliTests(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_verify_is_unified_and_does_not_execute_configured_pipeline(self):
         import contextlib
         import io
@@ -140,3 +137,7 @@ if __name__ == "__main__":
             self.assertIn("release_readiness", report["components"])
             self.assertTrue(report["components"]["pipeline"]["skipped"])
             self.assertFalse(marker.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

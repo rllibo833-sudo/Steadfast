@@ -3,10 +3,11 @@
   "name": "steadfast-agent-cloud",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-27",
-  "assets": {
-    "directory": "./knowledge",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
-  },
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.html"]
+    }
+  ],
   "workers_dev": true
 }

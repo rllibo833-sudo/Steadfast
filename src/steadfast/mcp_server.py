@@ -284,7 +284,7 @@ def handle_message(message: Any, repo: Path) -> dict[str, Any] | None:
     request_id = message.get("id")
     is_notification = "id" not in message
     if message.get("jsonrpc") != "2.0" or not isinstance(method, str):
-        return None if is_notification else {
+        return {
             "jsonrpc": "2.0", "id": request_id,
             "error": {"code": -32600, "message": "Invalid Request"},
         }

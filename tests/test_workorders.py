@@ -63,6 +63,33 @@ class WorkOrderTests(unittest.TestCase):
         self.assertIn("`src/**`", prompt)
         self.assertIn(f"work-order verify {order['id']}", prompt)
 
+    def test_routed_skills_flow_into_prompt_and_verification(self):
+        skill = self.repo / "skills" / "repo-audit" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text(
+            "---\nname: repo-audit\ndescription: Audit repository policy and report findings\n---\n"
+            "Read policy, run audit, and verify evidence.\n",
+            encoding="utf-8",
+        )
+        order = issue_work_order(self.repo, "repo-audit", scope_paths=["src/**"])
+        selected = order["skill_selection"]["skills"]
+        self.assertTrue(selected)
+        self.assertEqual(selected[0]["name"], "repo-audit")
+        self.assertEqual(selected[0]["path"], "skills/repo-audit/SKILL.md")
+        prompt = render_work_order_prompt(self.repo, order["id"])
+        self.assertIn("## Routed skills (advisory)", prompt)
+        self.assertIn("skills/repo-audit/SKILL.md", prompt)
+        self.assertIn("not proof that a skill was executed", prompt)
+
+        (self.repo / "src" / "module.py").write_text("VALUE = 2\n", encoding="utf-8")
+        pipeline = {"tool": "steadfast", "passed": True, "summary": {}, "steps": [],
+                    "manifest": ".steadfast/pipeline.json", "duration_seconds": 0.1}
+        with patch("steadfast.workorders.run_pipeline", return_value=pipeline):
+            with patch("steadfast.workorders.record_run", return_value={"run_id": "run-skills"}):
+                verified = verify_work_order(self.repo, order["id"])
+        self.assertEqual(verified["skill_selection"]["skills"][0]["name"], "repo-audit")
+        self.assertFalse(verified["skill_execution_claimed"])
+
     def test_work_order_prompt_rejects_closed_contract(self):
         order = issue_work_order(self.repo, "goal")
         order["status"] = "closed"

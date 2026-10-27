@@ -1,19 +1,23 @@
 # Changelog
 
-## 0.4.1 — MCP Registry publication
-- Added the official MCP Registry ownership marker to the package README and aligned package/registry metadata for the 0.4.1 release.
+All notable changes to Steadfast are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Steadfast uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
-- Added a copy-ready consumer GitHub Actions workflow and an adoption guide focused on real-repository evaluation and actionable feedback.
-- Aligned initialized default policy with the repository policy, including agent path rules, protected paths, and documentation paths.
-- Hardened policy loading against non-object JSON roots, non-string allowlist entries, and boolean code budgets.
-- Added regression tests for policy parity and malformed configuration.
-- Added a measurable policy-consistency goal and explicit repository automation workflows.
-- Hardened pipeline and automation path handling to reject symlink traversal before reading manifests or running steps, with regression tests.
-- Shortened the README to focus on first use and moved detailed CLI guidance into dedicated docs.
-- Expanded `.gitignore` for common Python build, test, environment, and editor artifacts.
-- Clarified PyPI package metadata without changing runtime dependencies or the released package version.
 
+### Added
+- Added regression tests for security-scanner behavior, including secret redaction, risky API patterns, workflow shell interpolation, and action pinning.
+- Added dashboard action tests for runtime token injection, missing-token rejection, cross-origin rejection, valid local actions, automation catalog access, and unknown actions.
+- Added a repository pre-commit configuration for Ruff, common file hygiene checks, and optional type checking.
+- Added a repository security policy covering vulnerability reporting, supported versions, responsible disclosure, and known limitations.
+
+### Security
+- Expanded automated regression coverage for security-scanner and dashboard-action protections.
+- Documented that pattern-based scanning and heuristic analysis have limitations and are not substitutes for a full security review.
+
+## 0.4.1 — MCP Registry publication
+- Added the official MCP Registry ownership marker to the package README and aligned package/registry metadata for the 0.4.1 release.
 
 ## 0.4.0 — expanded governance and security core
 - Added conservative local secret-pattern checks and workflow trust-boundary warnings.

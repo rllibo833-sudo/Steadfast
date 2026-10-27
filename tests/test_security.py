@@ -1,3 +1,4 @@
+import secrets
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,7 +14,8 @@ class SecurityScannerTests(unittest.TestCase):
             init_policy(repo)
             source = repo / "src"
             source.mkdir()
-            secret = "sk_live_this_is_a_fake_secret_123"
+            # Generate a realistic-looking test secret dynamically
+            secret = "sk_test_" + secrets.token_hex(16)
             (source / "settings.py").write_text(
                 f'api_key = "{secret}"\n', encoding="utf-8"
             )

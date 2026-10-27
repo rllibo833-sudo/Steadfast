@@ -5,7 +5,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return reply({error:"POST required"},405);
  const base=Deno.env.get("SUPABASE_URL"),key=Deno.env.get("SUPABASE_ANON_KEY")??Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
- const llmUrl=Deno.env.get("STEADFAST_LLM_URL"),llmKey=Deno.env.get("STEADFAST_LLM_API_KEY"),model=Deno.env.get("STEADFAST_MODEL")??"gpt-4o-mini",auth=req.headers.get("Authorization")??"";
+ const llmUrl=Deno.env.get("STEADFAST_LLM_URL")??"https://api.openai.com/v1/chat/completions",llmKey=Deno.env.get("STEADFAST_LLM_API_KEY"),model=Deno.env.get("STEADFAST_MODEL")??"gpt-4.1-mini",auth=req.headers.get("Authorization")??"";
  if(!base||!key)return reply({error:"Supabase function environment is incomplete."},500);
  if(!auth.startsWith("Bearer "))return reply({error:"Sign-in required."},401);
  try{
@@ -18,7 +18,7 @@ Deno.serve(async(req:Request)=>{
   if(!tr.ok)return reply({error:"Could not read task."},403);
   const task=(await tr.json())[0];
   if(!task||task.status==="cancelled")return reply({error:"Task not found or cancelled."},404);
-  if(!llmUrl||!llmKey)return reply({error:"Agent executor is not configured. Set STEADFAST_LLM_URL, STEADFAST_LLM_API_KEY, and optionally STEADFAST_MODEL in Supabase Edge Function secrets.",setup_required:true},503);
+  if(!llmKey)return reply({error:"Add STEADFAST_LLM_API_KEY in Supabase Edge Function Secrets to enable AI execution.",setup_required:true},503);
   const patch=async(data:unknown)=>fetch(base+"/rest/v1/steadfast_tasks?id=eq."+taskId,{method:"PATCH",headers:{...h,Prefer:"return=minimal"},body:JSON.stringify(data)});
   const event=async(type:string,payload:unknown)=>fetch(base+"/rest/v1/steadfast_task_events",{method:"POST",headers:{...h,Prefer:"return=minimal"},body:JSON.stringify({task_id:taskId,actor_id:user.id,event_type:type,payload})});
   await patch({status:"running",updated_at:new Date().toISOString()});await event("agent.started",{model});

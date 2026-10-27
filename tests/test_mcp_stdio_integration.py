@@ -71,6 +71,7 @@ class McpStdioIntegrationTests(unittest.TestCase):
             requests = [
                 "{not-json",
                 json.dumps({"jsonrpc": "2.0", "id": 7, "method": "not/a/method"}),
+                json.dumps({"jsonrpc": "2.0", "method": 42}),
                 json.dumps({
                     "jsonrpc": "2.0",
                     "id": 8,
@@ -97,12 +98,14 @@ class McpStdioIntegrationTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         responses = [json.loads(line) for line in completed.stdout.splitlines()]
-        self.assertEqual(len(responses), 4)
+        self.assertEqual(len(responses), 5)
         self.assertEqual(responses[0]["error"]["code"], -32700)
         self.assertEqual(responses[1]["error"]["code"], -32601)
-        self.assertTrue(responses[2]["result"]["isError"])
-        self.assertIn("accepts no arguments", responses[2]["result"]["content"][0]["text"])
-        self.assertEqual(responses[3], {"jsonrpc": "2.0", "id": 9, "result": {}})
+        self.assertEqual(responses[2]["error"]["code"], -32600)
+        self.assertIsNone(responses[2]["id"])
+        self.assertTrue(responses[3]["result"]["isError"])
+        self.assertIn("accepts no arguments", responses[3]["result"]["content"][0]["text"])
+        self.assertEqual(responses[4], {"jsonrpc": "2.0", "id": 9, "result": {}})
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ Deno.serve(async(req:Request)=>{
   const user=await ur.json(),input=await req.json(),taskId=String(input.task_id??""),knowledgeWorkspaceId=String(input.knowledge_workspace_id??"");
   if(!/^[0-9a-f-]{36}$/i.test(taskId))return reply({error:"Valid task_id required."},400);
   const h={apikey:key,Authorization:auth,"Content-Type":"application/json"};
+  const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const tr=await fetch(base+"/rest/v1/steadfast_tasks?id=eq."+taskId+"&select=id,goal,workspace_id,status",{headers:h});
   if(!tr.ok)return reply({error:"Could not read task."},403);
   const task=(await tr.json())[0];
@@ -82,26 +83,41 @@ Deno.serve(async(req:Request)=>{
     const date=new Date().toISOString().slice(0,10).replace(/-/g,"");
     const repoId="audit-"+owner+"-"+repo+"-"+date;
     const hash=async(value:string)=>{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("")};
-    const post=async(table:string,rows:any[],prefer:string)=>fetch(base+"/rest/v1/"+table,{method:"POST",headers:{...h,Prefer:prefer},body:JSON.stringify(rows)});
+    if(!serviceKey)throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for canonical graph writes.");
+    const graphHeaders={apikey:serviceKey,Authorization:"Bearer "+serviceKey,"Content-Type":"application/json"};
+    const post=async(table:string,rows:any[],prefer:string,query="")=>fetch(base+"/rest/v1/"+table+query,{method:"POST",headers:{...graphHeaders,Prefer:prefer},body:JSON.stringify(rows)});
+    const remove=async(table:string,ids:string[])=>{if(!ids.length)return;const query=ids.map(encodeURIComponent).join(",");return fetch(base+"/rest/v1/"+table+"?workspace_id=eq."+encodeURIComponent(knowledgeWorkspaceId)+"&id=in.("+query+")",{method:"DELETE",headers:{...graphHeaders,Prefer:"return=minimal"}})};
     const repoContent=JSON.stringify({repository_url:repoAudit.repository_url,full_name:repoAudit.full_name,default_branch:repoAudit.default_branch,files_scanned:repoAudit.files_scanned,workflow_files:repoAudit.workflow_files});
-    const rr=await post("knowledge_nodes",[{owner_id:user.id,workspace_id:knowledgeWorkspaceId,id:repoId,kind:"repository_audit",title:repoAudit.full_name,content:repoContent,source:{type:"steadfast-repository-audit",task_id:taskId,repository_url:repoAudit.repository_url},metadata:{audit_date:date,task_id:taskId},media:{},content_sha256:await hash(repoContent),schema_version:1}],"resolution=merge-duplicates,return=minimal");
-    if(!rr.ok)throw new Error("Repository graph node write failed: HTTP "+rr.status);
-    graphNodesSaved++;
     const all=[...(Array.isArray(repoAudit.deterministic_findings)?repoAudit.deterministic_findings:[]),...memories.map((m:any)=>({kind:m.relation_hint,title:m.label,evidence:m.content,decision:"Review finding"}))];
     const rows:any[]=[],edges:any[]=[];
     for(const f of all){
       const content=JSON.stringify({evidence:String(f.evidence??f.content??"").slice(0,5000),decision:String(f.decision??"").slice(0,1000),repository_url:repoAudit.repository_url,task_id:taskId});
       const fullHash=await hash(owner+"/"+repo+"/"+String(f.title??"finding")+"/"+content),id="finding-"+fullHash.slice(0,32);
       rows.push({owner_id:user.id,workspace_id:knowledgeWorkspaceId,id,kind:"audit_finding",title:String(f.title??"Untitled finding").slice(0,512),content,source:{type:"steadfast-repository-audit",task_id:taskId,repository_url:repoAudit.repository_url},metadata:{finding_hash:fullHash},media:{},content_sha256:await hash(content),schema_version:1});
-      edges.push({owner_id:user.id,workspace_id:knowledgeWorkspaceId,source_id:repoId,target_id:id,relation:"HAS_FINDING",provenance:{task_id:taskId,repository_url:repoAudit.repository_url},metadata:{}});
+      edges.push({owner_id:user.id,workspace_id:knowledgeWorkspaceId,source_node_id:repoId,target_node_id:id,relation:"HAS_FINDING",provenance:{task_id:taskId,repository_url:repoAudit.repository_url},metadata:{}});
     }
-    if(rows.length){
-      const nr=await post("knowledge_nodes",rows,"resolution=ignore-duplicates,return=minimal");
-      if(!nr.ok)throw new Error("Finding graph node write failed: HTTP "+nr.status);
-      graphNodesSaved+=rows.length;
-      const lr=await post("knowledge_links",edges,"resolution=ignore-duplicates,return=minimal");
-      if(!lr.ok)throw new Error("Graph relation write failed: HTTP "+lr.status);
-      graphEdgesSaved=edges.length;
+    const repoRow={owner_id:user.id,workspace_id:knowledgeWorkspaceId,id:repoId,kind:"repository_audit",title:repoAudit.full_name,content:repoContent,source:{type:"steadfast-repository-audit",task_id:taskId,repository_url:repoAudit.repository_url},metadata:{audit_date:date,task_id:taskId},media:{},content_sha256:await hash(repoContent),schema_version:1};
+    const nodeIds=rows.map(n=>n.id);
+    try {
+      const rr=await post("knowledge_nodes",[repoRow],"resolution=merge-duplicates,return=minimal","?on_conflict=id");
+      if(!rr.ok)throw new Error("Repository graph node write failed: HTTP "+rr.status+" "+(await rr.text()).slice(0,300));
+      graphNodesSaved++;
+      if(rows.length){
+        const nr=await post("knowledge_nodes",rows,"resolution=merge-duplicates,return=minimal","?on_conflict=id");
+        if(!nr.ok)throw new Error("Finding graph node write failed: HTTP "+nr.status+" "+(await nr.text()).slice(0,300));
+        graphNodesSaved+=rows.length;
+        const lr=await post("knowledge_links",edges,"resolution=merge-duplicates,return=minimal","?on_conflict=source_node_id,target_node_id,relation");
+        if(!lr.ok)throw new Error("Graph relation write failed: HTTP "+lr.status+" "+(await lr.text()).slice(0,300));
+        graphEdgesSaved=edges.length;
+      }
+    } catch(writeError) {
+      // Compensating rollback: best-effort cleanup prevents partial audit graph from remaining.
+      try {
+        await fetch(base+"/rest/v1/knowledge_links?workspace_id=eq."+encodeURIComponent(knowledgeWorkspaceId)+"&source_node_id=eq."+encodeURIComponent(repoId)+"&relation=eq.HAS_FINDING",{method:"DELETE",headers:{...graphHeaders,Prefer:"return=minimal"}});
+        await remove("knowledge_nodes",nodeIds);
+        await remove("knowledge_nodes",[repoId]);
+      } catch(rollbackError) { console.error("Knowledge graph rollback failed",rollbackError); }
+      throw writeError;
     }
     const token=Deno.env.get("MNEMOS_GITHUB_TOKEN"),target=Deno.env.get("MNEMOS_GITHUB_REPOSITORY")??"rllibo833-sudo/mnemos-RLI";
     if(!token)throw new Error("Graph cache written, but MNEMOS_GITHUB_TOKEN is missing; branch sync not dispatched.");

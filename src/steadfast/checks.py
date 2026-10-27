@@ -4,6 +4,8 @@ import fnmatch
 from pathlib import Path
 from typing import Any
 
+from . import __version__
+
 from .contracts import contract_findings
 from .gitops import changed_paths, is_repo
 from .policy import load_policy
@@ -140,7 +142,7 @@ def run_audit(repo: Path, base: str | None = None) -> dict[str, Any]:
     warnings = sum(item["severity"] == "warning" for item in findings)
     info = sum(item["severity"] == "info" for item in findings)
     return {
-        "tool": "steadfast", "version": "0.1.0", "repository": str(repo),
+        "tool": "steadfast", "version": __version__, "repository": str(repo),
         "changed_paths": paths, "product_code_lines": count,
         "product_code_budget": budget, "counted_code_files": len(files),
         "findings": findings,

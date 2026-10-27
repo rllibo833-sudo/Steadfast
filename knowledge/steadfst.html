@@ -104,6 +104,21 @@ async function enter(data){state.token=data.access_token;state.user=data.user;sh
 async function loadWorkspace(){let ws=await request('steadfast_workspaces?select=*&owner_id=eq.'+encodeURIComponent(state.user.id)+'&order=created_at.asc&limit=1');if(!ws.length)ws=await request('steadfast_workspaces',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({owner_id:state.user.id,name:'My workspace'})});state.workspace=ws[0];await Promise.all([loadTasks(),loadNodes()])}
 async function loadTasks(){state.tasks=await request('steadfast_tasks?select=*&workspace_id=eq.'+state.workspace.id+'&order=created_at.desc&limit=50');const completed=state.tasks.filter(t=>t.status==='succeeded');$('done-count').textContent=completed.length;const repos=new Map();for(const t of state.tasks){const url=(t.goal||'').match(/https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/i)?.[0];if(url&&!repos.has(url))repos.set(url,t)}$('repo-count').textContent=repos.size;const root=$('recent-repos');root.replaceChildren();if(!repos.size){root.innerHTML='<div class="empty">No repositories analyzed yet. Paste a GitHub URL above to start.</div>';return}for(const [url,t] of [...repos.entries()].slice(0,10)){const el=document.createElement('div');el.className='recent-repo';const title=document.createElement('strong');title.textContent=url.replace('https://github.com/','');const status=document.createElement('span');status.className='repo-status';status.textContent=' · '+(t.status==='succeeded'?'Analyzed':t.status==='running'?'Analyzing':t.status==='failed'?'Needs retry':'Queued');const small=document.createElement('small');small.textContent=new Date(t.updated_at||t.created_at).toLocaleString();el.append(title,status,small);root.append(el)}}
 async function loadEvents(id,root){try{const rows=await request('steadfast_task_events?select=event_type,payload,created_at&task_id=eq.'+id+'&order=created_at.asc');const pre=document.createElement('pre');pre.style.whiteSpace='pre-wrap';pre.style.color='var(--muted)';pre.textContent=JSON.stringify(rows,null,2);root.append(pre)}catch(e){msg('task-message',e.message,true)}}
+async function loadBranchGraph(){
+ const base='https://raw.githubusercontent.com/rllibo833-sudo/mnemos-RLI/Knowledge/knowledge/';
+ const response=await fetch(base+'manifest.json',{cache:'no-store'});
+ if(!response.ok)throw Error('manifest unavailable');
+ const manifest=await response.json();
+ if(!Array.isArray(manifest.node_files)||!Array.isArray(manifest.edge_files))throw Error('manifest file index missing');
+ const [nodes,edges]=await Promise.all([
+  Promise.all(manifest.node_files.map(async f=>{const r=await fetch(base+'nodes/'+encodeURIComponent(f));if(!r.ok)throw Error('node file missing');return r.json()})),
+  Promise.all(manifest.edge_files.map(async f=>{const r=await fetch(base+'edges/'+encodeURIComponent(f));if(!r.ok)throw Error('edge file missing');return r.json()}))
+ ]);
+ const allNodes=nodes.flat(),allEdges=edges.flat().map(e=>({source_node_id:e.source??e.source_id,target_node_id:e.target??e.target_id,relation_type:e.relation??e.relation_type,created_at:e.created_at||manifest.generated_at}));
+ const ids=new Set(allNodes.map(n=>n.id));
+ if(allEdges.some(e=>!ids.has(e.source_node_id)||!ids.has(e.target_node_id)))throw Error('dangling edge in manifest graph');
+ return {nodes:allNodes,edges:allEdges,manifest};
+}
 async function loadNodes(){
  if(!state.knowledgeWorkspace)return;
  state.nodes=await request('knowledge_nodes?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&deleted_at=is.null&order=updated_at.desc&limit=100');

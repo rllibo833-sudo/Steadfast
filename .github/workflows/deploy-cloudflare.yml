@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "knowledge/**"
+      - "seo/**"
       - "src/worker.js"
       - "wrangler.jsonc"
       - ".github/workflows/deploy-cloudflare.yml"

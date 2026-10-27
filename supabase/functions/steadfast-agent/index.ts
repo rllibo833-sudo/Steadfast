@@ -12,6 +12,30 @@ Deno.serve(async(req:Request)=>{
   const ur=await fetch(base+"/auth/v1/user",{headers:{apikey:key,Authorization:auth}});
   if(!ur.ok)return reply({error:"Invalid or expired session."},401);
   const user=await ur.json(),input=await req.json(),taskId=String(input.task_id??""),knowledgeWorkspaceId=String(input.knowledge_workspace_id??"");
+  if(input.action==="manual_relation" || input.action==="manual_node"){
+   const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+   if(!serviceKey)return reply({error:"SUPABASE_SERVICE_ROLE_KEY is required for graph writes."},500);
+   const gh={apikey:serviceKey,Authorization:"Bearer "+serviceKey,"Content-Type":"application/json"};
+   const workspace=String(input.knowledge_workspace_id??"");
+   if(!/^[0-9a-f-]{36}$/i.test(workspace))return reply({error:"Valid knowledge_workspace_id required."},400);
+   const dispatch=async()=>{const token=Deno.env.get("MNEMOS_GITHUB_TOKEN"),target=Deno.env.get("MNEMOS_GITHUB_REPOSITORY")??"rllibo833-sudo/mnemos-RLI";if(!token)throw new Error("MNEMOS_GITHUB_TOKEN is missing");const d=await fetch("https://api.github.com/repos/"+target+"/dispatches",{method:"POST",headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"Content-Type":"application/json","User-Agent":"Steadfast-Knowledge-Sync"},body:JSON.stringify({event_type:"sync-supabase-to-knowledge",client_payload:{workspace_id:workspace,actor_id:user.id,manual:true}})});if(!d.ok)throw new Error("GitHub dispatch failed: HTTP "+d.status)};
+   if(input.action==="manual_node"){
+    const title=String(input.title??"").trim().slice(0,180),content=String(input.content??"").trim().slice(0,3000),kind=String(input.kind??"insight").slice(0,80);
+    if(!title||!content)return reply({error:"Node title and content are required."},400);
+    const id="sf-"+crypto.randomUUID(),digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(content)),contentHash=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
+    const nr=await fetch(base+"/rest/v1/knowledge_nodes",{method:"POST",headers:{...gh,Prefer:"return=representation"},body:JSON.stringify({owner_id:user.id,workspace_id:workspace,id,kind,title,content,source:{type:"user_saved",created_by:user.id},metadata:{origin:"steadfast-manual",created_by_label:user.email,created_by_email:user.email},media:{},content_sha256:contentHash,schema_version:1})});
+    if(!nr.ok)return reply({error:"Node write failed: HTTP "+nr.status+" "+(await nr.text()).slice(0,300)},502);
+    await dispatch();return reply({ok:true,id,action:"manual_node"});
+   }
+   const source=String(input.source_node_id??""),target=String(input.target_node_id??""),relation=String(input.relation??"RELATED_TO").slice(0,80);
+   if(!source||!target||source===target)return reply({error:"Choose two different node IDs."},400);
+   const check=await fetch(base+"/rest/v1/knowledge_nodes?select=id&workspace_id=eq."+encodeURIComponent(workspace)+"&id=in.("+encodeURIComponent(source)+","+encodeURIComponent(target)+")&deleted_at=is.null",{headers:gh});
+   if(!check.ok)return reply({error:"Could not validate relation endpoints."},502);
+   const endpointRows=await check.json();if(endpointRows.length!==2)return reply({error:"Both relation endpoints must exist in this workspace."},400);
+   const lr=await fetch(base+"/rest/v1/knowledge_links?on_conflict=source_node_id,target_node_id,relation",{method:"POST",headers:{...gh,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:user.id,workspace_id:workspace,source_node_id:source,target_node_id:target,relation,created_by_label:user.email,provenance:{type:"manual",created_by:user.id},metadata:{created_by:user.id}})});
+   if(!lr.ok)return reply({error:"Relation write failed: HTTP "+lr.status+" "+(await lr.text()).slice(0,300)},502);
+   await dispatch();return reply({ok:true,action:"manual_relation"});
+  }
   if(!/^[0-9a-f-]{36}$/i.test(taskId))return reply({error:"Valid task_id required."},400);
   const h={apikey:key,Authorization:auth,"Content-Type":"application/json"};
   const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

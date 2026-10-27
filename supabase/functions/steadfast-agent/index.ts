@@ -75,18 +75,40 @@ Deno.serve(async(req:Request)=>{
   const status=(result.blockers?.length&&!result.completed?.length)?"failed":"succeeded";
   await patch({status,result,plan:result.plan??[],error:status==="failed"?(result.blockers??[]).join("; "):null,updated_at:new Date().toISOString()});
   await event("agent.finished",{status,summary:result.summary??""});
-  const memories=Array.isArray(result.knowledge_to_remember)?result.knowledge_to_remember.slice(0,5):[];
-  let sharedMemoriesSaved=0;
-  for(const m of memories){
-    if(typeof m.label!=="string"||typeof m.content!=="string"||!m.label.trim()||!m.content.trim())continue;
-    if(!/^[0-9a-f-]{36}$/i.test(knowledgeWorkspaceId))continue;
-    const label=m.label.trim().slice(0,180),text=m.content.trim().slice(0,1200);
-    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
-    const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
-    const wr=await fetch(base+"/rest/v1/knowledge_nodes",{method:"POST",headers:{...h,Prefer:"return=minimal"},body:JSON.stringify({owner_id:user.id,workspace_id:knowledgeWorkspaceId,id:"sf-"+crypto.randomUUID(),kind:"agent_insight",title:label,content:text,source:{type:"steadfast-agent",task_id:taskId,model,repository_url:repoAudit?.repository_url??null},metadata:{relation_hint:String(m.relation_hint??"").slice(0,160),generated_by:"steadfast-agent"},media:{},content_sha256:hash,schema_version:1})});
-    if(wr.ok)sharedMemoriesSaved++;
+  const memories=Array.isArray(result.knowledge_to_remember)?result.knowledge_to_remember.slice(0,12):[];
+  let graphNodesSaved=0, graphEdgesSaved=0;
+  if(repoAudit?.full_name && /^[0-9a-f-]{36}$/i.test(knowledgeWorkspaceId)){
+    const [owner,repo]=String(repoAudit.full_name).toLowerCase().split("/");
+    const date=new Date().toISOString().slice(0,10).replace(/-/g,"");
+    const repoId="audit-"+owner+"-"+repo+"-"+date;
+    const hash=async(value:string)=>{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("")};
+    const post=async(table:string,rows:any[],prefer:string)=>fetch(base+"/rest/v1/"+table,{method:"POST",headers:{...h,Prefer:prefer},body:JSON.stringify(rows)});
+    const repoContent=JSON.stringify({repository_url:repoAudit.repository_url,full_name:repoAudit.full_name,default_branch:repoAudit.default_branch,files_scanned:repoAudit.files_scanned,workflow_files:repoAudit.workflow_files});
+    const rr=await post("knowledge_nodes",[{owner_id:user.id,workspace_id:knowledgeWorkspaceId,id:repoId,kind:"repository_audit",title:repoAudit.full_name,content:repoContent,source:{type:"steadfast-repository-audit",task_id:taskId,repository_url:repoAudit.repository_url},metadata:{audit_date:date,task_id:taskId},media:{},content_sha256:await hash(repoContent),schema_version:1}],"resolution=merge-duplicates,return=minimal");
+    if(!rr.ok)throw new Error("Repository graph node write failed: HTTP "+rr.status);
+    graphNodesSaved++;
+    const all=[...(Array.isArray(repoAudit.deterministic_findings)?repoAudit.deterministic_findings:[]),...memories.map((m:any)=>({kind:m.relation_hint,title:m.label,evidence:m.content,decision:"Review finding"}))];
+    const rows:any[]=[],edges:any[]=[];
+    for(const f of all){
+      const content=JSON.stringify({evidence:String(f.evidence??f.content??"").slice(0,5000),decision:String(f.decision??"").slice(0,1000),repository_url:repoAudit.repository_url,task_id:taskId});
+      const fullHash=await hash(owner+"/"+repo+"/"+String(f.title??"finding")+"/"+content),id="finding-"+fullHash.slice(0,32);
+      rows.push({owner_id:user.id,workspace_id:knowledgeWorkspaceId,id,kind:"audit_finding",title:String(f.title??"Untitled finding").slice(0,512),content,source:{type:"steadfast-repository-audit",task_id:taskId,repository_url:repoAudit.repository_url},metadata:{finding_hash:fullHash},media:{},content_sha256:await hash(content),schema_version:1});
+      edges.push({owner_id:user.id,workspace_id:knowledgeWorkspaceId,source_id:repoId,target_id:id,relation:"HAS_FINDING",provenance:{task_id:taskId,repository_url:repoAudit.repository_url},metadata:{}});
+    }
+    if(rows.length){
+      const nr=await post("knowledge_nodes",rows,"resolution=ignore-duplicates,return=minimal");
+      if(!nr.ok)throw new Error("Finding graph node write failed: HTTP "+nr.status);
+      graphNodesSaved+=rows.length;
+      const lr=await post("knowledge_links",edges,"resolution=ignore-duplicates,return=minimal");
+      if(!lr.ok)throw new Error("Graph relation write failed: HTTP "+lr.status);
+      graphEdgesSaved=edges.length;
+    }
+    const token=Deno.env.get("MNEMOS_GITHUB_TOKEN"),target=Deno.env.get("MNEMOS_GITHUB_REPOSITORY")??"rllibo833-sudo/mnemos-RLI";
+    if(!token)throw new Error("Graph cache written, but MNEMOS_GITHUB_TOKEN is missing; branch sync not dispatched.");
+    const dispatch=await fetch("https://api.github.com/repos/"+target+"/dispatches",{method:"POST",headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"Content-Type":"application/json","User-Agent":"Steadfast-Knowledge-Sync"},body:JSON.stringify({event_type:"sync-supabase-to-knowledge",client_payload:{workspace_id:knowledgeWorkspaceId,repository:repoAudit.full_name,task_id:taskId}})});
+    if(!dispatch.ok)throw new Error("Graph cache written, but GitHub dispatch failed: HTTP "+dispatch.status);
   }
 
-  return reply({task_id:taskId,status,result,repository_audit:repoAudit,shared_memories_saved:sharedMemoriesSaved,knowledge_context_items:sharedContext?sharedContext.split("\\n").length:0});
+  return reply({task_id:taskId,status,result,repository_audit:repoAudit,graph_nodes_saved:graphNodesSaved,graph_edges_saved:graphEdgesSaved,knowledge_context_items:sharedContext?sharedContext.split("\\n").length:0});
  }catch(e){return reply({error:e instanceof Error?e.message:"Unexpected agent error."},500)}
 });

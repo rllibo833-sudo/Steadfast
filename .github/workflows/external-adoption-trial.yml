@@ -22,19 +22,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out Steadfast
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           path: steadfast-source
 
       - name: Check out target repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           repository: ${{ github.event.inputs.repository || 'golles/ha-kamstrup_403' }}
           path: target-repository
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.14"
           cache: pip
@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload audit evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v4
         with:
           name: steadfast-external-audit
           path: |

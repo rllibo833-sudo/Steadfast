@@ -132,8 +132,16 @@ async function loadBranchGraph(){
 }
 async function loadNodes(){
  try{
-  const graph=await loadBranchGraph();state.nodes=graph.nodes;state.edges=graph.edges;state.manifest=graph.manifest;
-  const status=$('graph-status');if(status)status.textContent=graph.manifest.nodes_count+' node · '+graph.manifest.edges_count+' relasi nyata · sumber Knowledge branch';
+  let graph;
+  try{
+   const response=await fetch('/api/graph',{headers:{Accept:'application/json'}});
+   if(!response.ok)throw new Error('/api/graph returned HTTP '+response.status);
+   graph=await response.json();
+   if(!Array.isArray(graph.nodes)||!Array.isArray(graph.edges))throw new Error('/api/graph returned an invalid graph payload');
+   graph.edges=graph.edges.map(e=>({...e,source_node_id:e.source_node_id??e.source_id??e.source,target_node_id:e.target_node_id??e.target_id??e.target,relation_type:e.relation_type??e.relation}));
+  }catch(apiError){console.warn('Graph API unavailable; using Knowledge branch snapshots:',apiError);graph=await loadBranchGraph()}
+  state.nodes=graph.nodes;state.edges=graph.edges;state.manifest=graph.manifest;
+  const status=$('graph-status');if(status)status.textContent=(graph.manifest?.nodes_count??graph.nodes.length)+' node · '+(graph.manifest?.edges_count??graph.edges.length)+' relasi nyata · sumber '+(graph.source||'Knowledge branch');
  }catch(branchError){
   console.warn('Knowledge branch unavailable; using Supabase cache:',branchError);
   state.manifest=null;if(!state.knowledgeWorkspace){state.nodes=[];state.edges=[];return}

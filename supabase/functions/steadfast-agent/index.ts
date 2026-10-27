@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
           }
         }
         for (let offset = 0; offset < links.length; offset += 100) {
-          const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(links.slice(offset, offset + 100)) });
+          const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=workspace_id,source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(links.slice(offset, offset + 100)) });
           if (!linkRes.ok) return reply({ error: "Node saved, but automatic link write failed: HTTP " + linkRes.status + " " + (await linkRes.text()).slice(0, 300), node_id: id }, 502);
         }
         const sync = await dispatchSync();
@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
       const nodeCheck = await fetch(base + "/rest/v1/knowledge_nodes?select=id&id=in.(" + encodeURIComponent(sourceId) + "," + encodeURIComponent(targetId) + ")&workspace_id=eq." + encodeURIComponent(workspaceId) + "&deleted_at=is.null", { headers: adminHeaders });
       if (!nodeCheck.ok) return reply({ error: "Could not validate selected nodes." }, 502);
       if ((await nodeCheck.json()).length !== 2) return reply({ error: "Both nodes must belong to this shared workspace." }, 400);
-      const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ owner_id: user.id, workspace_id: workspaceId, source_id: sourceId, target_id: targetId, relation, provenance: { type: "user_defined" }, confidence: 1, metadata: {} }) });
+      const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=workspace_id,source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ owner_id: user.id, workspace_id: workspaceId, source_id: sourceId, target_id: targetId, relation, provenance: { type: "user_defined" }, confidence: 1, metadata: {} }) });
       if (!linkRes.ok) return reply({ error: "Relation write failed: HTTP " + linkRes.status + " " + (await linkRes.text()).slice(0, 300) }, 502);
       const sync = await dispatchSync();
       return reply({ ok: true, action: "manual_relation", sync });

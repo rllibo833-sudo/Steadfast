@@ -107,7 +107,7 @@ async function loadEvents(id,root){try{const rows=await request('steadfast_task_
 async function loadNodes(){
  if(!state.knowledgeWorkspace)return;
  state.nodes=await request('knowledge_nodes?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&deleted_at=is.null&order=updated_at.desc&limit=100');
- try{state.edges=await request('knowledge_edges?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&order=created_at.desc&limit=300')}catch(e){state.edges=[];console.error('Could not load graph edges:',e)}
+ try{state.edges=await request('knowledge_links?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&deleted_at=is.null&order=created_at.desc&limit=300');state.edges=state.edges.map(e=>({...e,source_node_id:e.source_id,target_node_id:e.target_id,relation_type:e.relation}))}catch(e){state.edges=[];console.error('Could not load graph edges:',e)}
  $('node-count').textContent=state.nodes.length;
  const root=$('nodes');root.replaceChildren();
  const fillSelect=(id,placeholder)=>{const el=$(id);if(!el)return;const prior=el.value;el.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent=placeholder;el.append(blank);for(const n of state.nodes){const opt=document.createElement('option');opt.value=n.id;opt.textContent=(n.title||n.id)+' · '+(n.kind||'node');el.append(opt)}if(state.nodes.some(n=>n.id===prior))el.value=prior};

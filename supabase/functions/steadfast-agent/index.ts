@@ -11,7 +11,7 @@ Deno.serve(async(req:Request)=>{
  try{
   const ur=await fetch(base+"/auth/v1/user",{headers:{apikey:key,Authorization:auth}});
   if(!ur.ok)return reply({error:"Invalid or expired session."},401);
-  const user=await ur.json(),input=await req.json(),taskId=String(input.task_id??"");
+  const user=await ur.json(),input=await req.json(),taskId=String(input.task_id??""),knowledgeWorkspaceId=String(input.knowledge_workspace_id??"");
   if(!/^[0-9a-f-]{36}$/i.test(taskId))return reply({error:"Valid task_id required."},400);
   const h={apikey:key,Authorization:auth,"Content-Type":"application/json"};
   const tr=await fetch(base+"/rest/v1/steadfast_tasks?id=eq."+taskId+"&select=id,goal,workspace_id,status",{headers:h});

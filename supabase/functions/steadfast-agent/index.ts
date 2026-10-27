@@ -25,47 +25,27 @@ Deno.serve(async(req:Request)=>{
     const id="sf-"+crypto.randomUUID(),digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(content)),contentHash=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
     const nr=await fetch(base+"/rest/v1/knowledge_nodes",{method:"POST",headers:{...gh,Prefer:"return=representation"},body:JSON.stringify({owner_id:user.id,workspace_id:workspace,id,kind,title,content,source:{type:"user_saved",created_by:user.id},metadata:{origin:"steadfast-manual",created_by_label:user.email,created_by_email:user.email},media:{},content_sha256:contentHash,schema_version:1})});
     if(!nr.ok)return reply({error:"Node write failed: HTTP "+nr.status+" "+(await nr.text()).slice(0,300)},502);
-    await dispatch();return reply({ok:true,id,action:"manual_node"});
-   }
-   const source=String(input.source_node_id??""),target=String(input.target_node_id??""),relation=String(input.relation??"RELATED_TO").slice(0,80);
-   if(!source||!target||source===target)return reply({error:"Choose two different node IDs."},400);
-   const check=await fetch(base+"/rest/v1/knowledge_nodes?select=id&workspace_id=eq."+encodeURIComponent(workspace)+"&id=in.("+encodeURIComponent(source)+","+encodeURIComponent(target)+")&deleted_at=is.null",{headers:gh});
-   if(!check.ok)return reply({error:"Could not validate relation endpoints."},502);
-   const endpointRows=await check.json();if(endpointRows.length!==2)return reply({error:"Both relation endpoints must exist in this workspace."},400);
-   const lr=await fetch(base+"/rest/v1/knowledge_links?on_conflict=source_node_id,target_node_id,relation",{method:"POST",headers:{...gh,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:user.id,workspace_id:workspace,source_node_id:source,target_node_id:target,relation,created_by_label:user.email,provenance:{type:"manual",created_by:user.id},metadata:{created_by:user.id}})});
-   if(!lr.ok)return reply({error:"Relation write failed: HTTP "+lr.status+" "+(await lr.text()).slice(0,300)},502);
-   await dispatch();return reply({ok:true,action:"manual_relation"});
-  }
-  if(!/^[0-9a-f-]{36}$/i.test(taskId))return reply({error:"Valid task_id required."},400);
-  const h={apikey:key,Authorization:auth,"Content-Type":"application/json"};
-  const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const tr=await fetch(base+"/rest/v1/steadfast_tasks?id=eq."+taskId+"&select=id,goal,workspace_id,status",{headers:h});
-  if(!tr.ok)return reply({error:"Could not read task."},403);
-  const task=(await tr.json())[0];
-  if(!task||task.status==="cancelled")return reply({error:"Task not found or cancelled."},404);
-  const repoMatch=String(task.goal??"").match(/https?:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/i);
-  let repoAudit:any=null;
-  if(repoMatch){
-   const owner=repoMatch[1],repo=repoMatch[2].replace(/\.git$/i,""),repoUrl="https://github.com/"+owner+"/"+repo;
-   try{
-    const mr=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repo),{headers:{"Accept":"application/vnd.github+json","User-Agent":"Steadfast-Repository-Auditor"}});
-    if(mr.ok){
-     const meta=await mr.json(),branch=String(meta.default_branch||"main");
-     const tr=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repo)+"/git/trees/"+encodeURIComponent(branch)+"?recursive=1",{headers:{"Accept":"application/vnd.github+json","User-Agent":"Steadfast-Repository-Auditor"}});
-     if(tr.ok){
-      const td=await tr.json(),paths=(td.tree??[]).filter((x:any)=>x.type==="blob").map((x:any)=>String(x.path)),workflows=paths.filter((p:string)=>/^\.github\/workflows\/[^/]+\.(yml|yaml)$/i.test(p)),checks:string[]=["repo-audit"];
-      if(workflows.length)checks.push("actions-supply-chain-review","ci-failure-autopsy");
-      if(paths.some((p:string)=>/(^|\/)(package\.json|pyproject\.toml|Cargo\.toml|go\.mod|pom\.xml|build\.gradle|requirements\.txt)$/i.test(p)))checks.push("dependency-manifest-review");
-      if(paths.some((p:string)=>/(^|\/)(Dockerfile|docker-compose\.ya?ml|\.devcontainer\/)/i.test(p)))checks.push("container-build-review");
-      if(paths.some((p:string)=>/(release|publish|attest|provenance|verify)/i.test(p)))checks.push("release-verification-review");
-      const selected=[...new Set([...workflows.slice(0,5),...paths.filter((p:string)=>/(^|\/)(package\.json|pyproject\.toml|Cargo\.toml|go\.mod|requirements\.txt)$/i.test(p)).slice(0,3)])].slice(0,8),evidence:string[]=[];
-      for(const path of selected){try{const fr=await fetch("https://raw.githubusercontent.com/"+owner+"/"+repo+"/"+encodeURIComponent(branch)+"/"+path.split("/").map(encodeURIComponent).join("/"),{headers:{"User-Agent":"Steadfast-Repository-Auditor"}});if(fr.ok)evidence.push("FILE "+path+"\n"+(await fr.text()).slice(0,6500))}catch{}}
-      const findings:any[]=[];
-      if(!workflows.length)findings.push({kind:"risk",title:"No GitHub Actions workflows found",evidence:"No .github/workflows YAML files in repository tree.",decision:"Analyze whether CI is required"});
-      for(const ev of evidence.filter((x:string)=>x.startsWith("FILE .github/workflows/"))){const path=ev.split("\n",1)[0].slice(5),body=ev.slice(ev.indexOf("\n")+1);for(const m of body.matchAll(/uses:\s*([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)@(v[0-3](?:\b|\.[0-9.]+))/g))findings.push({kind:"supply_chain",title:path+" uses "+m[1]+"@"+m[2],evidence:"Found in "+path+": "+m[0],decision:"Review and upgrade to a supported pinned release"})}
-      if(!paths.some((p:string)=>/(release|publish|attest|provenance|verify)/i.test(p)))findings.push({kind:"risk",title:"No obvious release verification workflow",evidence:"No release/publish/attestation/provenance/verification-named paths found.",decision:"Analyze whether release provenance and artifact verification are needed"});
-      repoAudit={repository_url:repoUrl,full_name:meta.full_name,description:meta.description||"",default_branch:branch,stars:meta.stargazers_count,private:meta.private,tree_truncated:!!td.truncated,files_scanned:paths.length,workflow_files:workflows,selected_checks:checks,files_reviewed:selected,evidence,deterministic_findings:findings.slice(0,12)};
-     }else repoAudit={repository_url:repoUrl,error:"Could not inspect repository tree (HTTP "+tr.status+").",selected_checks:["repo-audit"]};
+    // Automatically connect nodes that share meaningful, identical terms; manual linking is optional.
+    const stop=new Set("yang dan di ke dari untuk pada dengan adalah itu ini atau dalam sebagai oleh akan bisa tidak juga sudah agar jika saat setelah sebelum antara sebuah suatu the and for with from that this those these are was were into onto about over under then than have has had not but you your our their they them its can will would should may might a an of to in on at by as is be or it we he she gw gua gue lu lo aku saya kamu dia para setiap lebih kurang hanya".split(" "));
+    const terms=(value:string)=>new Set((String(value||"").toLocaleLowerCase("id-ID").normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").match(/[a-z0-9][a-z0-9_-]{2,}/g)||[]).filter(w=>w.length>=4&&!stop.has(w)));
+    const newTerms=terms(title+" "+content);
+    const existing=await fetch(base+"/rest/v1/knowledge_nodes?select=id,title,content,kind&workspace_id=eq."+encodeURIComponent(workspace)+"&deleted_at=is.null&limit=1000",{headers:gh});
+    let autoLinks=0;
+    if(existing.ok&&newTerms.size){
+     const candidates=await existing.json(),relations=[];
+     for(const node of candidates){
+      if(!node.id||node.id===id)continue;
+      const overlap=[...terms(String(node.title||"")+" "+String(node.content||""))].filter(w=>newTerms.has(w));
+      if(overlap.length)relations.push({owner_id:user.id,workspace_id:workspace,source_node_id:id,target_node_id:node.id,relation:"shares_keyword",created_by_label:"automatic keyword matcher",provenance:{type:"exact_keyword_overlap",algorithm:"normalized-token-v1"},metadata:{matched_keywords:overlap.slice(0,30)}});
+     }
+     for(let offset=0;offset<relations.length;offset+=100){
+      const lr=await fetch(base+"/rest/v1/knowledge_links?on_conflict=source_node_id,target_node_id,relation",{method:"POST",headers:{...gh,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(relations.slice(offset,offset+100))});
+      if(!lr.ok)return reply({error:"Node saved, but automatic relation write failed: HTTP "+lr.status+" "+(await lr.text()).slice(0,300)},502);
+      autoLinks+=Math.min(100,relations.length-offset);
+     }
+    }
+    await dispatch();return reply({ok:true,id,action:"manual_node",auto_relations:autoLinks,matching:"normalized identical keywords"});
+    }else repoAudit={repository_url:repoUrl,error:"Could not inspect repository tree (HTTP "+tr.status+").",selected_checks:["repo-audit"]};
     }else repoAudit={repository_url:repoUrl,error:"GitHub API returned HTTP "+mr.status+".",selected_checks:["repo-audit"]};
    }catch(e){repoAudit={repository_url:repoUrl,error:e instanceof Error?e.message:"Repository inspection failed.",selected_checks:["repo-audit"]}}
   }

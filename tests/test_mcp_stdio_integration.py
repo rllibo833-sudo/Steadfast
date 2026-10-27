@@ -64,5 +64,46 @@ class McpStdioIntegrationTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], 1)
 
 
+    def test_stdio_recovers_from_parse_errors_and_reports_protocol_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            init_policy(repo)
+            requests = [
+                "{not-json",
+                json.dumps({"jsonrpc": "2.0", "id": 7, "method": "not/a/method"}),
+                json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": 8,
+                    "method": "tools/call",
+                    "params": {"name": "steadfast_discover", "arguments": {"unexpected": True}},
+                }),
+                json.dumps({"jsonrpc": "2.0", "id": 9, "method": "ping"}),
+            ]
+            command = [
+                sys.executable,
+                "-c",
+                "from steadfast.mcp_server import main; raise SystemExit(main())",
+                "--repo",
+                str(repo),
+            ]
+            completed = subprocess.run(
+                command,
+                input="\\n".join(requests) + "\\n",
+                text=True,
+                capture_output=True,
+                timeout=20,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        responses = [json.loads(line) for line in completed.stdout.splitlines()]
+        self.assertEqual(len(responses), 4)
+        self.assertEqual(responses[0]["error"]["code"], -32700)
+        self.assertEqual(responses[1]["error"]["code"], -32601)
+        self.assertTrue(responses[2]["result"]["isError"])
+        self.assertIn("accepts no arguments", responses[2]["result"]["content"][0]["text"])
+        self.assertEqual(responses[3], {"jsonrpc": "2.0", "id": 9, "result": {}})
+
+
 if __name__ == "__main__":
     unittest.main()

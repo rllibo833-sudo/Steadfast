@@ -6,6 +6,24 @@
 
 Steadfast is a local-first CLI that helps developers and AI agents inspect repository health, enforce change scope, verify evidence, and spot documentation drift. It does not generate code, require an AI API key, or send repository contents to a Steadfast-hosted service.
 
+## Install the agent skills (without installing the Python CLI)
+
+Steadfast's five reusable skills can be installed directly from this public GitHub repository with the open-source Skills CLI. This is the lightest way to try Steadfast in a supported coding agent:
+
+```bash
+npx skills add rllibo833-sudo/Steadfast
+```
+
+Choose the skill(s) you want when prompted. To install one specific skill, for example:
+
+```bash
+npx skills add rllibo833-sudo/Steadfast --skill repo-audit
+```
+
+Available skills: `repo-audit`, `scope-guard`, `evidence-check`, `doc-sync`, and `release-readiness`. Browse the source in [skills/](skills/).
+
+**Important:** these files provide agent instructions; they do not install or run the Steadfast CLI checks. For executable repository checks, use the Python installation below. Skills are intended to be reviewed before use, especially when granting an agent access to files or shell tools.
+
 ## Quick start
 
 Requires Python 3.10+ and Git.

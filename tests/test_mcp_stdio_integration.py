@@ -42,7 +42,7 @@ class McpStdioIntegrationTests(unittest.TestCase):
             ]
             completed = subprocess.run(
                 command,
-                input="".join(json.dumps(item) + "\\n" for item in requests),
+                input="".join(json.dumps(item) + "\n" for item in requests),
                 text=True,
                 capture_output=True,
                 timeout=20,

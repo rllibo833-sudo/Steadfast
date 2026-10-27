@@ -4,6 +4,8 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from . import __version__
+
 from .checks import matches, product_code_lines
 from .policy import load_policy
 
@@ -49,7 +51,7 @@ def inventory_report(repo: Path) -> dict[str, Any]:
         files.append(row)
     code_lines, code_files = product_code_lines(repo, policy)
     return {
-        "tool": "steadfast", "version": "0.1.0",
+        "tool": "steadfast", "version": __version__,
         "repository": str(repo),
         "file_count": len(files),
         "implementation_file_count": len(code_files),

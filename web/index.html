@@ -33,7 +33,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:22p
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-const state = {url:localStorage.getItem('sf_url')||'',key:localStorage.getItem('sf_key')||'',token:'',user:null,workspace:null,tasks:[],nodes:[]};
+const state = {url:localStorage.getItem('sf_url')||'https://kuditcnmasfjgzmimnlc.supabase.co',key:localStorage.getItem('sf_key')||'sb_publishable_g73Xe5kQC19cR1nNXVtRWA_WzkRM-kI',token:'',user:null,workspace:null,tasks:[],nodes:[]};
 const show=(id,on=true)=>$(id).classList.toggle('hidden',!on);
 const msg=(id,text,error=false)=>{const el=$(id);el.textContent=text;el.classList.remove('hidden','error');if(error)el.classList.add('error')};
 const headers=()=>({'apikey':state.key,'Authorization':'Bearer '+(state.token||state.key),'Content-Type':'application/json'});

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://steadfast-agent-cloud.fadlibo833.workers.dev/sitemap.xml

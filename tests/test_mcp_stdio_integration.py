@@ -88,7 +88,7 @@ class McpStdioIntegrationTests(unittest.TestCase):
             ]
             completed = subprocess.run(
                 command,
-                input="\\n".join(requests) + "\\n",
+                input="\n".join(requests) + "\n",
                 text=True,
                 capture_output=True,
                 timeout=20,

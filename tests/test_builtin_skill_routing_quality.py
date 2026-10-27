@@ -23,6 +23,18 @@ class BuiltInSkillRoutingQualityTests(unittest.TestCase):
             "actions-supply-chain-review",
         ),
         (
+            "Review this database migration before production: it adds a NOT NULL "
+            "column, backfills millions of rows, and may lock the table. Check data "
+            "preconditions, backward compatibility, batching, and rollback limits.",
+            "database-migration-safety",
+        ),
+        (
+            "The service became unhealthy immediately after deployment. Correlate "
+            "deploy events, runtime logs, health checks, and metrics; compare the last "
+            "healthy version and verify recovery after the fix.",
+            "deployment-incident-triage",
+        ),
+        (
             "The published Python wheel installs but the CLI crashes with "
             "ModuleNotFoundError. Inspect wheel and sdist contents in a clean venv.",
             "python-release-breakage",
@@ -47,6 +59,8 @@ class BuiltInSkillRoutingQualityTests(unittest.TestCase):
             "ci-failure-autopsy": ("CI", "reproduce", "regression"),
             "actions-supply-chain-review": ("GitHub Actions", "untrusted", "token"),
             "python-release-breakage": ("Python", "wheel", "sdist"),
+            "database-migration-safety": ("migration", "backfill", "rollback"),
+            "deployment-incident-triage": ("deployment", "health", "recovery"),
         }
         for name, required_terms in expected.items():
             with self.subTest(skill=name):

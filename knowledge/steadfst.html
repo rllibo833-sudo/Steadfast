@@ -134,7 +134,7 @@ async function loadNodes(){
  const fillSelect=(id,placeholder)=>{const el=$(id);if(!el)return;const prior=el.value;el.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent=placeholder;el.append(blank);for(const n of state.nodes){const opt=document.createElement('option');opt.value=n.id;opt.textContent=(n.title||n.id)+' · '+(n.kind||'node');el.append(opt)}if(state.nodes.some(n=>n.id===prior))el.value=prior};
  fillSelect('edge-source','Pilih node asal');fillSelect('edge-target','Pilih node tujuan');
  if(!state.nodes.length){root.innerHTML='<div class="empty">Belum ada node. Tambahkan catatan di atas atau analisis repository.</div>';return}
- const items=state.nodes.slice(0,40),width=760,height=390,cx=width/2,cy=height/2;
+ const items=state.nodes.slice(0,40),width=760,height=Math.max(390,Math.ceil(Math.min(state.nodes.length,40)/7)*100+80),cx=width/2,cy=height/2;
  const palette={repository_audit:'#d4ff59',audit_finding:'#ff8f8f',agent_insight:'#a995ff',human_note:'#7ee787',finding:'#ffb86b',insight:'#a995ff',decision:'#7dd3fc',idea:'#f9a8d4',reference:'#fcd34d',question:'#c4b5fd'};
  // Deterministic force-directed layout: linked nodes attract; unrelated nodes repel.
  const positions=items.map((node,i)=>({node,x:55+(i%7)*108+(Math.sin(i*12.9898)*13),y:42+Math.floor(i/7)*100+(Math.cos(i*7.233)*13),vx:0,vy:0}));

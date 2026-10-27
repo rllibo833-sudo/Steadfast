@@ -1,0 +1,50 @@
+repos:
+  # Code formatting and linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-ast
+        name: "Check Python AST validity"
+      - id: check-json
+        name: "Check JSON files"
+      - id: check-yaml
+        name: "Check YAML files"
+      - id: check-toml
+        name: "Check TOML files"
+      - id: detect-private-key
+        name: "Detect private keys"
+      - id: end-of-file-fixer
+        name: "Fix end of file"
+      - id: trailing-whitespace
+        name: "Trim trailing whitespace"
+      - id: mixed-line-ending
+        name: "Fix mixed line endings"
+        args: [--fix=lf]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.0
+    hooks:
+      - id: mypy
+        name: "Type check with mypy"
+        args: [--ignore-missing-imports, --disallow-untyped-defs]
+        additional_dependencies:
+          - types-pyyaml
+          - types-requests
+
+ci:
+  autofix_commit_msg: "chore: auto-fix code quality issues"
+  autofix_prs: true
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "chore: pre-commit autoupdate"
+  autoupdate_schedule: weekly
+  skip: [mypy]  # Skip mypy in CI due to complexity
+  stages: [commit]

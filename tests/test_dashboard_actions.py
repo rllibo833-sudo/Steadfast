@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import json
+import secrets
 import threading
 import unittest
 from http.client import HTTPConnection
@@ -21,7 +23,8 @@ class DashboardActionTests(unittest.TestCase):
         )
         self.server = DashboardServer(("127.0.0.1", 0), DashboardHandler)
         self.server.repo = self.repo
-        self.server.action_token = "test-token-that-is-long-enough"
+        # Generate a cryptographically secure token for testing.
+        self.server.action_token = secrets.token_urlsafe(32)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.host, self.port = self.server.server_address
@@ -48,7 +51,7 @@ class DashboardActionTests(unittest.TestCase):
     def test_console_injects_per_server_action_token(self):
         status, body = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn(b"test-token-that-is-long-enough", body)
+        self.assertIn(self.server.action_token.encode("ascii"), body)
         self.assertNotIn(b"__STEADFAST_ACTION_TOKEN__", body)
 
     def test_post_without_token_is_rejected(self):

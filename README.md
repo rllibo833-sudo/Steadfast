@@ -4,6 +4,8 @@
 
 **Repository checks and guardrails for coding agents.**
 
+[![Steadfast Repository Governance MCP server](https://mcprush.com/badge/steadfast-repository-governance-mcp/card.svg)](https://mcprush.com/to/steadfast-repository-governance-mcp?ref=badge)
+
 Steadfast is a local-first CLI that helps developers and AI agents inspect repository health, enforce change scope, verify evidence, and spot documentation drift. It does not generate code, require an AI API key, or send repository contents to a Steadfast-hosted service.
 
 ## Quick start

@@ -254,7 +254,7 @@ Deno.serve(async (req: Request) => {
       }
       transport = await enqueueKnowledgeEvent(workspaceId, { nodes, edges }, "steadfast-task:" + taskId);
     }
-    return reply({ task_id: taskId, status: "succeeded", result, repository_audit: { repository_url: repoUrl, files_scanned: paths.length, evidence_files: evidence.length, findings: findings.length }, shared_memories_saved: nodes?.length ?? 0, knowledge_transport: transport, engine: "steadfast-native-skills" });
+    return reply({ task_id: taskId, status: "succeeded", result, repository_audit: { repository_url: repoUrl, files_scanned: paths.length, evidence_files: evidence.length, findings: findings.length }, shared_memories_saved: transport ? Math.min(findings.length, 20) + 1 : 0, knowledge_transport: transport, engine: "steadfast-native-skills" });
   } catch (error) {
     return reply({ error: error instanceof Error ? error.message : "Unexpected native audit error." }, 500);
   }

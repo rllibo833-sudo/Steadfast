@@ -32,6 +32,8 @@ Deno.serve(async (req: Request) => {
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing from Edge Function secrets.");
       if (!/^[0-9a-f-]{36}$/i.test(targetWorkspaceId)) throw new Error("Valid knowledge_workspace_id required.");
+      const stableKey = String(idempotencyKey ?? "").trim();
+      if (!stableKey || stableKey.length > 256) throw new Error("idempotency_key must contain 1 to 256 characters.");
       const canonical = (value: any): string => value === null || typeof value !== "object"
         ? JSON.stringify(value)
         : Array.isArray(value) ? "[" + value.map(canonical).join(",") + "]"
@@ -41,13 +43,13 @@ Deno.serve(async (req: Request) => {
       const adminHeaders = { apikey: serviceKey, Authorization: "Bearer " + serviceKey, "Content-Type": "application/json", Prefer: "return=representation" };
       const response = await fetch(base + "/rest/v1/mnemos_outbox?on_conflict=workspace_id,idempotency_key", {
         method: "POST", headers: { ...adminHeaders, Prefer: "resolution=ignore-duplicates,return=representation" },
-        body: JSON.stringify({ workspace_id: targetWorkspaceId, event_type: "knowledge.graph.upsert.v1", idempotency_key: idempotencyKey, payload, payload_sha256: payloadHash })
+        body: JSON.stringify({ workspace_id: targetWorkspaceId, event_type: "knowledge.graph.upsert.v1", idempotency_key: stableKey, payload, payload_sha256: payloadHash })
       });
       if (!response.ok) throw new Error("Knowledge transport enqueue failed: HTTP " + response.status + " " + (await response.text()).slice(0, 300));
       const rows = await response.json();
       let eventId = rows[0]?.id;
       if (!eventId) {
-        const lookup = await fetch(base + "/rest/v1/mnemos_outbox?select=id,payload_sha256&workspace_id=eq." + encodeURIComponent(targetWorkspaceId) + "&idempotency_key=eq." + encodeURIComponent(idempotencyKey) + "&limit=1", { headers: adminHeaders });
+        const lookup = await fetch(base + "/rest/v1/mnemos_outbox?select=id,payload_sha256&workspace_id=eq." + encodeURIComponent(targetWorkspaceId) + "&idempotency_key=eq." + encodeURIComponent(stableKey) + "&limit=1", { headers: adminHeaders });
         if (!lookup.ok) throw new Error("Could not verify idempotent Knowledge transport event.");
         const existing = (await lookup.json())[0];
         if (!existing || existing.payload_sha256 !== payloadHash) throw new Error("Idempotency key already exists with different content.");
@@ -85,17 +87,6 @@ Deno.serve(async (req: Request) => {
         if (!memberRes.ok) return reply({ error: "Could not verify workspace membership." }, 502);
         if (!(await memberRes.json()).length) return reply({ error: "You are not a member of this shared workspace." }, 403);
       }
-      const dispatchSync = async () => {
-        const token = Deno.env.get("MNEMOS_GITHUB_TOKEN");
-        const target = Deno.env.get("MNEMOS_GITHUB_REPOSITORY") ?? "rllibo833-sudo/mnemos-RLI";
-        if (!token) return { queued: false, reason: "MNEMOS_GITHUB_TOKEN is not configured; saved in Supabase only." };
-        const response = await fetch("https://api.github.com/repos/" + target + "/dispatches", {
-          method: "POST",
-          headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "Steadfast-Knowledge-Sync" },
-          body: JSON.stringify({ event_type: "sync-supabase-to-knowledge", client_payload: { workspace_id: workspaceId, actor_id: user.id, manual: true } }),
-        });
-        return response.ok ? { queued: true } : { queued: false, reason: "GitHub dispatch returned HTTP " + response.status };
-      };
       if (input.action === "manual_node") {
         const title = String(input.title ?? "").trim().slice(0, 180);
         const content = String(input.content ?? "").trim().slice(0, 12000);
@@ -113,8 +104,10 @@ Deno.serve(async (req: Request) => {
       const targetId = String(input.target_node_id ?? input.target_id ?? "");
       const relation = String(input.relation ?? "related_to").trim().slice(0, 64);
       if (!sourceId || !targetId || sourceId === targetId) return reply({ error: "Choose two different nodes." }, 400);
+      const relationDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sourceId + "|" + targetId + "|" + relation));
+      const relationKey = "manual-relation:" + Array.from(new Uint8Array(relationDigest)).map(x => x.toString(16).padStart(2, "0")).join("");
       const edge = { source: sourceId, target: targetId, relation, metadata: { provenance: { type: "user_defined", actor_id: user.id }, confidence: 1 } };
-      const sync = await enqueueKnowledgeEvent(workspaceId, { nodes: [], edges: [edge] }, String(input.idempotency_key ?? ("relation:" + sourceId + ":" + targetId + ":" + relation)));
+      const sync = await enqueueKnowledgeEvent(workspaceId, { nodes: [], edges: [edge] }, String(input.idempotency_key ?? relationKey));
       return reply({ ok: true, action: "manual_relation", sync });
     }
 

@@ -126,6 +126,19 @@ Deno.serve(async (req: Request) => {
     const task = (await taskRes.json())[0];
     if (!task || task.status === "cancelled") return reply({ error: "Task not found or cancelled." }, 404);
     if (task.created_by && task.created_by !== user.id) return reply({ error: "Task does not belong to this user." }, 403);
+    if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return reply({ error: "Shared Knowledge workspace is required; no audit result will be left unqueued." }, 400);
+    const knowledgeServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!knowledgeServiceKey) return reply({ error: "SUPABASE_SERVICE_ROLE_KEY is missing from Edge Function secrets." }, 500);
+    const knowledgeHeaders = { apikey: knowledgeServiceKey, Authorization: "Bearer " + knowledgeServiceKey };
+    const knowledgeWorkspaceRes = await fetch(base + "/rest/v1/knowledge_workspaces?id=eq." + encodeURIComponent(workspaceId) + "&select=id,owner_id&limit=1", { headers: knowledgeHeaders });
+    if (!knowledgeWorkspaceRes.ok) return reply({ error: "Could not verify shared Knowledge workspace." }, 502);
+    const knowledgeWorkspace = (await knowledgeWorkspaceRes.json())[0];
+    if (!knowledgeWorkspace) return reply({ error: "Shared Knowledge workspace not found." }, 404);
+    if (knowledgeWorkspace.owner_id !== user.id) {
+      const memberRes = await fetch(base + "/rest/v1/knowledge_workspace_members?workspace_id=eq." + encodeURIComponent(workspaceId) + "&user_id=eq." + encodeURIComponent(user.id) + "&select=role&limit=1", { headers: knowledgeHeaders });
+      if (!memberRes.ok) return reply({ error: "Could not verify Knowledge workspace membership." }, 502);
+      if (!(await memberRes.json()).length) return reply({ error: "You are not a member of this shared Knowledge workspace." }, 403);
+    }
 
     const urlMatch = String(task.goal ?? "").match(/https?:\/\/github\.com\/[^\s"<>]+/i);
     if (!urlMatch) return reply({ error: "Put a GitHub repository URL in the task goal." }, 400);

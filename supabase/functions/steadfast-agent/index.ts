@@ -28,6 +28,44 @@ Deno.serve(async (req: Request) => {
     if (!userRes.ok) return reply({ error: "Invalid or expired session." }, 401);
     const user = await userRes.json();
     const input = await req.json();
+    const enqueueKnowledgeEvent = async (targetWorkspaceId: string, payload: unknown, idempotencyKey: string) => {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing from Edge Function secrets.");
+      if (!/^[0-9a-f-]{36}$/i.test(targetWorkspaceId)) throw new Error("Valid knowledge_workspace_id required.");
+      const canonical = (value: any): string => value === null || typeof value !== "object"
+        ? JSON.stringify(value)
+        : Array.isArray(value) ? "[" + value.map(canonical).join(",") + "]"
+        : "{" + Object.keys(value).sort().map(k => JSON.stringify(k) + ":" + canonical(value[k])).join(",") + "}";
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical(payload)));
+      const payloadHash = Array.from(new Uint8Array(digest)).map(x => x.toString(16).padStart(2, "0")).join("");
+      const adminHeaders = { apikey: serviceKey, Authorization: "Bearer " + serviceKey, "Content-Type": "application/json", Prefer: "return=representation" };
+      const response = await fetch(base + "/rest/v1/mnemos_outbox?on_conflict=workspace_id,idempotency_key", {
+        method: "POST", headers: { ...adminHeaders, Prefer: "resolution=ignore-duplicates,return=representation" },
+        body: JSON.stringify({ workspace_id: targetWorkspaceId, event_type: "knowledge.graph.upsert.v1", idempotency_key: idempotencyKey, payload, payload_sha256: payloadHash })
+      });
+      if (!response.ok) throw new Error("Knowledge transport enqueue failed: HTTP " + response.status + " " + (await response.text()).slice(0, 300));
+      const rows = await response.json();
+      let eventId = rows[0]?.id;
+      if (!eventId) {
+        const lookup = await fetch(base + "/rest/v1/mnemos_outbox?select=id,payload_sha256&workspace_id=eq." + encodeURIComponent(targetWorkspaceId) + "&idempotency_key=eq." + encodeURIComponent(idempotencyKey) + "&limit=1", { headers: adminHeaders });
+        if (!lookup.ok) throw new Error("Could not verify idempotent Knowledge transport event.");
+        const existing = (await lookup.json())[0];
+        if (!existing || existing.payload_sha256 !== payloadHash) throw new Error("Idempotency key already exists with different content.");
+        eventId = existing.id;
+      }
+      const token = Deno.env.get("MNEMOS_GITHUB_TOKEN");
+      const target = Deno.env.get("MNEMOS_GITHUB_REPOSITORY") ?? "rllibo833-sudo/mnemos-RLI";
+      let dispatched = false;
+      if (token) {
+        const dispatch = await fetch("https://api.github.com/repos/" + target + "/dispatches", {
+          method: "POST",
+          headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "Steadfast-Knowledge-Transport" },
+          body: JSON.stringify({ event_type: "sync-supabase-to-knowledge", client_payload: { workspace_id: targetWorkspaceId, outbox_event_id: eventId } })
+        });
+        dispatched = dispatch.ok;
+      }
+      return { event_id: eventId, queued: true, dispatched, retry: "GitHub Actions schedule retries pending events every 10 minutes" };
+    };
     const taskId = String(input.task_id ?? "");
     const workspaceId = String(input.knowledge_workspace_id ?? "");
 
@@ -63,56 +101,20 @@ Deno.serve(async (req: Request) => {
         const content = String(input.content ?? "").trim().slice(0, 12000);
         const kind = String(input.kind ?? "insight").trim().slice(0, 80) || "insight";
         if (!title || !content) return reply({ error: "Node title and content are required." }, 400);
-        const id = "sf-" + crypto.randomUUID();
-        const canonical = (s: string) => String(s ?? "").normalize("NFKC").toLocaleLowerCase("id-ID").replace(/\s+/g, " ").replace(/[“”„]/g, '"').replace(/[‘’]/g, "'").trim();
-        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical(title) + "\n" + canonical(content)));
+        const id = "sf-manual-" + crypto.randomUUID();
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
         const contentHash = Array.from(new Uint8Array(digest)).map(x => x.toString(16).padStart(2, "0")).join("");
-        const nodeRes = await fetch(base + "/rest/v1/knowledge_nodes", {
-          method: "POST", headers: { ...adminHeaders, Prefer: "return=minimal" },
-          body: JSON.stringify({ owner_id: user.id, workspace_id: workspaceId, id, kind, title, content, source: { type: "user_saved", created_by: user.id }, metadata: { origin: "steadfast-manual", created_by_email: user.email ?? null }, media: {}, content_sha256: contentHash, schema_version: 1 }),
-        });
-        if (!nodeRes.ok) return reply({ error: "Node write failed: HTTP " + nodeRes.status + " " + (await nodeRes.text()).slice(0, 300) }, 502);
-
-        // Link exact normalized sentences/phrases and every shared meaningful word automatically.
-        const stop = new Set("yang dan di ke dari untuk pada dengan adalah itu ini atau dalam sebagai oleh akan bisa tidak juga sudah agar jika saat setelah sebelum antara sebuah suatu the and for with from that this those these are was were into onto about over under then than have has had not but you your our their they them its can will would should may might a an of to in on at by as is be or it we he she gw gua gue lu lo aku saya kamu dia para setiap lebih kurang hanya".split(" "));
-        const terms = (value: string) => new Set((canonical(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9][a-z0-9_-]{1,}/g) || []).filter(w => w.length >= 2 && !stop.has(w)));
-        const sentences = (value: string) => new Set((String(value ?? "").normalize("NFKC").match(/[^.!?;\n]+[.!?]?/g) || []).map(canonical).filter(s => s.length >= 16));
-        const phrases = (value: string) => new Set((String(value ?? "").normalize("NFKC").match(/"[^"]{4,160}"|“[^”]{4,160}”|'[^']{4,160}'|‘[^’]{4,160}’/g) || []).map(canonical));
-        const newTerms = terms(title + "\n" + content);
-        const newSentences = sentences(title + "\n" + content);
-        const newPhrases = phrases(title + "\n" + content);
-        const existingRes = await fetch(base + "/rest/v1/knowledge_nodes?select=id,title,content,kind&workspace_id=eq." + encodeURIComponent(workspaceId) + "&deleted_at=is.null&limit=5000", { headers: adminHeaders });
-        if (!existingRes.ok) return reply({ error: "Node saved, but existing knowledge could not be scanned for automatic links: HTTP " + existingRes.status }, 502);
-        const existingNodes = await existingRes.json();
-        const links: any[] = [];
-        for (const node of existingNodes) {
-          if (!node.id || node.id === id) continue;
-          const oldText = String(node.title ?? "") + "\n" + String(node.content ?? "");
-          const matchedWords = [...terms(oldText)].filter(w => newTerms.has(w));
-          const matchedSentences = [...sentences(oldText)].filter(s => newSentences.has(s));
-          const matchedPhrases = [...phrases(oldText)].filter(s => newPhrases.has(s));
-          if (matchedWords.length || matchedSentences.length || matchedPhrases.length) {
-            links.push({ owner_id: user.id, workspace_id: workspaceId, source_id: id, target_id: node.id, relation: "auto_match", provenance: { type: "normalized_exact_match", algorithm: "nfkc-sentence-phrase-token-v2" }, confidence: matchedSentences.length || matchedPhrases.length ? 1 : 0.8, metadata: { matched_words: matchedWords.slice(0, 40), matched_sentences: matchedSentences.slice(0, 10), matched_phrases: matchedPhrases.slice(0, 10) } });
-          }
-        }
-        for (let offset = 0; offset < links.length; offset += 100) {
-          const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=workspace_id,source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(links.slice(offset, offset + 100)) });
-          if (!linkRes.ok) return reply({ error: "Node saved, but automatic link write failed: HTTP " + linkRes.status + " " + (await linkRes.text()).slice(0, 300), node_id: id }, 502);
-        }
-        const sync = await dispatchSync();
-        return reply({ ok: true, id, action: "manual_node", auto_relations: links.length, matching: "exact normalized words, phrases, and sentences", sync });
+        const node = { owner_id: user.id, workspace_id: workspaceId, id, kind, title, content, source: { type: "user_saved", created_by: user.id }, metadata: { origin: "steadfast-manual", created_by_email: user.email ?? null }, media: {}, content_sha256: contentHash, schema_version: 1, created_at: new Date().toISOString() };
+        const sync = await enqueueKnowledgeEvent(workspaceId, { nodes: [node], edges: [] }, String(input.idempotency_key ?? id));
+        return reply({ ok: true, id, action: "manual_node", sync });
       }
 
       const sourceId = String(input.source_node_id ?? input.source_id ?? "");
       const targetId = String(input.target_node_id ?? input.target_id ?? "");
-      const relation = String(input.relation ?? "related_to").trim().slice(0, 100);
+      const relation = String(input.relation ?? "related_to").trim().slice(0, 64);
       if (!sourceId || !targetId || sourceId === targetId) return reply({ error: "Choose two different nodes." }, 400);
-      const nodeCheck = await fetch(base + "/rest/v1/knowledge_nodes?select=id&id=in.(" + encodeURIComponent(sourceId) + "," + encodeURIComponent(targetId) + ")&workspace_id=eq." + encodeURIComponent(workspaceId) + "&deleted_at=is.null", { headers: adminHeaders });
-      if (!nodeCheck.ok) return reply({ error: "Could not validate selected nodes." }, 502);
-      if ((await nodeCheck.json()).length !== 2) return reply({ error: "Both nodes must belong to this shared workspace." }, 400);
-      const linkRes = await fetch(base + "/rest/v1/knowledge_links?on_conflict=workspace_id,source_id,target_id,relation", { method: "POST", headers: { ...adminHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ owner_id: user.id, workspace_id: workspaceId, source_id: sourceId, target_id: targetId, relation, provenance: { type: "user_defined" }, confidence: 1, metadata: {} }) });
-      if (!linkRes.ok) return reply({ error: "Relation write failed: HTTP " + linkRes.status + " " + (await linkRes.text()).slice(0, 300) }, 502);
-      const sync = await dispatchSync();
+      const edge = { source: sourceId, target: targetId, relation, created_at: new Date().toISOString(), metadata: { provenance: { type: "user_defined", actor_id: user.id }, confidence: 1 } };
+      const sync = await enqueueKnowledgeEvent(workspaceId, { nodes: [], edges: [edge] }, String(input.idempotency_key ?? ("relation:" + sourceId + ":" + targetId + ":" + relation)));
       return reply({ ok: true, action: "manual_relation", sync });
     }
 
@@ -219,23 +221,40 @@ Deno.serve(async (req: Request) => {
 
     await patchTask({ status: "succeeded", result, plan: result.plan, error: null, updated_at: new Date().toISOString() });
     await addEvent("agent.finished", { status: "succeeded", engine: result.engine, summary });
-    let saved = 0;
+    let transport = null;
     if (/^[0-9a-f-]{36}$/i.test(workspaceId)) {
-      const memories = [
-        { title: meta.full_name + " — Steadfast audit", kind: "repository_audit", content: JSON.stringify({ summary, repository: result.repository, checks: result.checks, finding_count: findings.length, audited_at: new Date().toISOString() }), relation: "audit_summary" },
-        ...findings.slice(0, 20).map(f => ({ title: f.title, kind: "audit_finding", content: "Severity: " + f.severity + "\nSkill: " + f.skill + "\nEvidence: " + f.evidence + "\nRecommendation: " + f.recommendation + (f.path ? "\nPath: " + f.path : "") + "\nRepository: " + repoUrl, relation: f.skill })),
-      ];
-      for (const item of memories) {
-        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(item.content));
-        const hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
-        const wr = await fetch(base + "/rest/v1/knowledge_nodes", {
-          method: "POST", headers: { ...headers, Prefer: "return=minimal" },
-          body: JSON.stringify({ owner_id: user.id, workspace_id: workspaceId, id: "sf-" + crypto.randomUUID(), kind: item.kind, title: item.title.slice(0, 180), content: item.content.slice(0, 12000), source: { type: "steadfast-native-skills", task_id: taskId, repository_url: repoUrl }, metadata: { relation_hint: item.relation, generated_by: "steadfast-native-skills" }, media: {}, content_sha256: hash, schema_version: 1 }),
+      const auditedAt = new Date().toISOString();
+      const summaryId = "sf-audit-" + taskId + "-summary";
+      const nodes = [{
+        owner_id: user.id, workspace_id: workspaceId, id: summaryId, kind: "repository_audit",
+        title: meta.full_name + " — Steadfast audit",
+        content: summary,
+        source: { type: "steadfast-native-skills", task_id: taskId, repository_url: repoUrl },
+        metadata: { checks: result.checks, finding_count: findings.length, audited_at: auditedAt },
+        media: {}, content_sha256: await (async () => {
+          const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(summary));
+          return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, "0")).join("");
+        })(), schema_version: 1, created_at: auditedAt
+      }];
+      const edges = [];
+      findings.forEach((f, index) => {
+        const content = "Severity: " + f.severity + "\nSkill: " + f.skill + "\nEvidence: " + f.evidence + "\nRecommendation: " + f.recommendation + (f.path ? "\nPath: " + f.path : "") + "\nRepository: " + repoUrl;
+        const id = "sf-audit-" + taskId + "-finding-" + index;
+        nodes.push({
+          owner_id: user.id, workspace_id: workspaceId, id, kind: "audit_finding", title: f.title.slice(0, 180), content,
+          source: { type: "steadfast-native-skills", task_id: taskId, repository_url: repoUrl },
+          metadata: { relation_hint: f.skill, severity: f.severity, generated_by: "steadfast-native-skills" },
+          media: {}, content_sha256: "", schema_version: 1, created_at: auditedAt
         });
-        if (wr.ok) saved++;
+        edges.push({ source: summaryId, target: id, relation: "HAS_FINDING", created_at: auditedAt, metadata: { provenance: { type: "steadfast_audit", task_id: taskId }, confidence: 1 } });
+      });
+      for (const node of nodes) if (!node.content_sha256) {
+        const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(node.content));
+        node.content_sha256 = Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, "0")).join("");
       }
+      transport = await enqueueKnowledgeEvent(workspaceId, { nodes, edges }, "steadfast-task:" + taskId);
     }
-    return reply({ task_id: taskId, status: "succeeded", result, repository_audit: { repository_url: repoUrl, files_scanned: paths.length, evidence_files: evidence.length, findings: findings.length }, shared_memories_saved: saved, engine: "steadfast-native-skills" });
+    return reply({ task_id: taskId, status: "succeeded", result, repository_audit: { repository_url: repoUrl, files_scanned: paths.length, evidence_files: evidence.length, findings: findings.length }, shared_memories_saved: nodes?.length ?? 0, knowledge_transport: transport, engine: "steadfast-native-skills" });
   } catch (error) {
     return reply({ error: error instanceof Error ? error.message : "Unexpected native audit error." }, 500);
   }

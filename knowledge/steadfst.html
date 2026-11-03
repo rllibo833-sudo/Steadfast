@@ -153,19 +153,18 @@ async function loadNodes(){
    if(!Array.isArray(graph.nodes)||!Array.isArray(graph.edges))throw new Error('/api/graph returned an invalid graph payload');
    graph.edges=graph.edges.map(e=>({...e,source_node_id:e.source_node_id??e.source_id??e.source,target_node_id:e.target_node_id??e.target_id??e.target,relation_type:e.relation_type??e.relation}));
   }catch(apiError){console.warn('Graph API unavailable; using Knowledge branch snapshots:',apiError);graph=await loadBranchGraph()}
-  state.nodes=graph.nodes;state.edges=graph.edges;state.manifest=graph.manifest;
+  state.nodes=graph.nodes;state.edges=graph.edges;state.manifest=graph.manifest;state.graphError=null;
   const status=$('graph-status');if(status)status.textContent=(graph.manifest?.nodes_count??graph.nodes.length)+' node · '+(graph.manifest?.edges_count??graph.edges.length)+' relasi nyata · sumber '+(graph.source||'Knowledge branch');
  }catch(branchError){
-  console.warn('Knowledge branch unavailable; using Supabase cache:',branchError);
-  state.manifest=null;if(!state.knowledgeWorkspace){state.nodes=[];state.edges=[];return}
-  state.nodes=await request('knowledge_nodes?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&deleted_at=is.null&order=updated_at.desc&limit=100');
- try{state.edges=await request('knowledge_links?select=*&workspace_id=eq.'+encodeURIComponent(state.knowledgeWorkspace.id)+'&deleted_at=is.null&order=created_at.desc&limit=300');state.edges=state.edges.map(e=>({...e,source_node_id:e.source_node_id??e.source_id,target_node_id:e.target_node_id??e.target_id,relation_type:e.relation??e.relation_type}))}catch(e){state.edges=[];console.error('Could not load graph edges:',e)}
+  console.error('Knowledge branch unavailable; no Supabase graph fallback is permitted:',branchError);
+  state.manifest=null;state.nodes=[];state.edges=[];state.graphError=String(branchError?.message||branchError);
+  const status=$('graph-status');if(status)status.textContent='Knowledge branch temporarily unavailable';
  }
  $('node-count').textContent=state.nodes.length;
  const root=$('nodes');root.replaceChildren();
  const fillSelect=(id,placeholder)=>{const el=$(id);if(!el)return;const prior=el.value;el.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent=placeholder;el.append(blank);for(const n of state.nodes){const opt=document.createElement('option');opt.value=n.id;opt.textContent=(n.title||n.id)+' · '+(n.kind||'node');el.append(opt)}if(state.nodes.some(n=>n.id===prior))el.value=prior};
  fillSelect('edge-source','Pilih node asal');fillSelect('edge-target','Pilih node tujuan');
- if(!state.nodes.length){root.innerHTML='<div class="empty">Belum ada node. Tambahkan catatan di atas atau analisis repository.</div>';return}
+ if(!state.nodes.length){root.innerHTML='<div class="empty">'+(state.graphError?'Knowledge branch belum dapat diakses. Graph tidak dialihkan ke Supabase; coba muat ulang nanti.':'Belum ada node. Tambahkan catatan di atas atau analisis repository.')+'</div>';return}
  const items=state.nodes;
  const organism=document.createElement('section');organism.className='neural-organism';
  const layers=[{title:'HL 5 + HL 1 · EMERGENCE',hint:'FINDINGS'},{title:'HL 2 · FELDKOPPELING',hint:'KNOWLEDGE'},{title:'HL 3 · RESONANCE',hint:'REPOSITORIES_AUDIT + REPOSITORIES'}];

@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
       const targetId = String(input.target_node_id ?? input.target_id ?? "");
       const relation = String(input.relation ?? "related_to").trim().slice(0, 64);
       if (!sourceId || !targetId || sourceId === targetId) return reply({ error: "Choose two different nodes." }, 400);
-      const edge = { source: sourceId, target: targetId, relation, created_at: new Date().toISOString(), metadata: { provenance: { type: "user_defined", actor_id: user.id }, confidence: 1 } };
+      const edge = { source: sourceId, target: targetId, relation, metadata: { provenance: { type: "user_defined", actor_id: user.id }, confidence: 1 } };
       const sync = await enqueueKnowledgeEvent(workspaceId, { nodes: [], edges: [edge] }, String(input.idempotency_key ?? ("relation:" + sourceId + ":" + targetId + ":" + relation)));
       return reply({ ok: true, action: "manual_relation", sync });
     }
@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
     await addEvent("agent.finished", { status: "succeeded", engine: result.engine, summary });
     let transport = null;
     if (/^[0-9a-f-]{36}$/i.test(workspaceId)) {
-      const auditedAt = new Date().toISOString();
+      const auditedAt = String(task.created_at ?? new Date().toISOString());
       const summaryId = "sf-audit-" + taskId + "-summary";
       const nodes = [{
         owner_id: user.id, workspace_id: workspaceId, id: summaryId, kind: "repository_audit",

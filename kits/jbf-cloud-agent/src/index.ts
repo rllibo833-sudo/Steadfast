@@ -1,5 +1,6 @@
 import { Agent, routeAgentRequest } from "agents";
 import { createAI } from "agents/models/ai-sdk";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, stepCountIs } from "ai";
 
 interface Env {
@@ -9,6 +10,7 @@ interface Env {
   OWNER_TOKEN: string;
   GITHUB_TOKEN: string;
   CLOUDFLARE_API_TOKEN: string;
+  OPENROUTER_API_KEY?: string;
   BUSINESS_EMAIL: string;
   BUSINESS_WHATSAPP: string;
 }
@@ -30,8 +32,9 @@ const PROVIDERS: ProviderInfo[] = [
   { id: "whatsapp", category: "pesan", auth: "Meta app, WhatsApp Business, phone ID, token", availability: "manual_setup_required", note: "Lewati sampai tersedia onboarding resmi tanpa pengisian kredensial manual." },
   { id: "vps", category: "virtual server", auth: "Belum ada provider VPS terhubung", availability: "discover_only", note: "Cari opsi gratis tanpa kartu/identitas manual; jangan mulai trial berbayar." },
   { id: "github-models", category: "AI inference", auth: "Tidak tersedia", availability: "retired", note: "Sudah dihentikan; jangan dipakai sebagai fallback." },
+  { id: "openrouter-free", category: "AI inference gratis cadangan", auth: "Kredensial OpenRouter yang sudah tersimpan", availability: "not_configured", note: "Hanya openrouter/free; tidak membeli kredit dan tidak menggunakan model berbayar." },
 ];
-const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and search for another free provider. Search official provider docs and connected GitHub/Cloudflare sources to verify current free hosting, database, VPS, and AI model options; do not guess. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare outreach drafts but never claim buyers or payments without evidence. Owner contact may only be used for approved outreach or approved public listings. Read-only tools explicitly marked readOnlyHint may run automatically. Queue every other external action for approval and continue the task after approval. If free model quota/capacity blocks work, report it and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
+const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and search for another free provider. Search official provider docs and connected GitHub/Cloudflare sources to verify current free hosting, database, VPS, and AI model options; do not guess. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare outreach drafts but never claim buyers or payments without evidence. Owner contact may only be used for approved outreach or approved public listings. Read-only tools explicitly marked readOnlyHint may run automatically. Queue every other external action for approval and continue the task after approval. If all configured free model providers fail, report the blocker and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -57,6 +60,8 @@ export class JbfAgent extends Agent<Env> {
       auth: provider.auth,
       availability: provider.connector
         ? (servers[provider.connector]?.state ?? "disconnected")
+        : provider.id === "openrouter-free" && this.env.OPENROUTER_API_KEY
+          ? "ready_fallback"
         : provider.availability,
       note: provider.note,
     }));
@@ -78,14 +83,23 @@ export class JbfAgent extends Agent<Env> {
       };
     }
     const ai = createAI({ binding: this.env.AI });
-    const result = await generateText({
-      model: ai("@cf/zai-org/glm-4.7-flash"),
+    const generation = {
       system: `${SYSTEM}\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
       prompt: instruction,
       tools,
       stopWhen: stepCountIs(3),
-    });
-    return result.text;
+    };
+    try {
+      const result = await generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") });
+      return result.text;
+    } catch (cloudflareError) {
+      if (!this.env.OPENROUTER_API_KEY || !/(429|3036|3040|quota|capacity)/i.test(String(cloudflareError))) {
+        throw cloudflareError;
+      }
+      const openrouter = createOpenRouter({ apiKey: this.env.OPENROUTER_API_KEY });
+      const result = await generateText({ ...generation, model: openrouter("openrouter/free") });
+      return result.text;
+    }
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -115,8 +129,10 @@ export class JbfAgent extends Agent<Env> {
       const state = this.getMcpServers();
       return json({ providers: PROVIDERS.map((provider) => ({
         ...provider,
-        state: provider.connector ? (state.servers[provider.connector]?.state ?? "disconnected") : provider.availability,
-        connected: provider.connector ? state.servers[provider.connector]?.state === "ready" : false,
+        state: provider.connector ? (state.servers[provider.connector]?.state ?? "disconnected")
+          : provider.id === "openrouter-free" && this.env.OPENROUTER_API_KEY ? "ready_fallback" : provider.availability,
+        connected: provider.connector ? state.servers[provider.connector]?.state === "ready"
+          : provider.id === "openrouter-free" && Boolean(this.env.OPENROUTER_API_KEY),
       })) });
     }
 
@@ -150,7 +166,7 @@ export class JbfAgent extends Agent<Env> {
       } catch (error) {
         const detail = String(error);
         if (/429|3036|3040|quota|limit|billing|exceeded/i.test(detail)) {
-          return json({ error: "Free Cloudflare AI is temporarily unavailable (daily quota or capacity). The agent stopped; no paid fallback is configured." }, 429);
+          return json({ error: "Configured free AI inference is temporarily unavailable (quota or capacity). The agent stopped; no paid fallback is configured." }, 429);
         }
         return json({ error: "Agent request failed", detail: detail.slice(0, 500) }, 502);
       }

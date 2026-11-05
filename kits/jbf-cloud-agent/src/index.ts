@@ -7,12 +7,14 @@ interface Env {
   JBF_AGENT: DurableObjectNamespace<JbfAgent>;
   ASSETS: Fetcher;
   OWNER_TOKEN: string;
+  GITHUB_TOKEN: string;
+  CLOUDFLARE_API_TOKEN: string;
 }
 
 type Connector = { id: string; label: string; url: string };
 type Approval = Record<string, unknown> & { id: string; taskId: string; status: string };
 const CONNECTORS: Record<string, Connector> = {
-  github: { id: "github", label: "GitHub", url: "https://mcp.github.com/mcp" },
+  github: { id: "github", label: "GitHub", url: "https://api.githubcopilot.com/mcp/" },
   cloudflare: { id: "cloudflare", label: "Cloudflare", url: "https://mcp.cloudflare.com/mcp" },
   supabase: { id: "supabase", label: "Supabase (read-only default)", url: "https://mcp.supabase.com/mcp?read_only=true" },
 };
@@ -71,7 +73,13 @@ export class JbfAgent extends Agent<Env> {
       const body = await request.json().then((value) => value as { provider?: string }).catch(() => ({}));
       const connector = body.provider ? CONNECTORS[body.provider] : undefined;
       if (!connector) return json({ error: "Connector not supported" }, 400);
-      const result = await this.addMcpServer(connector.label, connector.url, { id: connector.id });
+      const headers: Record<string, string> = {};
+      if (connector.id === "github") headers.Authorization = `Bearer ${this.env.GITHUB_TOKEN}`;
+      if (connector.id === "cloudflare") headers.Authorization = `Bearer ${this.env.CLOUDFLARE_API_TOKEN}`;
+      const result = await this.addMcpServer(connector.label, connector.url, {
+        id: connector.id,
+        ...(Object.keys(headers).length ? { transport: { type: "streamable-http" as const, headers } } : {}),
+      });
       if (result.state === "authenticating") return json({ state: result.state, authUrl: result.authUrl });
       return json({ state: result.state, id: result.id });
     }

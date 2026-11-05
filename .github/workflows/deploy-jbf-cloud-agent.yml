@@ -46,6 +46,19 @@ jobs:
           printf '%s' "$JBF_OWNER_TOKEN" | npx --yes wrangler@4.153.0 secret put OWNER_TOKEN \
             --name jbf-cloud-agent \
             --config kits/jbf-cloud-agent/wrangler.toml
+      - name: Install existing connector credentials on the isolated JBF Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_GITHUB_TOKEN: ${{ secrets.JBF_GITHUB_TOKEN }}
+        run: |
+          test -n "$JBF_GITHUB_TOKEN"
+          printf '%s' "$JBF_GITHUB_TOKEN" | npx --yes wrangler@4.153.0 secret put GITHUB_TOKEN \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
+          printf '%s' "$CLOUDFLARE_API_TOKEN" | npx --yes wrangler@4.153.0 secret put CLOUDFLARE_API_TOKEN \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
       - name: Publish Worker URL as workflow artifact
         uses: actions/upload-artifact@v4
         with:

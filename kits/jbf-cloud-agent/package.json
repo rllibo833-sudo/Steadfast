@@ -1,0 +1,9 @@
+{
+  "name": "jbf-cloud-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "dependencies": { "agents": "^0.20.0", "ai": "^6.0.0" },
+  "devDependencies": { "@cloudflare/workers-types": "^4.20261104.0", "typescript": "^5.9.3", "wrangler": "^4.45.0" }
+}

@@ -1,0 +1,19 @@
+name = "jbf-cloud-agent"
+main = "src/index.ts"
+compatibility_date = "2026-11-04"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[durable_objects]
+bindings = [{ name = "JBF_AGENT", class_name = "JbfAgent" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["JbfAgent"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"

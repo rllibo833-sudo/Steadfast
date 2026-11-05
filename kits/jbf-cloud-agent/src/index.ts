@@ -189,7 +189,7 @@ export class JbfAgent extends Agent<Env> {
     const gemini = this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true"
       ? createOpenAICompatible({ name: "gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: this.env.GEMINI_API_KEY })
       : undefined;
-    if (shouldRunBusinessTeam(instruction)) {
+    if (shouldRunBusinessTeam(instruction) && specialists.length === 0) {
       const publicProviders = JSON.stringify(providerContext.map(({ id, availability, category }) => ({ id, availability, category })));
       const runRole = async (roleId: "market-scout" | "unit-economics" | "risk-reviewer", prompt: string, roleTools: typeof tools) => {
         const role = BUSINESS_AGENT_ROLES.find((item) => item.id === roleId)!;

@@ -16,6 +16,10 @@ export function isFreeCapacityError(error: unknown): boolean {
   return /(429|3036|3040|quota|capacity|rate.?limit|allocation|neurons|resource.?exhausted|free.?tier.*limit|limit.*reached)/i.test(String(error));
 }
 
+function isCloudflareDailyAllocationError(error: unknown): boolean {
+  return /(3036|daily.{0,32}(free allocation|quota|neurons|limit)|free allocation.{0,32}(used|exhausted|limit))/i.test(String(error));
+}
+
 function isProviderFailure(error: unknown): boolean {
   const status = statusCode(error);
   return (status !== undefined && (status === 401 || status === 403 || status === 408 || status === 429 || status >= 500))
@@ -24,12 +28,17 @@ function isProviderFailure(error: unknown): boolean {
 
 export async function runFreeProviders<T>(providers: FreeProvider<T>[]): Promise<{ provider: string; value: T }> {
   let lastError: unknown;
+  let cloudflareDailyAllocationExhausted = false;
   for (const provider of providers) {
     if (!provider.available) continue;
+    if (cloudflareDailyAllocationExhausted && provider.id.startsWith("cloudflare-ai-")) continue;
     try {
       return { provider: provider.id, value: await provider.run() };
     } catch (error) {
       lastError = error;
+      if (provider.id.startsWith("cloudflare-ai-") && isCloudflareDailyAllocationError(error)) {
+        cloudflareDailyAllocationExhausted = true;
+      }
       if (!isProviderFailure(error)) throw error;
     }
   }
@@ -45,8 +54,10 @@ export async function runFreeFirst<T>(
   } catch (primaryError) {
     if (!isFreeCapacityError(primaryError)) throw primaryError;
     let lastError: unknown = primaryError;
+    const cloudflareDailyAllocationExhausted = isCloudflareDailyAllocationError(primaryError);
     for (const provider of alternatives) {
       if (!provider.available) continue;
+      if (cloudflareDailyAllocationExhausted && provider.id.startsWith("cloudflare-ai-")) continue;
       try {
         return { provider: provider.id, value: await provider.run() };
       } catch (error) {

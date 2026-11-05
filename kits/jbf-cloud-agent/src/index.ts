@@ -53,6 +53,8 @@ const PROVIDERS: ProviderInfo[] = [
   { id: "cerebras-free", category: "AI inference gratis cadangan 3", auth: "API key Cerebras sebagai Worker secret", availability: "not_configured", note: "Cerebras Free tier (rate limit berlaku); kandidat model GLM 4.7." },
   { id: "nvidia-nim-free", category: "AI inference gratis cadangan 4", auth: "API key NVIDIA NIM sebagai Worker secret", availability: "not_configured", note: "Pakai hanya model yang saat ini berlabel Free Endpoint; ketersediaan dan rate limit dapat berubah." },
   { id: "gemini-free", category: "AI inference gratis cadangan 5", auth: "API key Gemini sebagai Worker secret + persetujuan penggunaan data free tier", availability: "not_configured", note: "Free tier terbatas. Google menyatakan konten free tier dapat dipakai untuk peningkatan produk; hanya aktif bila owner menyetujui penggunaan untuk prompt non-rahasia." },
+  { id: "cloudflare-ai-gemma4", category: "AI inference model gratis tanpa key", auth: "Binding Cloudflare Workers AI yang sudah terpasang", availability: "ready", note: "Fallback saat model utama penuh; mendukung tool calling. Berbagi kuota Workers AI gratis harian 10.000 Neurons dengan model Cloudflare lain." },
+  { id: "cloudflare-ai-nemotron3", category: "AI inference model gratis tanpa key", auth: "Binding Cloudflare Workers AI yang sudah terpasang", availability: "ready", note: "Fallback tool-calling; berbagi kuota Workers AI gratis harian 10.000 Neurons dengan model Cloudflare lain, bukan kuota tambahan." },
 ];
 const SYSTEM = `You are JBF, the owner's self-operating infrastructure, growth, and SaaS agent. The owner's priority is real users and revenue before spending. Manage connected hosting, VPS, databases, SaaS, ads, analytics, and product algorithms through the provider catalog; inspect actual connection state and capability before proposing or acting. For DigitalOcean, inspect account resources first; do not create or resize billable resources without exact owner approval. For ad accounts, analyze performance and propose experiments from measured data; never launch, increase budget, change audience/bids, or enable delivery without approval showing platform, campaign, exact change, and maximum daily/lifetime spend. Treat algorithm changes to a live product with the same approval gate. Compare opportunities using verifiable buyer evidence, route to the first real user and first payment, time to launch, direct cash cost, recurring cost, gross margin, and break-even users. Prefer an existing/free path and a small experiment that can validate demand. Separate observed evidence from estimates, show the arithmetic and uncertainty, and never present a lead, signup, deployment, or revenue as completed without tool evidence. For the owner's example, Rp1,000,000 revenue against Rp200,000 direct spend means 5x revenue-to-spend and Rp800,000 contribution before labor, tax, and other costs; it is a target calculation, not a forecast or guarantee. When the owner clearly requests a reversible, idempotent, non-billable change on an existing resource, execute it without a per-call interruption. Before any paid plan, billable resource, purchase, account creation, acceptance of terms, public release, deployment, deletion, or outbound message, present the exact action and its one-time and recurring cost and wait for the owner's approval. Never enter payment details or use personal identity/contact information for registration unless the exact account and fields are approved. Use existing credentials and supported OAuth flows where possible; if a provider requires manual identity verification or unsupported registration, give its official link and state the blocker without claiming signup. Use connected read-only tools for public prospect discovery; cite exact URLs and evidence, and do not spam unrelated projects. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions. Keep Supabase read-only and project-scoped by default; do not claim write access. Treat GitHub Actions as temporary compute, not a persistent VPS. For VPS options, compare official free tiers, limits, region, storage, sleep behavior, and card/identity requirements before recommending one. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services by buyer evidence and fastest low-cost route to income. When asked to build, implement with connected GitHub and hosting tools, then queue deploy or other external writes for exact owner approval and continue the task afterward. For business/opportunity research without an execution request, use the Market Scout, Unit Economics Analyst, and Evidence Reviewer in sequence. They share only configured free model providers and the Scout receives read-only tools. Do not invent market signals, product pricing, free quotas, or provider capabilities. If there are no verifiable sources with concrete URLs, say no evidence was found and stop recommendations. Use free inference first: Cloudflare Workers AI, OpenRouter openrouter/free, Groq Free, Cerebras Free, and NVIDIA NIM endpoints currently marked Free. Gemini Free is available only when the owner explicitly approves its data-use terms; never send secrets or confidential data there. Stop if configured free options fail; never switch to paid inference without approval. Never activate paid inference, billing, or a paid fallback without explicit approval. Prepare tailored outreach drafts, but do not send without approval. Keep replies concise and in the user's language.`;
 
@@ -205,8 +207,14 @@ export class JbfAgent extends Agent<Env> {
         const cerebrasRun = () => generateText({ ...generation, model: cerebras!.chatModel("zai-glm-4.7") });
         const nvidiaRun = () => generateText({ ...generation, model: nvidia!.chatModel("nvidia/nemotron-3.5-lightning-30b-a3b") });
         const geminiRun = () => generateText({ ...generation, model: gemini!.chatModel("gemini-3.8-flash") });
+        const cloudflareRun = () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") });
+        const cloudflareGemmaRun = () => generateText({ ...generation, model: ai("@cf/google/gemma-4-26b-a4b-it") });
+        const cloudflareNemotronRun = () => generateText({ ...generation, model: ai("@cf/nvidia/nemotron-3-120b-a12b") });
         const candidates = role.preferredProvider === "openrouter-free"
           ? [
+              { id: "cloudflare-ai-glm47", available: true, run: cloudflareRun },
+              { id: "cloudflare-ai-gemma4", available: true, run: cloudflareGemmaRun },
+              { id: "cloudflare-ai-nemotron3", available: true, run: cloudflareNemotronRun },
               { id: "openrouter-free", available: Boolean(openrouter), run: openRouterRun },
               { id: "groq-free", available: Boolean(groq), run: groqRun },
               { id: "cerebras-free", available: Boolean(cerebras), run: cerebrasRun },
@@ -214,6 +222,9 @@ export class JbfAgent extends Agent<Env> {
               ...(role.id === "market-scout" ? [] : [{ id: "gemini-free", available: Boolean(gemini) && !personalDataInPrompt, run: geminiRun }]),
             ]
           : [
+              { id: "cloudflare-ai-glm47", available: true, run: cloudflareRun },
+              { id: "cloudflare-ai-gemma4", available: true, run: cloudflareGemmaRun },
+              { id: "cloudflare-ai-nemotron3", available: true, run: cloudflareNemotronRun },
               { id: "groq-free", available: Boolean(groq), run: groqRun },
               { id: "openrouter-free", available: Boolean(openrouter), run: openRouterRun },
               { id: "cerebras-free", available: Boolean(cerebras), run: cerebrasRun },
@@ -256,6 +267,16 @@ export class JbfAgent extends Agent<Env> {
     const result = await runFreeFirst(
       () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") }),
       [
+        {
+          id: "cloudflare-ai-gemma4",
+          available: true,
+          run: () => generateText({ ...generation, model: ai("@cf/google/gemma-4-26b-a4b-it") }),
+        },
+        {
+          id: "cloudflare-ai-nemotron3",
+          available: true,
+          run: () => generateText({ ...generation, model: ai("@cf/nvidia/nemotron-3-120b-a12b") }),
+        },
         {
           id: "openrouter-free",
           available: Boolean(openrouter),
@@ -310,7 +331,7 @@ export class JbfAgent extends Agent<Env> {
     }
 
     if (route === "agents" && request.method === "GET") {
-      const enabled = Boolean(this.env.OPENROUTER_API_KEY || this.env.GROQ_API_KEY || this.env.CEREBRAS_API_KEY || this.env.NVIDIA_API_KEY || (this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true"));
+      const enabled = Boolean(this.env.AI || this.env.OPENROUTER_API_KEY || this.env.GROQ_API_KEY || this.env.CEREBRAS_API_KEY || this.env.NVIDIA_API_KEY || (this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true"));
       return json({
         agents: [
           { id: "coordinator", name: "JBF Coordinator", purpose: "Mengarahkan tugas ke spesialis dan menjalankan pekerjaan yang diizinkan dengan satu panggilan AI gratis.", enabled, execution: "routes tasks to specialists" },
@@ -326,6 +347,7 @@ export class JbfAgent extends Agent<Env> {
             : provider.id === "cerebras-free" ? Boolean(this.env.CEREBRAS_API_KEY)
             : provider.id === "nvidia-nim-free" ? Boolean(this.env.NVIDIA_API_KEY)
             : provider.id === "gemini-free" ? Boolean(this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true")
+            : provider.id.startsWith("cloudflare-ai-") ? true
             : false,
         })),
       });
@@ -341,13 +363,15 @@ export class JbfAgent extends Agent<Env> {
           : provider.id === "groq-free" && this.env.GROQ_API_KEY ? "ready_fallback"
           : provider.id === "cerebras-free" && this.env.CEREBRAS_API_KEY ? "ready_fallback"
           : provider.id === "nvidia-nim-free" && this.env.NVIDIA_API_KEY ? "ready_fallback"
-          : provider.id === "gemini-free" && this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true" ? "ready_fallback" : provider.availability,
+          : provider.id === "gemini-free" && this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true" ? "ready_fallback"
+          : provider.id.startsWith("cloudflare-ai-") ? "ready_fallback" : provider.availability,
         connected: provider.connector ? state.servers[provider.connector]?.state === "ready"
           : (provider.id === "openrouter-free" && Boolean(this.env.OPENROUTER_API_KEY))
             || (provider.id === "cerebras-free" && Boolean(this.env.CEREBRAS_API_KEY))
             || (provider.id === "nvidia-nim-free" && Boolean(this.env.NVIDIA_API_KEY))
             || (provider.id === "groq-free" && Boolean(this.env.GROQ_API_KEY))
-            || (provider.id === "gemini-free" && Boolean(this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true")),
+            || (provider.id === "gemini-free" && Boolean(this.env.GEMINI_API_KEY && this.env.GEMINI_FREE_DATA_APPROVED === "true"))
+            || provider.id.startsWith("cloudflare-ai-"),
       })) });
     }
 

@@ -4,7 +4,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, stepCountIs } from "ai";
 import { runFreeFirst, runFreeProviders } from "./provider-routing";
-import { BUSINESS_AGENT_ROLES, containsUnsupportedUrls, extractScoutEvidence, shouldRunBusinessTeam } from "./agent-team";
+import { BUSINESS_AGENT_ROLES, containsUnsupportedUrls, extractScoutEvidence, lacksEvidenceCitations, shouldRunBusinessTeam } from "./agent-team";
 
 interface Env {
   AI: Ai;
@@ -192,8 +192,8 @@ export class JbfAgent extends Agent<Env> {
         {},
       );
       return {
-        text: containsUnsupportedUrls(review.value.text, scoutEvidence)
-          ? "Saya menemukan hasil tool baca-saja, tetapi jawaban agent menyertakan tautan yang tidak ada di hasil tersebut. Saya menahan rekomendasi agar tidak menyajikan sumber yang belum diverifikasi."
+        text: containsUnsupportedUrls(review.value.text, scoutEvidence) || lacksEvidenceCitations(review.value.text, scoutEvidence)
+          ? "Riset belum memenuhi standar bukti: sumber tidak bisa dicocokkan atau jawaban tidak menyertakan tautan sumber. Saya menahan rekomendasi dan klaim pasar/biaya."
           : review.value.text,
         provider: `business-team: market-scout=${scout.provider}, unit-economics=${economics.provider}, reviewer=${review.provider}`,
       };

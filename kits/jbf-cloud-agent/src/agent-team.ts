@@ -35,12 +35,29 @@ export function shouldRunBusinessTeam(task: string): boolean {
 
 export function extractScoutEvidence(result: { steps?: Array<{ toolResults?: Array<{ toolName?: string; output?: unknown; result?: unknown }> }> }): string[] {
   return (result.steps ?? []).flatMap((step) => step.toolResults ?? [])
-    .map((item) => JSON.stringify({ tool: item.toolName ?? "read-only", result: item.output ?? item.result ?? null }))
-    .filter((item) => item.length > 2);
+    .map((item) => {
+      const value = item.output ?? item.result ?? null;
+      const serialized = JSON.stringify({ tool: item.toolName ?? "read-only", result: value });
+      return { serialized, value };
+    })
+    .filter(({ serialized, value }) => {
+      if (value === null || serialized.length <= 2) return false;
+      if (/"(isError|error|errors)"\s*:\s*(true|\[|\{)/i.test(serialized)) return false;
+      // A successful tool response without a concrete public GitHub source URL
+      // is not evidence. In particular, empty search results must stop the scout.
+      return /https?:\/\//i.test(serialized) && /github\.com\//i.test(serialized);
+    })
+    .map(({ serialized }) => serialized);
 }
 
 export function containsUnsupportedUrls(answer: string, evidence: string[]): boolean {
   const allowed = new Set(evidence.flatMap((item) => item.match(/https?:\/\/[^\s"'<>]+/g) ?? []).map((url) => url.replace(/[),.;]+$/, "")));
   const cited = answer.match(/https?:\/\/[^\s"'<>]+/g) ?? [];
   return cited.some((url) => !allowed.has(url.replace(/[),.;]+$/, "")));
+}
+
+export function lacksEvidenceCitations(answer: string, evidence: string[]): boolean {
+  const supportedUrls = evidence.flatMap((item) => item.match(/https?:\/\/[^\s"'<>]+/g) ?? []);
+  const citedUrls = answer.match(/https?:\/\/[^\s"'<>]+/g) ?? [];
+  return supportedUrls.length > 0 && citedUrls.length === 0;
 }

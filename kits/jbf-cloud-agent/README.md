@@ -8,4 +8,4 @@ Deployment creates a separate Worker named `jbf-cloud-agent` and leaves the exis
 
 Free quotas can change. When Cloudflare AI's free quota is exhausted, the task stops without a paid fallback. Gmail, WhatsApp, and SnapDeploy are not in this first cloud release.
 
-The agent prioritizes validating a paid pilot for Steadfast using free channels before any new spending. Owner-provided email and WhatsApp contact values are installed as Worker secrets and may appear only in owner-approved outreach drafts. Gmail and WhatsApp sending are not connected, so the agent cannot send through either service yet.
+The agent compares product opportunities—including game-studio tools, image/video generation, and other SaaS ideas—by verifiable buyer demand and the fastest free route to revenue. It can build through connected GitHub and Cloudflare tools; writes and deployments are held for owner approval. Owner-provided email and WhatsApp contact values are installed as Worker secrets and used only in owner-approved outreach or a specifically approved public listing. Gmail and WhatsApp sending connectors are not connected.

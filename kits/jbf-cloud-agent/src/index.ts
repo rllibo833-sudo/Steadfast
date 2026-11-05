@@ -53,7 +53,7 @@ function redact(value: unknown): unknown {
 }
 
 export class JbfAgent extends Agent<Env> {
-  private async runTask(taskId: string, instruction: string): Promise<string> {
+  private async runTask(taskId: string, instruction: string): Promise<{ text: string; provider: string }> {
     await this.mcp.waitForConnections({ timeout: 8_000 });
     const tools = this.mcp.getAITools();
     const catalog = this.mcp.listTools();
@@ -122,7 +122,7 @@ export class JbfAgent extends Agent<Env> {
         },
       ],
     );
-    return result.value.text;
+    return { text: result.value.text, provider: result.provider };
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -189,8 +189,8 @@ export class JbfAgent extends Agent<Env> {
       const taskId = crypto.randomUUID();
       await this.ctx.storage.put(`task:${taskId}`, { prompt: message, progress: [] });
       try {
-        const text = await this.runTask(taskId, message);
-        return json({ taskId, text });
+        const completion = await this.runTask(taskId, message);
+        return json({ taskId, ...completion });
       } catch (error) {
         const detail = String(error);
         if (/429|3036|3040|quota|limit|billing|exceeded|allocation|neurons|resource.?exhausted|rate.?limit/i.test(detail)) {
@@ -234,6 +234,7 @@ export class JbfAgent extends Agent<Env> {
 
       const task = await this.ctx.storage.get<{ prompt: string; progress: unknown[] }>(`task:${action.taskId}`);
       let continuation = "";
+      let continuationProvider = "";
       if (task) {
         const compact = (value: unknown) => JSON.stringify(redact(value)).slice(0, 1600);
         task.progress.push({ decision: body.decision, tool: action.toolKey, input: compact(action.input), result: compact(result) });
@@ -241,13 +242,15 @@ export class JbfAgent extends Agent<Env> {
         await this.ctx.storage.put(`task:${action.taskId}`, task);
         const prior = JSON.stringify(task.progress).slice(0, 12000);
         try {
-          continuation = await this.runTask(action.taskId,
+          const completion = await this.runTask(action.taskId,
             `Original task: ${task.prompt}\n\nCompleted/denied actions so far (do not repeat them): ${prior}\n\nContinue the original task autonomously. If another external action is needed, queue it for approval.`);
+          continuation = completion.text;
+          continuationProvider = completion.provider;
         } catch (error) {
           continuation = `Task continuation stopped: ${String(error).slice(0, 400)}`;
         }
       }
-      return json({ status: body.decision === "approve" ? "executed" : "denied", result: redact(result), continuation });
+      return json({ status: body.decision === "approve" ? "executed" : "denied", result: redact(result), continuation, continuationProvider });
     }
 
     return json({ error: "Not found" }, 404);

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101014">
+  <meta name="description" content="Buat konsep visual dan aset gambar untuk game indie dengan JBF Asset Studio.">
+  <title>JBF Asset Studio — Game art dari idemu</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101014;--panel:#19191f;--line:#34343d;--text:#f4f1ec;--muted:#aaa7b1;--lime:#c8f169;--pink:#f78bb5;--purple:#a99bff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 72% 5%,#262039 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,sans-serif}a{color:inherit}header,main,footer{width:min(1120px,calc(100% - 36px));margin:auto}.nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid #ffffff18}.brand{font-weight:800;letter-spacing:.04em}.brand b{color:var(--lime)}.badge{border:1px solid #ffffff22;border-radius:99px;padding:6px 12px;color:var(--muted);font-size:12px}.hero{padding:70px 0 44px;max-width:760px}.eyebrow{color:var(--lime);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.hero h1{font-size:clamp(42px,8vw,80px);line-height:.98;letter-spacing:-.06em;margin:18px 0}.hero p{color:var(--muted);font-size:18px;max-width:600px}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.9fr);gap:18px;align-items:start}.card{background:linear-gradient(145deg,#1d1d25,#16161b);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 18px 60px #0003}.card h2{font-size:18px;margin:0 0 6px}.sub{color:var(--muted);font-size:13px;margin:0 0 18px}label{display:block;font-size:12px;font-weight:700;color:#d6d2dc;margin:15px 0 7px}textarea,select,button{font:inherit}textarea,select{width:100%;border:1px solid #41414c;border-radius:12px;background:#111116;color:var(--text);padding:13px}textarea{min-height:118px;resize:vertical}textarea:focus,select:focus{outline:2px solid #a99bff88;border-color:var(--purple)}.styles{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.style{background:#22222a;color:#ccc;border:1px solid #3c3c47;border-radius:10px;padding:9px 5px;font-size:11px;cursor:pointer}.style.active{border-color:var(--lime);color:var(--lime);background:#c8f16912}.primary{width:100%;margin-top:18px;border:0;border-radius:12px;padding:14px 18px;background:var(--lime);color:#17180f;font-weight:850;cursor:pointer}.primary:disabled{opacity:.55;cursor:wait}.status{min-height:26px;color:var(--muted);font-size:13px;margin-top:10px}.result{display:grid;place-items:center;min-height:390px;border:1px dashed #4b4a57;border-radius:15px;background:linear-gradient(45deg,#1d1d24 25%,transparent 25%,transparent 75%,#1d1d24 75%),linear-gradient(45deg,#1d1d24 25%,#16161b 25%,#16161b 75%,#1d1d24 75%);background-size:28px 28px;background-position:0 0,14px 14px;overflow:hidden}.result img{display:block;width:100%;height:100%;max-height:640px;object-fit:contain}.placeholder{text-align:center;padding:32px;color:#aaa7b1}.placeholder .spark{font-size:40px;color:var(--pink)}.download{display:none;text-decoration:none;text-align:center;margin-top:12px;border:1px solid #ffffff28;border-radius:10px;padding:10px;color:var(--lime)}.features{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 50px}.feature{border-top:1px solid var(--line);padding:16px 4px}.feature b{display:block;margin-bottom:5px}.feature span,.fine{color:var(--muted);font-size:12px}.notice{margin:26px 0;padding:13px 15px;border-left:2px solid var(--purple);background:#a99bff0b;color:#c9c5d2;font-size:12px}footer{padding:24px 0 42px;border-top:1px solid #ffffff18;color:var(--muted);font-size:12px}.error{color:#ff9caa}.ok{color:var(--lime)}@media(max-width:780px){.layout{grid-template-columns:1fr}.hero{padding:46px 0 30px}.result{min-height:300px}.features{grid-template-columns:1fr}.styles{grid-template-columns:repeat(3,1fr)}}
+  </style>
+</head>
+<body>
+  <header><div class="nav"><div class="brand">JBF <b>ASSET STUDIO</b></div><span class="badge">BETA · GRATIS 2 GAMBAR / HARI</span></div></header>
+  <main>
+    <section class="hero"><div class="eyebrow">Untuk kreator game indie</div><h1>Dari ide.<br>Jadi visual.</h1><p>Buat konsep karakter, pixel art, dunia game, dan ilustrasi produk dari browser. Unduh hasilnya sebagai PNG.</p></section>
+    <section class="layout" aria-label="Generator gambar">
+      <form class="card" id="form">
+        <h2>Buat gambar</h2><p class="sub">Tulis detail yang ingin kamu lihat.</p>
+        <label>Gaya gambar</label>
+        <div class="styles" role="group" aria-label="Pilih gaya">
+          <button type="button" class="style active" data-style="game">Game art</button><button type="button" class="style" data-style="pixel">Pixel art</button><button type="button" class="style" data-style="portrait">Karakter</button><button type="button" class="style" data-style="world">Dunia game</button><button type="button" class="style" data-style="product">Produk</button>
+        </div>
+        <label for="prompt">Deskripsi</label><textarea id="prompt" maxlength="800" placeholder="Contoh: penyihir kecil penjaga hutan, jubah hijau, membawa lentera biru, tampak depan"></textarea>
+        <button class="primary" id="generate" type="submit">Buat gambar gratis</button><div class="status" id="status" aria-live="polite"></div>
+      </form>
+      <div class="card"><h2>Pratinjau</h2><p class="sub">Gambar dibuat saat kamu menekan tombol.</p><div class="result" id="result"><div class="placeholder"><div class="spark">✳</div><b>Ruang ide kamu</b><br><span>Tulis prompt untuk mulai membuat.</span></div></div><a class="download" id="download" download="jbf-asset.png">Unduh PNG ↓</a></div>
+    </section>
+    <section class="features"><div class="feature"><b>2 gambar gratis per hari</b><span>Batas harian menjaga beta tetap tanpa biaya.</span></div><div class="feature"><b>File langsung di perangkat</b><span>Hasil tidak disimpan di server; unduh sebelum menutup halaman.</span></div><div class="feature"><b>Fokus game indie</b><span>Mulai dari konsep karakter dan aset 2D. Video belum tersedia.</span></div></section>
+    <aside class="notice">Beta. Hasil AI bisa mengandung kesalahan atau mirip dengan karya lain. Periksa lisensi model dan hak penggunaan sebelum memasukkan gambar ke produk berbayar. Jangan masukkan data pribadi atau gambar orang tanpa izin. Prompt diproses oleh Cloudflare Workers AI; layanan hanya menyimpan hash harian untuk membatasi pemakaian.</aside>
+  </main>
+  <footer>JBF Asset Studio · Dibangun dengan model gambar SDXL-Lightning di Cloudflare Workers AI. Model dalam beta; ketersediaan dapat berubah. <a href="https://huggingface.co/ByteDance/SDXL-Lightning" rel="noreferrer">Info model dan lisensi</a>.</footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

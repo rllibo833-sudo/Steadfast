@@ -1,0 +1,19 @@
+name = "jbf-asset-studio"
+main = "src/index.ts"
+compatibility_date = "2026-11-04"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[durable_objects]
+bindings = [{ name = "QUOTA", class_name = "GenerationQuota" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GenerationQuota"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]

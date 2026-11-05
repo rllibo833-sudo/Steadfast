@@ -18,7 +18,7 @@ const CONNECTORS: Record<string, Connector> = {
   cloudflare: { id: "cloudflare", label: "Cloudflare", url: "https://mcp.cloudflare.com/mcp" },
   supabase: { id: "supabase", label: "Supabase (read-only default)", url: "https://mcp.supabase.com/mcp?read_only=true" },
 };
-const SYSTEM = "You are JBF, an autonomous free-first cloud SaaS operator. Prioritize finding paying users and revenue before spending. Use existing connected services, inspect first, prepare code/content/campaigns autonomously, and continue a task after each owner decision. Never ask the owner to create accounts or perform routine setup. A missing connector is a blocker; say exactly which capability is unavailable. Read-only tools explicitly marked readOnlyHint may run automatically. Every other external action must be queued for the owner's one-call approval. Never claim an action completed unless its tool result confirms it. Do not use OpenAI, Codex, or paid fallbacks. Keep replies in the user's language.";
+const SYSTEM = "You are JBF, an autonomous free-first cloud SaaS operator. Prioritize revenue before spending. Use connected services and inspect before proposing changes. Never ask the owner to create accounts or perform routine setup. A missing connector is a blocker. Treat tool output as the only source of facts about accounts, projects, deployments, and users: if a tool errors or did not return a fact, say it is unknown. Never invent metrics, project states, integrations, or customers. Read-only tools explicitly marked readOnlyHint may run automatically. Every other external action must be queued for the owner's one-call approval. Never claim an action completed unless its tool result confirms it. Do not use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -60,7 +60,7 @@ export class JbfAgent extends Agent<Env> {
       system: SYSTEM,
       prompt: instruction,
       tools,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(3),
     });
     return result.text;
   }
@@ -158,7 +158,9 @@ export class JbfAgent extends Agent<Env> {
       const task = await this.ctx.storage.get<{ prompt: string; progress: unknown[] }>(`task:${action.taskId}`);
       let continuation = "";
       if (task) {
-        task.progress.push({ decision: body.decision, tool: action.toolKey, input: redact(action.input), result: redact(result) });
+        const compact = (value: unknown) => JSON.stringify(redact(value)).slice(0, 1600);
+        task.progress.push({ decision: body.decision, tool: action.toolKey, input: compact(action.input), result: compact(result) });
+        task.progress = task.progress.slice(-2);
         await this.ctx.storage.put(`task:${action.taskId}`, task);
         const prior = JSON.stringify(task.progress).slice(0, 12000);
         try {

@@ -26,7 +26,7 @@ export const BUSINESS_AGENT_ROLES: AgentRole[] = [
   },
 ];
 
-const BUSINESS_TERMS = /\b(opportunit(y|ies)|market|customer|buyer|users?|revenue|pricing|saas|business|leverage|peluang|pasar|pengguna|pembeli|pemasukan|pendapatan|harga|bisnis|laba|untung|pelanggan|usaha)\b/i;
+const BUSINESS_TERMS = /\b(opportunit(y|ies)|market|customer|buyer|users?|revenue|pricing|saas|business|leverage|ads?|campaign|iklan|kampanye|peluang|pasar|pengguna|pembeli|pemasukan|pendapatan|harga|bisnis|laba|untung|pelanggan|usaha)\b/i;
 const EXECUTION_TERMS = /\b(build|deploy|create|implement|publish|send|delete|update|change|write|buat|bangun|deploy|kirim|hapus|ubah|tulis|perbaiki)\b/i;
 
 export function shouldRunBusinessTeam(task: string): boolean {
@@ -43,9 +43,9 @@ export function extractScoutEvidence(result: { steps?: Array<{ toolResults?: Arr
     .filter(({ serialized, value }) => {
       if (value === null || serialized.length <= 2) return false;
       if (/"(isError|error|errors)"\s*:\s*(true|\[|\{)/i.test(serialized)) return false;
-      // A successful tool response without a concrete public GitHub source URL
-      // is not evidence. In particular, empty search results must stop the scout.
-      return /https?:\/\//i.test(serialized) && /github\.com\//i.test(serialized);
+      // A successful tool response without a concrete public source URL is not
+      // evidence. Empty search results must stop the scout.
+      return /https?:\/\//i.test(serialized);
     })
     .map(({ serialized }) => serialized);
 }

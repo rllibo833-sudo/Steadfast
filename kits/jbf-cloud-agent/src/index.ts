@@ -1,4 +1,4 @@
-import { Agent, routeAgentRequest } from "agents";
+import { Agent, getAgentByName, routeAgentRequest } from "agents";
 import { createAI } from "agents/models/ai-sdk";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
@@ -101,6 +101,79 @@ function needsOwnerApproval(
 }
 
 export class JbfAgent extends Agent<Env> {
+  private async ensureExistingTokenConnections(): Promise<void> {
+    const state = this.getMcpServers().servers;
+    const existing = [
+      { id: "github", label: CONNECTORS.github.label, url: CONNECTORS.github.url, token: this.env.GITHUB_TOKEN },
+      { id: "cloudflare", label: CONNECTORS.cloudflare.label, url: CONNECTORS.cloudflare.url, token: this.env.CLOUDFLARE_API_TOKEN },
+    ];
+    for (const connector of existing) {
+      if (!connector.token || state[connector.id]?.state === "ready" || state[connector.id]?.state === "authenticating") continue;
+      try {
+        await this.addMcpServer(connector.label, connector.url, {
+          id: connector.id,
+          transport: { type: "streamable-http", headers: { Authorization: `Bearer ${connector.token}` } },
+        });
+      } catch {
+        // The cycle records exact connector state below and does not spend inference if none are usable.
+      }
+    }
+  }
+
+  async runScheduledAutopilot(scheduledTime: number): Promise<Record<string, unknown>> {
+    const now = Date.now();
+    const previous = await this.ctx.storage.get<Record<string, unknown>>("autopilot:last");
+    const previousStart = Date.parse(String(previous?.startedAt ?? ""));
+    if (previous?.status === "running" && Number.isFinite(previousStart) && now - previousStart < 45 * 60_000) {
+      return { status: "already_running", startedAt: previous.startedAt };
+    }
+
+    const taskId = `autopilot-${crypto.randomUUID()}`;
+    const startedAt = new Date(scheduledTime || now).toISOString();
+    const prompt = `Scheduled JBF operations cycle. Update existing connected services only. Inspect GitHub, Cloudflare, DigitalOcean, Supabase, and Meta Ads only where connected; prioritize real users and revenue without spending. Check current pending approvals and recent autopilot report first; never repeat pending, completed, or denied actions. Execute safe, reversible, idempotent, non-billable maintenance on existing resources. Review hosting/VPS, database, product, content/SEO, and analytics as the connected tools allow. Use evidence from live tools and public URLs; distinguish findings from estimates. Prepare at most one highest-impact approval request for any account creation, manual verification, public publication, deployment, deletion, paid resource, live-ad change, or outbound message. Never contact people, publish, create accounts, or spend without that exact approval. Do not return a generic plan when a safe connected action can be completed. Report concrete tool outcomes and the exact next approval, if any. Cycle time: ${startedAt}.`;
+    const running = { status: "running", taskId, startedAt, schedule: "every 6 hours" };
+    await this.ctx.storage.put("autopilot:last", running);
+    await this.ctx.storage.put(`task:${taskId}`, { prompt, progress: [] });
+
+    try {
+      await this.ensureExistingTokenConnections();
+      await this.mcp.waitForConnections({ timeout: 8_000 });
+      const connected = Object.entries(this.getMcpServers().servers)
+        .filter(([, server]) => server.state === "ready")
+        .map(([id]) => id);
+      if (!connected.length) {
+        const result = {
+          ...running,
+          status: "waiting_for_connector",
+          completedAt: new Date().toISOString(),
+          error: "Tidak ada konektor layanan siap; kuota AI tidak digunakan. Hubungkan layanan OAuth yang perlu persetujuan pemilik.",
+        };
+        await this.ctx.storage.put("autopilot:last", result);
+        return result;
+      }
+      const completion = await this.runTask(taskId, prompt);
+      const result = {
+        ...running,
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        provider: completion.provider,
+        summary: completion.text.slice(0, 6000),
+      };
+      await this.ctx.storage.put("autopilot:last", result);
+      return result;
+    } catch (error) {
+      const detail = String(error).slice(0, 500);
+      const result = {
+        ...running,
+        status: /429|quota|limit|billing|exceeded|allocation|neurons|rate.?limit/i.test(detail) ? "waiting_for_free_quota" : "blocked",
+        completedAt: new Date().toISOString(),
+        error: detail,
+      };
+      await this.ctx.storage.put("autopilot:last", result);
+      return result;
+    }
+  }
+
   private async runTask(taskId: string, instruction: string): Promise<{ text: string; provider: string }> {
     await this.mcp.waitForConnections({ timeout: 8_000 });
     const allTools = this.mcp.getAITools();
@@ -392,6 +465,7 @@ export class JbfAgent extends Agent<Env> {
           readOnly: tool.annotations?.readOnlyHint === true,
         })),
         approvals: redact(await this.ctx.storage.get<Approval[]>("approvals") ?? []),
+        autopilot: redact(await this.ctx.storage.get<Record<string, unknown>>("autopilot:last") ?? null),
       });
     }
 
@@ -482,5 +556,11 @@ export default {
     if (agentResponse) return agentResponse;
     if (url.pathname.startsWith("/agents/")) return json({ error: "Agent route not found" }, 404);
     return env.ASSETS.fetch(request);
+  },
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil((async () => {
+      const agent = await getAgentByName(env.JBF_AGENT, "owner");
+      await agent.runScheduledAutopilot(controller.scheduledTime);
+    })());
   },
 } satisfies ExportedHandler<Env>;

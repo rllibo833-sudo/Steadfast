@@ -1,0 +1,39 @@
+name: Deploy JBF Cloud Agent
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install agent dependencies
+        run: npm install --prefix kits/jbf-cloud-agent --no-audit --no-fund
+      - name: Require the JBF owner token
+        run: test -n "$JBF_OWNER_TOKEN"
+        env:
+          JBF_OWNER_TOKEN: ${{ secrets.JBF_OWNER_TOKEN }}
+      - name: Deploy isolated JBF Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.153.0"
+          workingDirectory: "kits/jbf-cloud-agent"
+          command: deploy
+          secrets: |
+            OWNER_TOKEN
+        env:
+          OWNER_TOKEN: ${{ secrets.JBF_OWNER_TOKEN }}
+      - name: Record the deployment URL
+        if: success()
+        run: |
+          echo "## JBF Cloud Agent" >> "$GITHUB_STEP_SUMMARY"
+          echo "Worker: ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "The Worker uses Cloudflare's free AI binding and has no paid model fallback." >> "$GITHUB_STEP_SUMMARY"

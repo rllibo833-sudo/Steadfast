@@ -3,7 +3,8 @@ import { createAI } from "agents/models/ai-sdk";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, stepCountIs } from "ai";
-import { runFreeFirst } from "./provider-routing";
+import { runFreeFirst, runFreeProviders } from "./provider-routing";
+import { BUSINESS_AGENT_ROLES, shouldRunBusinessTeam } from "./agent-team";
 
 interface Env {
   AI: Ai;
@@ -38,7 +39,7 @@ const PROVIDERS: ProviderInfo[] = [
   { id: "openrouter-free", category: "AI inference gratis cadangan 1", auth: "Kredensial OpenRouter yang sudah tersimpan", availability: "not_configured", note: "Hanya openrouter/free; tidak membeli kredit dan tidak menggunakan model berbayar." },
   { id: "groq-free", category: "AI inference gratis cadangan 2", auth: "Kredensial Groq tersimpan sebagai Worker secret", availability: "not_configured", note: "Groq free tier setelah Cloudflare AI dan OpenRouter; batas gratis berlaku." },
 ];
-const SYSTEM = `You are JBF, the owner's self-operating cloud and SaaS agent. The owner's priority is real users and revenue before spending. Manage available hosting, database, compute, and SaaS services through the provider catalog; inspect actual connection state and capability before proposing or acting. Compare opportunities using verifiable buyer evidence, route to the first real user and first payment, time to launch, direct cash cost, recurring cost, gross margin, and break-even users. Prefer an existing/free path and a small experiment that can validate demand. Separate observed evidence from estimates, show the arithmetic and uncertainty, and never present a lead, signup, deployment, or revenue as completed without tool evidence. For the owner's example, Rp1,000,000 revenue against Rp200,000 direct spend means 5x revenue-to-spend and Rp800,000 contribution before labor, tax, and other costs; it is a target calculation, not a forecast or guarantee. Before any paid plan, billable resource, purchase, account creation, acceptance of terms, public release, deployment, or outbound message, present the exact action and its one-time and recurring cost and wait for the owner's approval. Never enter payment details or use personal identity/contact information for registration unless the exact account and fields are approved. Use existing credentials and supported OAuth flows where possible; if a provider requires manual identity verification or unsupported registration, give its official link and state the blocker without claiming signup. Use GitHub search_issues, search_users, and search_repositories for public prospect discovery; cite exact URLs and evidence, and do not spam unrelated projects. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions. Keep Supabase read-only and project-scoped by default; do not claim write access. Treat GitHub Actions as temporary compute, not a persistent VPS. For VPS options, compare official free tiers, limits, region, storage, sleep behavior, and card/identity requirements before recommending one. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services by buyer evidence and fastest low-cost route to income. When asked to build, implement with connected GitHub/Cloudflare tools, then queue deploy or other external writes for exact owner approval and continue the task afterward. Use free inference first: Cloudflare Workers AI, OpenRouter openrouter/free, then Groq Free when configured. Stop if these options fail; never switch to paid inference without approval. Never activate paid inference, billing, or a paid fallback without explicit approval. Prepare tailored outreach drafts, but do not send without approval. Keep replies concise and in the user's language.`;
+const SYSTEM = `You are JBF, the owner's self-operating cloud and SaaS agent. The owner's priority is real users and revenue before spending. Manage available hosting, database, compute, and SaaS services through the provider catalog; inspect actual connection state and capability before proposing or acting. Compare opportunities using verifiable buyer evidence, route to the first real user and first payment, time to launch, direct cash cost, recurring cost, gross margin, and break-even users. Prefer an existing/free path and a small experiment that can validate demand. Separate observed evidence from estimates, show the arithmetic and uncertainty, and never present a lead, signup, deployment, or revenue as completed without tool evidence. For the owner's example, Rp1,000,000 revenue against Rp200,000 direct spend means 5x revenue-to-spend and Rp800,000 contribution before labor, tax, and other costs; it is a target calculation, not a forecast or guarantee. Before any paid plan, billable resource, purchase, account creation, acceptance of terms, public release, deployment, or outbound message, present the exact action and its one-time and recurring cost and wait for the owner's approval. Never enter payment details or use personal identity/contact information for registration unless the exact account and fields are approved. Use existing credentials and supported OAuth flows where possible; if a provider requires manual identity verification or unsupported registration, give its official link and state the blocker without claiming signup. Use GitHub search_issues, search_users, and search_repositories for public prospect discovery; cite exact URLs and evidence, and do not spam unrelated projects. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions. Keep Supabase read-only and project-scoped by default; do not claim write access. Treat GitHub Actions as temporary compute, not a persistent VPS. For VPS options, compare official free tiers, limits, region, storage, sleep behavior, and card/identity requirements before recommending one. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services by buyer evidence and fastest low-cost route to income. When asked to build, implement with connected GitHub/Cloudflare tools, then queue deploy or other external writes for exact owner approval and continue the task afterward. For business/opportunity research without an execution request, use the Market Scout, Unit Economics Analyst, and Evidence Reviewer in sequence. They share only the existing free model providers and the Scout receives read-only tools. Use free inference first: Cloudflare Workers AI, OpenRouter openrouter/free, then Groq Free when configured. Stop if these options fail; never switch to paid inference without approval. Never activate paid inference, billing, or a paid fallback without explicit approval. Prepare tailored outreach drafts, but do not send without approval. Keep replies concise and in the user's language.`;
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -90,6 +91,11 @@ export class JbfAgent extends Agent<Env> {
         return { status: "awaiting_owner_approval", approvalId: id, summary: `Queued ${key} for one-call owner approval. Do not claim it completed.` };
       };
     }
+    const readOnlyKeys = new Set(catalog.filter((item) =>
+      item.annotations?.readOnlyHint === true
+      || (item.serverId === "cloudflare" && ["docs", "search", "whoami"].includes(item.name)),
+    ).map((item) => `tool_${item.serverId}_${item.name}`));
+    const readOnlyTools = Object.fromEntries(Object.entries(tools).filter(([key]) => readOnlyKeys.has(key))) as typeof tools;
     const ai = createAI({ binding: this.env.AI });
     const generation = {
       system: `${SYSTEM}\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
@@ -107,6 +113,51 @@ export class JbfAgent extends Agent<Env> {
           apiKey: this.env.GROQ_API_KEY,
         })
       : undefined;
+    if (shouldRunBusinessTeam(instruction)) {
+      const publicProviders = JSON.stringify(providerContext.map(({ id, availability, category }) => ({ id, availability, category })));
+      const runRole = async (roleId: "market-scout" | "unit-economics" | "risk-reviewer", prompt: string, roleTools: typeof tools) => {
+        const role = BUSINESS_AGENT_ROLES.find((item) => item.id === roleId)!;
+        const roleSystem = `${SYSTEM}\n\nYou are the ${role.name} (${role.id}). ${role.purpose} Use only the evidence and tools provided. Never invent a source, buyer, price, quota, or completed action.\n\nConnected provider status: ${publicProviders}`;
+        const generation = {
+          system: roleSystem,
+          prompt,
+          tools: roleTools,
+          stopWhen: stepCountIs(roleId === "market-scout" ? 4 : 1),
+        };
+        const openRouterRun = () => generateText({ ...generation, model: openrouter!("openrouter/free") });
+        const groqRun = () => generateText({ ...generation, model: groq!.chatModel("openai/gpt-oss-120b") });
+        const candidates = role.preferredProvider === "openrouter-free"
+          ? [
+              { id: "openrouter-free", available: Boolean(openrouter), run: openRouterRun },
+              { id: "groq-free", available: Boolean(groq), run: groqRun },
+            ]
+          : [
+              { id: "groq-free", available: Boolean(groq), run: groqRun },
+              { id: "openrouter-free", available: Boolean(openrouter), run: openRouterRun },
+            ];
+        return runFreeProviders(candidates);
+      };
+      const scout = await runRole(
+        "market-scout",
+        `Research this opportunity using only read-only tools. Find up to five public signals of demand and include exact source URLs. If no relevant read-only source is available, say so plainly.\n\nOwner request: ${instruction}`,
+        readOnlyTools,
+      );
+      const economics = await runRole(
+        "unit-economics",
+        `Assess the economics using only the evidence below and clearly mark assumptions. Show revenue-to-spend, contribution, break-even units, recurring costs, and what must be tested before spending.\n\nOwner request: ${instruction}\n\nMarket Scout evidence: ${scout.value.text}`,
+        {},
+      );
+      const review = await runRole(
+        "risk-reviewer",
+        `Review the evidence and calculations below. Remove unsupported claims, call out missing buyer proof and service costs, then give a concise recommendation and the smallest no-spend validation step. Reply in the owner's language.\n\nOwner request: ${instruction}\n\nMarket Scout: ${scout.value.text}\n\nUnit Economics: ${economics.value.text}`,
+        {},
+      );
+      return {
+        text: review.value.text,
+        provider: `business-team: market-scout=${scout.provider}, unit-economics=${economics.provider}, reviewer=${review.provider}`,
+      };
+    }
+
     const result = await runFreeFirst(
       () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") }),
       [
@@ -146,6 +197,10 @@ export class JbfAgent extends Agent<Env> {
       });
       if (result.state === "authenticating") return json({ state: result.state, authUrl: result.authUrl });
       return json({ state: result.state, id: result.id });
+    }
+
+    if (route === "agents" && request.method === "GET") {
+      return json({ agents: BUSINESS_AGENT_ROLES.map((agent) => ({ ...agent, enabled: Boolean(this.env.OPENROUTER_API_KEY || this.env.GROQ_API_KEY), execution: "read-only research roles; no extra roles run for ordinary tasks" })) });
     }
 
     if (route === "providers" && request.method === "GET") {

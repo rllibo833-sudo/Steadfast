@@ -65,3 +65,14 @@ test("propagates the last provider error without a paid fallback", async () => {
     ],
   ), /Groq quota reached/);
 });
+
+test("runs an available free provider chain in order", async () => {
+  const { runFreeProviders } = await import("../src/provider-routing.ts");
+  const calls = [];
+  const result = await runFreeProviders([
+    { id: "openrouter-free", available: true, run: async () => { calls.push("openrouter"); throw Object.assign(new Error("rate limit"), { statusCode: 429 }); } },
+    { id: "groq-free", available: true, run: async () => { calls.push("groq"); return "groq response"; } },
+  ]);
+  assert.deepEqual(calls, ["openrouter", "groq"]);
+  assert.deepEqual(result, { provider: "groq-free", value: "groq response" });
+});

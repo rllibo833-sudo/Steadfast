@@ -22,6 +22,20 @@ function isProviderFailure(error: unknown): boolean {
     || /(401|403|408|429|5\d\d|unauthori[sz]ed|invalid.*(api.?key|credential)|authentication|rate.?limit|quota|capacity|allocation|neurons|timeout|network|fetch failed)/i.test(String(error));
 }
 
+export async function runFreeProviders<T>(providers: FreeProvider<T>[]): Promise<{ provider: string; value: T }> {
+  let lastError: unknown;
+  for (const provider of providers) {
+    if (!provider.available) continue;
+    try {
+      return { provider: provider.id, value: await provider.run() };
+    } catch (error) {
+      lastError = error;
+      if (!isProviderFailure(error)) throw error;
+    }
+  }
+  throw lastError ?? new Error("No configured free provider is available for this agent role.");
+}
+
 export async function runFreeFirst<T>(
   primary: () => Promise<T>,
   alternatives: FreeProvider<T>[],

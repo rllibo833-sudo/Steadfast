@@ -4,5 +4,5 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
-  "dependencies": { "agents": "^0.20.0", "ai": "^6.0.0" }
+  "dependencies": { "agents": "0.33.0", "ai": "^6.0.0" }
 }

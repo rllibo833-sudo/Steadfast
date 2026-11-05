@@ -73,6 +73,10 @@ export class JbfAgent extends Agent<Env> {
       const body = await request.json().then((value) => value as { provider?: string }).catch(() => ({}));
       const connector = body.provider ? CONNECTORS[body.provider] : undefined;
       if (!connector) return json({ error: "Connector not supported" }, 400);
+      const existing = this.getMcpServers().servers[connector.id];
+      if (existing && existing.server_url !== connector.url) {
+        await this.removeMcpServer(connector.id);
+      }
       const headers: Record<string, string> = {};
       if (connector.id === "github") headers.Authorization = `Bearer ${this.env.GITHUB_TOKEN}`;
       if (connector.id === "cloudflare") headers.Authorization = `Bearer ${this.env.CLOUDFLARE_API_TOKEN}`;

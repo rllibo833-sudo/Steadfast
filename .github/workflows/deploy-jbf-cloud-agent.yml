@@ -33,7 +33,7 @@ jobs:
         run: |
           deploy_output=$(npx --yes wrangler@4.153.0 deploy \
             --name jbf-cloud-agent \
-            --config kits/jbf-cloud-agent/wrangler.toml)
+            --config kits/jbf-cloud-agent/wrangler.toml 2>&1)
           printf '%s\n' "$deploy_output"
           worker_url=$(printf '%s\n' "$deploy_output" | grep -Eo 'https://[a-z0-9-]+\.workers\.dev' | tail -n 1)
           test -n "$worker_url"

@@ -147,6 +147,21 @@ jobs:
           printf '%s' "$JBF_BUSINESS_WHATSAPP" | npx --yes wrangler@4.153.0 secret put BUSINESS_WHATSAPP \
             --name jbf-cloud-agent \
             --config kits/jbf-cloud-agent/wrangler.toml
+      - name: Install owner-authorized account registration contact on the isolated JBF Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_REGISTRATION_EMAIL: ${{ secrets.JBF_REGISTRATION_EMAIL }}
+          JBF_REGISTRATION_PHONE: ${{ secrets.JBF_REGISTRATION_PHONE }}
+        run: |
+          test -n "$JBF_REGISTRATION_EMAIL"
+          test -n "$JBF_REGISTRATION_PHONE"
+          printf '%s' "$JBF_REGISTRATION_EMAIL" | npx --yes wrangler@4.153.0 secret put REGISTRATION_EMAIL \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
+          printf '%s' "$JBF_REGISTRATION_PHONE" | npx --yes wrangler@4.153.0 secret put REGISTRATION_PHONE \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
       - name: Publish Worker URL as workflow artifact
         uses: actions/upload-artifact@v4
         with:

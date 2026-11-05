@@ -80,7 +80,8 @@ function needsOwnerApproval(
   if (raw?.serverId === "digitalocean") {
     if (/\b(find_tools|retrieve_schema)\b/i.test(raw.name ?? "")) return false;
     if (/\binvoke_tool\b/i.test(raw.name ?? "") &&
-        /(?:^|\/)[a-z0-9_-]*(?:-(?:list|size-list|show|get|search|describe|info|regions|sizes)|(?:get|list|read|search|find|describe|retrieve)_[a-z0-9_]+)$/i.test(nestedName ?? "")) return false;
+        (/(?:^|\/)[a-z0-9_-]*-(?:get|list|read|search|find|describe|retrieve)(?:-[a-z0-9_-]+)?$/i.test(nestedName ?? "")
+          || /(?:^|\/)[a-z0-9_-]*-(?:regions|sizes|size-list)$/i.test(nestedName ?? ""))) return false;
   }
 
   // Do not silently spend, publish, delete, message, or change live advertising.

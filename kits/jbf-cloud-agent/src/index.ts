@@ -43,12 +43,12 @@ export class JbfAgent extends Agent<Env> {
       tool.execute = async (input: unknown) => {
         if (isReadOnly) return execute(input as never);
         const id = crypto.randomUUID();
-        const approvals = await this.state.storage.get<Approval[]>("approvals") ?? [];
+        const approvals = await this.ctx.storage.get<Approval[]>("approvals") ?? [];
         if (approvals.filter((item) => item.status === "pending").length >= 100) {
           return { status: "approval_queue_full", summary: "Approval queue is full. Wait for owner review." };
         }
         approvals.push({ id, taskId, toolKey: key, input, status: "pending", createdAt: new Date().toISOString() });
-        await this.state.storage.put("approvals", approvals);
+        await this.ctx.storage.put("approvals", approvals);
         return { status: "awaiting_owner_approval", approvalId: id, summary: `Queued ${key} for one-call owner approval. Do not claim it completed.` };
       };
     }
@@ -90,7 +90,7 @@ export class JbfAgent extends Agent<Env> {
           title: tool.title ?? tool.annotations?.title ?? tool.name,
           readOnly: tool.annotations?.readOnlyHint === true,
         })),
-        approvals: redact(await this.state.storage.get<Approval[]>("approvals") ?? []),
+        approvals: redact(await this.ctx.storage.get<Approval[]>("approvals") ?? []),
       });
     }
 
@@ -99,7 +99,7 @@ export class JbfAgent extends Agent<Env> {
       const message = typeof body.message === "string" ? body.message.slice(0, 8000) : "";
       if (!message.trim()) return json({ error: "Message is required" }, 400);
       const taskId = crypto.randomUUID();
-      await this.state.storage.put(`task:${taskId}`, { prompt: message, progress: [] });
+      await this.ctx.storage.put(`task:${taskId}`, { prompt: message, progress: [] });
       try {
         const text = await this.runTask(taskId, message);
         return json({ taskId, text });
@@ -115,18 +115,18 @@ export class JbfAgent extends Agent<Env> {
     if (route === "complete" && request.method === "POST") {
       const body = await request.json().then((value) => value as { taskId?: string }).catch(() => ({}));
       if (!body.taskId) return json({ error: "Task id required" }, 400);
-      const approvals = await this.state.storage.get<Approval[]>("approvals") ?? [];
+      const approvals = await this.ctx.storage.get<Approval[]>("approvals") ?? [];
       if (approvals.some((item) => item.taskId === body.taskId && item.status === "pending")) {
         return json({ error: "Task still has pending approvals" }, 409);
       }
-      await this.state.storage.delete(`task:${body.taskId}`);
+      await this.ctx.storage.delete(`task:${body.taskId}`);
       return json({ status: "completed" });
     }
 
     if (route === "approve" && request.method === "POST") {
       const body = await request.json().then((value) => value as { id?: string; decision?: string }).catch(() => ({}));
       if (!body.id || !["approve", "deny"].includes(body.decision ?? "")) return json({ error: "Provide approval id and approve/deny decision" }, 400);
-      const approvals = await this.state.storage.get<Approval[]>("approvals") ?? [];
+      const approvals = await this.ctx.storage.get<Approval[]>("approvals") ?? [];
       const index = approvals.findIndex((item) => item.id === body.id && item.status === "pending");
       if (index < 0) return json({ error: "Approval not found or already handled" }, 404);
       const action = approvals[index];
@@ -141,13 +141,13 @@ export class JbfAgent extends Agent<Env> {
         }
       }
       approvals[index] = { ...action, status: body.decision === "approve" ? "approved_and_executed" : "denied", decidedAt: new Date().toISOString(), result: redact(result) };
-      await this.state.storage.put("approvals", approvals);
+      await this.ctx.storage.put("approvals", approvals);
 
-      const task = await this.state.storage.get<{ prompt: string; progress: unknown[] }>(`task:${action.taskId}`);
+      const task = await this.ctx.storage.get<{ prompt: string; progress: unknown[] }>(`task:${action.taskId}`);
       let continuation = "";
       if (task) {
         task.progress.push({ decision: body.decision, tool: action.toolKey, input: redact(action.input), result: redact(result) });
-        await this.state.storage.put(`task:${action.taskId}`, task);
+        await this.ctx.storage.put(`task:${action.taskId}`, task);
         const prior = JSON.stringify(task.progress).slice(0, 12000);
         try {
           continuation = await this.runTask(action.taskId,

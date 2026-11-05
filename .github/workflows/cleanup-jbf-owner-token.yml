@@ -1,0 +1,23 @@
+name: Remove JBF token from restored Steadfast Worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the accidental secret binding
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          response=$(curl --silent --show-error --fail-with-body \
+            -X DELETE \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/steadfast-agent-cloud/secrets/OWNER_TOKEN")
+          echo "$response" | jq -e '.success == true' >/dev/null
+          echo "Removed the accidental JBF token binding from the restored Steadfast Worker."

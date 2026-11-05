@@ -18,6 +18,9 @@ jobs:
           node-version: 22
       - name: Install agent dependencies
         run: npm install --prefix kits/jbf-cloud-agent --no-audit --no-fund
+      - name: Verify provider routing and types
+        working-directory: kits/jbf-cloud-agent
+        run: npm test && npm run typecheck
       - name: Require the JBF owner token
         run: test -n "$JBF_OWNER_TOKEN"
         env:
@@ -73,6 +76,19 @@ jobs:
           printf '%s' "$JBF_OPENROUTER_API_KEY" | npx --yes wrangler@4.153.0 secret put OPENROUTER_API_KEY \
             --name jbf-cloud-agent \
             --config kits/jbf-cloud-agent/wrangler.toml
+      - name: Install the optional Groq free-tier fallback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_GROQ_API_KEY: ${{ secrets.JBF_GROQ_API_KEY }}
+        run: |
+          if [ -n "$JBF_GROQ_API_KEY" ]; then
+            printf '%s' "$JBF_GROQ_API_KEY" | npx --yes wrangler@4.153.0 secret put GROQ_API_KEY \
+              --name jbf-cloud-agent \
+              --config kits/jbf-cloud-agent/wrangler.toml
+          else
+            echo "JBF_GROQ_API_KEY is absent; Groq Free fallback remains unavailable."
+          fi
       - name: Install owner-provided business contact on the isolated JBF Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

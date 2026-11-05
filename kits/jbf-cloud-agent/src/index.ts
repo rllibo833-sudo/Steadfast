@@ -1,7 +1,9 @@
 import { Agent, routeAgentRequest } from "agents";
 import { createAI } from "agents/models/ai-sdk";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, stepCountIs } from "ai";
+import { runFreeFirst } from "./provider-routing";
 
 interface Env {
   AI: Ai;
@@ -11,6 +13,7 @@ interface Env {
   GITHUB_TOKEN: string;
   CLOUDFLARE_API_TOKEN: string;
   OPENROUTER_API_KEY?: string;
+  GROQ_API_KEY?: string;
   BUSINESS_EMAIL: string;
   BUSINESS_WHATSAPP: string;
 }
@@ -32,9 +35,10 @@ const PROVIDERS: ProviderInfo[] = [
   { id: "whatsapp", category: "pesan", auth: "Meta app, WhatsApp Business, phone ID, token", availability: "manual_setup_required", note: "Lewati sampai tersedia onboarding resmi tanpa pengisian kredensial manual." },
   { id: "vps", category: "virtual server", auth: "Belum ada provider VPS terhubung", availability: "discover_only", note: "Cari opsi gratis tanpa kartu/identitas manual; jangan mulai trial berbayar." },
   { id: "github-models", category: "AI inference", auth: "Tidak tersedia", availability: "retired", note: "Sudah dihentikan; jangan dipakai sebagai fallback." },
-  { id: "openrouter-free", category: "AI inference gratis cadangan", auth: "Kredensial OpenRouter yang sudah tersimpan", availability: "not_configured", note: "Hanya openrouter/free; tidak membeli kredit dan tidak menggunakan model berbayar." },
+  { id: "openrouter-free", category: "AI inference gratis cadangan 1", auth: "Kredensial OpenRouter yang sudah tersimpan", availability: "not_configured", note: "Hanya openrouter/free; tidak membeli kredit dan tidak menggunakan model berbayar." },
+  { id: "groq-free", category: "AI inference gratis cadangan 2", auth: "Kredensial Groq tersimpan sebagai Worker secret", availability: "not_configured", note: "Groq free tier setelah Cloudflare AI dan OpenRouter; batas gratis berlaku." },
 ];
-const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and use existing free services. Use GitHub search_issues, search_users, and search_repositories for public prospect discovery; cite the exact URLs and evidence, and never claim a lead is a customer or has paid without evidence. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions; do not spam unrelated projects. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare tailored outreach drafts, but do not send without approval. Owner contact may only be used for approved outreach or approved public listings. Read-only tools may run automatically; queue every external write, publish, deploy, or message for exact owner approval and continue the task after approval. If all configured free model providers fail, report the blocker and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
+const SYSTEM = `You are JBF, the owner's self-operating cloud and SaaS agent. The owner's priority is real users and revenue before spending. Manage available hosting, database, compute, and SaaS services through the provider catalog; inspect actual connection state and capability before proposing or acting. Compare opportunities using verifiable buyer evidence, route to the first real user and first payment, time to launch, direct cash cost, recurring cost, gross margin, and break-even users. Prefer an existing/free path and a small experiment that can validate demand. Separate observed evidence from estimates, show the arithmetic and uncertainty, and never present a lead, signup, deployment, or revenue as completed without tool evidence. For the owner's example, Rp1,000,000 revenue against Rp200,000 direct spend means 5x revenue-to-spend and Rp800,000 contribution before labor, tax, and other costs; it is a target calculation, not a forecast or guarantee. Before any paid plan, billable resource, purchase, account creation, acceptance of terms, public release, deployment, or outbound message, present the exact action and its one-time and recurring cost and wait for the owner's approval. Never enter payment details or use personal identity/contact information for registration unless the exact account and fields are approved. Use existing credentials and supported OAuth flows where possible; if a provider requires manual identity verification or unsupported registration, give its official link and state the blocker without claiming signup. Use GitHub search_issues, search_users, and search_repositories for public prospect discovery; cite exact URLs and evidence, and do not spam unrelated projects. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions. Keep Supabase read-only and project-scoped by default; do not claim write access. Treat GitHub Actions as temporary compute, not a persistent VPS. For VPS options, compare official free tiers, limits, region, storage, sleep behavior, and card/identity requirements before recommending one. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services by buyer evidence and fastest low-cost route to income. When asked to build, implement with connected GitHub/Cloudflare tools, then queue deploy or other external writes for exact owner approval and continue the task afterward. Use free inference first: Cloudflare Workers AI, OpenRouter openrouter/free, then Groq Free when configured. Stop if these options fail; never switch to paid inference without approval. Never activate paid inference, billing, or a paid fallback without explicit approval. Prepare tailored outreach drafts, but do not send without approval. Keep replies concise and in the user's language.`;
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -63,6 +67,8 @@ export class JbfAgent extends Agent<Env> {
         ? (servers[provider.connector]?.state ?? "disconnected")
         : provider.id === "openrouter-free" && this.env.OPENROUTER_API_KEY
           ? "ready_fallback"
+          : provider.id === "groq-free" && this.env.GROQ_API_KEY
+            ? "ready_fallback"
         : provider.availability,
       note: provider.note,
     }));
@@ -91,17 +97,32 @@ export class JbfAgent extends Agent<Env> {
       tools,
       stopWhen: stepCountIs(8),
     };
-    try {
-      const result = await generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") });
-      return result.text;
-    } catch (cloudflareError) {
-      if (!this.env.OPENROUTER_API_KEY || !/(429|3036|3040|quota|capacity)/i.test(String(cloudflareError))) {
-        throw cloudflareError;
-      }
-      const openrouter = createOpenRouter({ apiKey: this.env.OPENROUTER_API_KEY });
-      const result = await generateText({ ...generation, model: openrouter("openrouter/free") });
-      return result.text;
-    }
+    const openrouter = this.env.OPENROUTER_API_KEY
+      ? createOpenRouter({ apiKey: this.env.OPENROUTER_API_KEY })
+      : undefined;
+    const groq = this.env.GROQ_API_KEY
+      ? createOpenAICompatible({
+          name: "groq",
+          baseURL: "https://api.groq.com/openai/v1",
+          apiKey: this.env.GROQ_API_KEY,
+        })
+      : undefined;
+    const result = await runFreeFirst(
+      () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") }),
+      [
+        {
+          id: "openrouter-free",
+          available: Boolean(openrouter),
+          run: () => generateText({ ...generation, model: openrouter!("openrouter/free") }),
+        },
+        {
+          id: "groq-free",
+          available: Boolean(groq),
+          run: () => generateText({ ...generation, model: groq!.chatModel("openai/gpt-oss-120b") }),
+        },
+      ],
+    );
+    return result.value.text;
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -109,7 +130,7 @@ export class JbfAgent extends Agent<Env> {
     const route = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
 
     if (route === "connect" && request.method === "POST") {
-      const body = await request.json().then((value) => value as { provider?: string }).catch(() => ({}));
+      const body = await request.json().then((value) => value as { provider?: string }).catch(() => ({} as { provider?: string }));
       const connector = body.provider ? CONNECTORS[body.provider] : undefined;
       if (!connector) return json({ error: "Connector not supported" }, 400);
       const existing = this.getMcpServers().servers[connector.id];
@@ -133,9 +154,11 @@ export class JbfAgent extends Agent<Env> {
       return json({ providers: PROVIDERS.map((provider) => ({
         ...provider,
         state: provider.connector ? (state.servers[provider.connector]?.state ?? "disconnected")
-          : provider.id === "openrouter-free" && this.env.OPENROUTER_API_KEY ? "ready_fallback" : provider.availability,
+          : provider.id === "openrouter-free" && this.env.OPENROUTER_API_KEY ? "ready_fallback"
+          : provider.id === "groq-free" && this.env.GROQ_API_KEY ? "ready_fallback" : provider.availability,
         connected: provider.connector ? state.servers[provider.connector]?.state === "ready"
-          : provider.id === "openrouter-free" && Boolean(this.env.OPENROUTER_API_KEY),
+          : (provider.id === "openrouter-free" && Boolean(this.env.OPENROUTER_API_KEY))
+            || (provider.id === "groq-free" && Boolean(this.env.GROQ_API_KEY)),
       })) });
     }
 
@@ -160,7 +183,7 @@ export class JbfAgent extends Agent<Env> {
     }
 
     if (route === "chat" && request.method === "POST") {
-      const body = await request.json().then((value) => value as { message?: string }).catch(() => ({}));
+      const body = await request.json().then((value) => value as { message?: string }).catch(() => ({} as { message?: string }));
       const message = typeof body.message === "string" ? body.message.slice(0, 8000) : "";
       if (!message.trim()) return json({ error: "Message is required" }, 400);
       const taskId = crypto.randomUUID();
@@ -170,15 +193,15 @@ export class JbfAgent extends Agent<Env> {
         return json({ taskId, text });
       } catch (error) {
         const detail = String(error);
-        if (/429|3036|3040|quota|limit|billing|exceeded/i.test(detail)) {
-          return json({ error: "Configured free AI inference is temporarily unavailable (quota or capacity). The agent stopped; no paid fallback is configured." }, 429);
+        if (/429|3036|3040|quota|limit|billing|exceeded|allocation|neurons|resource.?exhausted|rate.?limit/i.test(detail)) {
+          return json({ error: "Cloudflare AI, OpenRouter Free, and configured Groq Free inference are unavailable. The agent stopped; no paid fallback is configured." }, 429);
         }
         return json({ error: "Agent request failed", detail: detail.slice(0, 500) }, 502);
       }
     }
 
     if (route === "complete" && request.method === "POST") {
-      const body = await request.json().then((value) => value as { taskId?: string }).catch(() => ({}));
+      const body = await request.json().then((value) => value as { taskId?: string }).catch(() => ({} as { taskId?: string }));
       if (!body.taskId) return json({ error: "Task id required" }, 400);
       const approvals = await this.ctx.storage.get<Approval[]>("approvals") ?? [];
       if (approvals.some((item) => item.taskId === body.taskId && item.status === "pending")) {
@@ -189,7 +212,7 @@ export class JbfAgent extends Agent<Env> {
     }
 
     if (route === "approve" && request.method === "POST") {
-      const body = await request.json().then((value) => value as { id?: string; decision?: string }).catch(() => ({}));
+      const body = await request.json().then((value) => value as { id?: string; decision?: string }).catch(() => ({} as { id?: string; decision?: string }));
       if (!body.id || !["approve", "deny"].includes(body.decision ?? "")) return json({ error: "Provide approval id and approve/deny decision" }, 400);
       const approvals = await this.ctx.storage.get<Approval[]>("approvals") ?? [];
       const index = approvals.findIndex((item) => item.id === body.id && item.status === "pending");

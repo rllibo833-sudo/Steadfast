@@ -5,6 +5,10 @@ const status=document.querySelector('#status');
 const result=document.querySelector('#result');
 const download=document.querySelector('#download');
 let style='game';
+fetch('/api/contact').then(response=>response.json()).then(contact=>{
+  if(contact.email){const email=document.querySelector('#email-contact');email.href=`mailto:${contact.email}?subject=${encodeURIComponent('Paket aset JBF Asset Studio')}`;email.textContent=`Email: ${contact.email}`;email.style.display='block';}
+  if(contact.whatsapp){const whatsapp=document.querySelector('#whatsapp-contact');whatsapp.href=contact.whatsapp;whatsapp.target='_blank';whatsapp.rel='noreferrer';whatsapp.textContent='Chat WhatsApp';whatsapp.style.display='block';}
+}).catch(()=>{});
 document.querySelectorAll('.style').forEach(button=>button.addEventListener('click',()=>{
   document.querySelectorAll('.style').forEach(item=>item.classList.toggle('active',item===button));
   style=button.dataset.style;

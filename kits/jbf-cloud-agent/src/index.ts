@@ -4,7 +4,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, stepCountIs } from "ai";
 import { runFreeFirst, runFreeProviders } from "./provider-routing";
-import { BUSINESS_AGENT_ROLES, shouldRunBusinessTeam } from "./agent-team";
+import { BUSINESS_AGENT_ROLES, containsUnsupportedUrls, extractScoutEvidence, shouldRunBusinessTeam } from "./agent-team";
 
 interface Env {
   AI: Ai;
@@ -142,18 +142,28 @@ export class JbfAgent extends Agent<Env> {
         `Research this opportunity using only read-only tools. Find up to five public signals of demand and include exact source URLs. If no relevant read-only source is available, say so plainly.\n\nOwner request: ${instruction}`,
         readOnlyTools,
       );
+      const scoutEvidence = extractScoutEvidence(scout.value);
+      if (scoutEvidence.length === 0) {
+        return {
+          text: "Saya belum menemukan bukti permintaan yang dapat diverifikasi dari sumber baca-saja yang terhubung. Belum ada rekomendasi pasar atau klaim pengguna/pemasukan. Hubungkan sumber publik yang relevan atau berikan niche untuk riset berikutnya.",
+          provider: `business-team: market-scout=${scout.provider}; evidence=none`,
+        };
+      }
+      const evidenceBundle = scoutEvidence.join("\n").slice(0, 24_000);
       const economics = await runRole(
         "unit-economics",
-        `Assess the economics using only the evidence below and clearly mark assumptions. Show revenue-to-spend, contribution, break-even units, recurring costs, and what must be tested before spending.\n\nOwner request: ${instruction}\n\nMarket Scout evidence: ${scout.value.text}`,
+        `Assess the economics using only the raw read-only tool results below. Do not infer demand from repository existence or activity. Show formulas only; mark every unverified price or volume as a hypothetical assumption.\n\nOwner request: ${instruction}\n\nRaw tool results: ${evidenceBundle}`,
         {},
       );
       const review = await runRole(
         "risk-reviewer",
-        `Review the evidence and calculations below. Remove unsupported claims, call out missing buyer proof and service costs, then give a concise recommendation and the smallest no-spend validation step. Reply in the owner's language.\n\nOwner request: ${instruction}\n\nMarket Scout: ${scout.value.text}\n\nUnit Economics: ${economics.value.text}`,
+        `Review the raw tool evidence and calculations below. Only state buyer-demand claims directly supported by the raw results. Existing repos, stars, or issues alone are not proof of purchase intent. Do not introduce any URL absent from the raw results. If evidence is weak, say no verified demand signal was found. Mark all prices as unknown unless directly sourced. Reply in the owner's language.\n\nOwner request: ${instruction}\n\nRaw read-only tool results: ${evidenceBundle}\n\nUnit Economics: ${economics.value.text}`,
         {},
       );
       return {
-        text: review.value.text,
+        text: containsUnsupportedUrls(review.value.text, scoutEvidence)
+          ? "Saya menemukan hasil tool baca-saja, tetapi jawaban agent menyertakan tautan yang tidak ada di hasil tersebut. Saya menahan rekomendasi agar tidak menyajikan sumber yang belum diverifikasi."
+          : review.value.text,
         provider: `business-team: market-scout=${scout.provider}, unit-economics=${economics.provider}, reviewer=${review.provider}`,
       };
     }

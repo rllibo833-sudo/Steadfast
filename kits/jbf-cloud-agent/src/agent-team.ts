@@ -32,3 +32,15 @@ const EXECUTION_TERMS = /\b(build|deploy|create|implement|publish|send|delete|up
 export function shouldRunBusinessTeam(task: string): boolean {
   return BUSINESS_TERMS.test(task) && !EXECUTION_TERMS.test(task);
 }
+
+export function extractScoutEvidence(result: { steps?: Array<{ toolResults?: Array<{ toolName?: string; output?: unknown; result?: unknown }> }> }): string[] {
+  return (result.steps ?? []).flatMap((step) => step.toolResults ?? [])
+    .map((item) => JSON.stringify({ tool: item.toolName ?? "read-only", result: item.output ?? item.result ?? null }))
+    .filter((item) => item.length > 2);
+}
+
+export function containsUnsupportedUrls(answer: string, evidence: string[]): boolean {
+  const allowed = new Set(evidence.flatMap((item) => item.match(/https?:\/\/[^\s"'<>]+/g) ?? []).map((url) => url.replace(/[),.;]+$/, "")));
+  const cited = answer.match(/https?:\/\/[^\s"'<>]+/g) ?? [];
+  return cited.some((url) => !allowed.has(url.replace(/[),.;]+$/, "")));
+}

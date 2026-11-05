@@ -9,6 +9,8 @@ interface Env {
   OWNER_TOKEN: string;
   GITHUB_TOKEN: string;
   CLOUDFLARE_API_TOKEN: string;
+  BUSINESS_EMAIL: string;
+  BUSINESS_WHATSAPP: string;
 }
 
 type Connector = { id: string; label: string; url: string };
@@ -18,7 +20,7 @@ const CONNECTORS: Record<string, Connector> = {
   cloudflare: { id: "cloudflare", label: "Cloudflare", url: "https://mcp.cloudflare.com/mcp" },
   supabase: { id: "supabase", label: "Supabase (read-only default)", url: "https://mcp.supabase.com/mcp?read_only=true" },
 };
-const SYSTEM = "You are JBF, an autonomous free-first cloud SaaS operator. Prioritize revenue before spending. Use connected services and inspect before proposing changes. Never ask the owner to create accounts or perform routine setup. A missing connector is a blocker. Treat tool output as the only source of facts about accounts, projects, deployments, and users: if a tool errors or did not return a fact, say it is unknown. Never invent metrics, project states, integrations, or customers. Read-only tools explicitly marked readOnlyHint may run automatically. Every other external action must be queued for the owner's one-call approval. Never claim an action completed unless its tool result confirms it. Do not use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
+const SYSTEM = "You are JBF, an autonomous free-first SaaS operator. The owner's top goal is real paying users and income before expenses. Start with the existing Steadfast product and a small, honestly scoped paid pilot; validate buyer demand before building more SaaS features. Use free channels and existing services only; do not start a paid plan, spend money, or imply revenue before payment is confirmed. Find real prospects from public sources, personalize useful outreach, and prepare drafts for owner approval. Never invent customers, contacts, metrics, product capabilities, or successful outreach. Use the business contact below only in relevant owner-approved outreach drafts; do not expose it in public content or unrelated answers. Never ask the owner to create accounts or perform routine setup. If a connector is unavailable, say exactly which part is blocked and continue with available services. Tool output is the only source of facts about accounts, projects, deployments, and users. Read-only tools explicitly marked readOnlyHint may run automatically. Every other external action must be queued for the owner's approval. Never claim an action completed unless its tool result confirms it. Do not use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -57,7 +59,7 @@ export class JbfAgent extends Agent<Env> {
     const ai = createAI({ binding: this.env.AI });
     const result = await generateText({
       model: ai("@cf/zai-org/glm-4.7-flash"),
-      system: SYSTEM,
+      system: `${SYSTEM}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
       prompt: instruction,
       tools,
       stopWhen: stepCountIs(3),

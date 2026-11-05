@@ -7,3 +7,5 @@ The agent supports GitHub, Cloudflare, and Supabase remote MCP. Explicitly read-
 Deployment creates a separate Worker named `jbf-cloud-agent` and leaves the existing Steadfast Worker untouched. GitHub Actions uses the existing Cloudflare deployment secrets plus a separate generated `JBF_OWNER_TOKEN` secret. The application code has no provider credentials.
 
 Free quotas can change. When Cloudflare AI's free quota is exhausted, the task stops without a paid fallback. Gmail, WhatsApp, and SnapDeploy are not in this first cloud release.
+
+The agent prioritizes validating a paid pilot for Steadfast using free channels before any new spending. Owner-provided email and WhatsApp contact values are installed as Worker secrets and may appear only in owner-approved outreach drafts. Gmail and WhatsApp sending are not connected, so the agent cannot send through either service yet.

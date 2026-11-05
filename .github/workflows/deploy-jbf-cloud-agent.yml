@@ -59,6 +59,21 @@ jobs:
           printf '%s' "$CLOUDFLARE_API_TOKEN" | npx --yes wrangler@4.153.0 secret put CLOUDFLARE_API_TOKEN \
             --name jbf-cloud-agent \
             --config kits/jbf-cloud-agent/wrangler.toml
+      - name: Install owner-provided business contact on the isolated JBF Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_BUSINESS_EMAIL: ${{ secrets.JBF_BUSINESS_EMAIL }}
+          JBF_BUSINESS_WHATSAPP: ${{ secrets.JBF_BUSINESS_WHATSAPP }}
+        run: |
+          test -n "$JBF_BUSINESS_EMAIL"
+          test -n "$JBF_BUSINESS_WHATSAPP"
+          printf '%s' "$JBF_BUSINESS_EMAIL" | npx --yes wrangler@4.153.0 secret put BUSINESS_EMAIL \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
+          printf '%s' "$JBF_BUSINESS_WHATSAPP" | npx --yes wrangler@4.153.0 secret put BUSINESS_WHATSAPP \
+            --name jbf-cloud-agent \
+            --config kits/jbf-cloud-agent/wrangler.toml
       - name: Publish Worker URL as workflow artifact
         uses: actions/upload-artifact@v4
         with:

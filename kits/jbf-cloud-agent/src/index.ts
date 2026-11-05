@@ -34,7 +34,7 @@ const PROVIDERS: ProviderInfo[] = [
   { id: "github-models", category: "AI inference", auth: "Tidak tersedia", availability: "retired", note: "Sudah dihentikan; jangan dipakai sebagai fallback." },
   { id: "openrouter-free", category: "AI inference gratis cadangan", auth: "Kredensial OpenRouter yang sudah tersimpan", availability: "not_configured", note: "Hanya openrouter/free; tidak membeli kredit dan tidak menggunakan model berbayar." },
 ];
-const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and search for another free provider. Search official provider docs and connected GitHub/Cloudflare sources to verify current free hosting, database, VPS, and AI model options; do not guess. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare outreach drafts but never claim buyers or payments without evidence. Owner contact may only be used for approved outreach or approved public listings. Read-only tools explicitly marked readOnlyHint may run automatically. Queue every other external action for approval and continue the task after approval. If all configured free model providers fail, report the blocker and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
+const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and use existing free services. Use GitHub search_issues, search_users, and search_repositories for public prospect discovery; cite the exact URLs and evidence, and never claim a lead is a customer or has paid without evidence. For game art leads, prioritize public requests for artists, collaborators, asset feedback, or paid commissions; do not spam unrelated projects. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare tailored outreach drafts, but do not send without approval. Owner contact may only be used for approved outreach or approved public listings. Read-only tools may run automatically; queue every external write, publish, deploy, or message for exact owner approval and continue the task after approval. If all configured free model providers fail, report the blocker and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -53,6 +53,7 @@ export class JbfAgent extends Agent<Env> {
     await this.mcp.waitForConnections({ timeout: 8_000 });
     const tools = this.mcp.getAITools();
     const catalog = this.mcp.listTools();
+    if (catalog.length === 0) throw new Error("Connected services exposed no remote tools. Reconnect GitHub and Cloudflare before asking the agent to manage them.");
     const servers = this.getMcpServers().servers;
     const providerContext = PROVIDERS.map((provider) => ({
       id: provider.id,
@@ -69,7 +70,8 @@ export class JbfAgent extends Agent<Env> {
       if (!tool.execute) continue;
       const execute = tool.execute;
       const raw = catalog.find((item) => key === `tool_${item.serverId}_${item.name}`);
-      const isReadOnly = raw?.annotations?.readOnlyHint === true;
+      const isReadOnly = raw?.annotations?.readOnlyHint === true
+        || (raw?.serverId === "cloudflare" && ["docs", "search", "whoami"].includes(raw.name));
       tool.execute = async (input: unknown) => {
         if (isReadOnly) return execute(input as never);
         const id = crypto.randomUUID();
@@ -87,7 +89,7 @@ export class JbfAgent extends Agent<Env> {
       system: `${SYSTEM}\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
       prompt: instruction,
       tools,
-      stopWhen: stepCountIs(3),
+      stopWhen: stepCountIs(8),
     };
     try {
       const result = await generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") });
@@ -126,6 +128,7 @@ export class JbfAgent extends Agent<Env> {
     }
 
     if (route === "providers" && request.method === "GET") {
+      await this.mcp.waitForConnections({ timeout: 8_000 });
       const state = this.getMcpServers();
       return json({ providers: PROVIDERS.map((provider) => ({
         ...provider,
@@ -137,6 +140,7 @@ export class JbfAgent extends Agent<Env> {
     }
 
     if (route === "status" && request.method === "GET") {
+      await this.mcp.waitForConnections({ timeout: 8_000 });
       const state = this.getMcpServers();
       return json({
         connectors: Object.values(CONNECTORS).map((c) => ({
@@ -144,6 +148,7 @@ export class JbfAgent extends Agent<Env> {
           label: c.label,
           connected: state.servers[c.id]?.state === "ready",
           state: state.servers[c.id]?.state ?? "disconnected",
+          error: state.servers[c.id]?.error ?? undefined,
         })),
         tools: state.tools.map((tool) => ({
           serverId: tool.serverId, name: tool.name,
@@ -192,6 +197,7 @@ export class JbfAgent extends Agent<Env> {
       const action = approvals[index];
       let result: unknown = { status: "denied" };
       if (body.decision === "approve") {
+        await this.mcp.waitForConnections({ timeout: 8_000 });
         const tool = this.mcp.getAITools()[String(action.toolKey)];
         if (!tool?.execute) return json({ error: "Connector tool is unavailable; reconnect it and review this request again" }, 409);
         try {

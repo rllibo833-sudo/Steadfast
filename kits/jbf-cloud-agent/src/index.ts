@@ -15,12 +15,23 @@ interface Env {
 
 type Connector = { id: string; label: string; url: string };
 type Approval = Record<string, unknown> & { id: string; taskId: string; status: string };
+type ProviderInfo = { id: string; category: string; auth: string; availability: string; note: string; connector?: string };
 const CONNECTORS: Record<string, Connector> = {
   github: { id: "github", label: "GitHub", url: "https://api.githubcopilot.com/mcp/" },
   cloudflare: { id: "cloudflare", label: "Cloudflare", url: "https://mcp.cloudflare.com/mcp" },
   supabase: { id: "supabase", label: "Supabase (read-only default)", url: "https://mcp.supabase.com/mcp?read_only=true" },
 };
-const SYSTEM = "You are JBF, the owner's cloud SaaS-building agent. The goal is real paying users and income before expenses. Do not assume Steadfast is the product: compare the owner's ideas and assets, including game-studio tools, image/video generation, and other SaaS services, against evidence of buyer demand and the fastest free path to a first paid customer. When asked to build, use connected GitHub and Cloudflare tools to implement and deploy the smallest useful release; do not stop at a plan when tools can do the work. Use free channels and existing services only; never start a paid plan or spend money. Find real prospects from public sources and prepare tailored outreach drafts, but never claim a prospect is a customer or a payment happened without evidence. Never invent customers, contacts, metrics, product capabilities, or successful outreach. Use the business contact below only for owner-approved outreach or a specifically approved public listing. Never ask the owner to create accounts or perform routine setup. If a connector or free model quota/capacity blocks work, state the exact blocker, preserve what is done, and use no paid fallback. Tool output is the only source of facts about accounts, projects, deployments, and users. Read-only tools explicitly marked readOnlyHint may run automatically. Queue every other external action for the owner's approval, then continue the same task after approval. Never claim an action completed unless its tool result confirms it. Do not use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
+const PROVIDERS: ProviderInfo[] = [
+  { id: "github", category: "repositori, CI, kode", auth: "Kredensial GitHub yang sudah terpasang", availability: "ready", note: "Gunakan akun/repo yang ada; perubahan menunggu approval.", connector: "github" },
+  { id: "cloudflare", category: "hosting, D1/KV/R2, AI", auth: "Token Cloudflare yang sudah terpasang", availability: "ready", note: "Prioritaskan Workers/Pages, D1/KV/R2, dan AI gratis; jangan aktifkan billing.", connector: "cloudflare" },
+  { id: "github-actions", category: "compute sementara", auth: "Kredensial GitHub yang sudah terpasang", availability: "ready", note: "Runner bisa menjalankan job sementara; jangan sebut VPS persisten.", connector: "github" },
+  { id: "supabase", category: "database, storage, functions", auth: "OAuth dinamis, persetujuan browser", availability: "connected_read_only", note: "Koneksi saat ini read-only. Jangan mengaku bisa menulis; pilih Cloudflare D1 atau berhenti jika tugas perlu mutasi Supabase.", connector: "supabase" },
+  { id: "gmail", category: "email", auth: "Google Cloud project, Gmail API, OAuth client", availability: "manual_setup_required", note: "Lewati; jangan meminta owner membuat project atau memasukkan API." },
+  { id: "whatsapp", category: "pesan", auth: "Meta app, WhatsApp Business, phone ID, token", availability: "manual_setup_required", note: "Lewati sampai tersedia onboarding resmi tanpa pengisian kredensial manual." },
+  { id: "vps", category: "virtual server", auth: "Belum ada provider VPS terhubung", availability: "discover_only", note: "Cari opsi gratis tanpa kartu/identitas manual; jangan mulai trial berbayar." },
+  { id: "github-models", category: "AI inference", auth: "Tidak tersedia", availability: "retired", note: "Sudah dihentikan; jangan dipakai sebagai fallback." },
+];
+const SYSTEM = "You are JBF, the owner's self-operating cloud agent. Discover providers from the provider catalog before acting. Prefer already connected services or OAuth dynamic registration that needs only one owner browser approval. Never ask the owner to sign up, create an OAuth app, paste API keys, enter card details, or perform routine setup. If a provider requires those steps, skip it and search for another free provider. Search official provider docs and connected GitHub/Cloudflare sources to verify current free hosting, database, VPS, and AI model options; do not guess. Keep Supabase read-only and project-scoped by default; never broaden access to every project. Do not assume Steadfast is the product: compare game-studio tools, image/video generation, and other SaaS services using buyer evidence and the fastest free path to income. When asked to build, implement with connected GitHub/Cloudflare tools and deploy after approval; do not return only a plan when tools can do the work. Use free services only; never activate billing or paid fallback. Prepare outreach drafts but never claim buyers or payments without evidence. Owner contact may only be used for approved outreach or approved public listings. Read-only tools explicitly marked readOnlyHint may run automatically. Queue every other external action for approval and continue the task after approval. If free model quota/capacity blocks work, report it and stop. Never use OpenAI, Codex, or paid fallbacks. Keep replies concise and in the user's language.";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -39,6 +50,16 @@ export class JbfAgent extends Agent<Env> {
     await this.mcp.waitForConnections({ timeout: 8_000 });
     const tools = this.mcp.getAITools();
     const catalog = this.mcp.listTools();
+    const servers = this.getMcpServers().servers;
+    const providerContext = PROVIDERS.map((provider) => ({
+      id: provider.id,
+      category: provider.category,
+      auth: provider.auth,
+      availability: provider.connector
+        ? (servers[provider.connector]?.state ?? "disconnected")
+        : provider.availability,
+      note: provider.note,
+    }));
     for (const [key, tool] of Object.entries(tools)) {
       if (!tool.execute) continue;
       const execute = tool.execute;
@@ -59,7 +80,7 @@ export class JbfAgent extends Agent<Env> {
     const ai = createAI({ binding: this.env.AI });
     const result = await generateText({
       model: ai("@cf/zai-org/glm-4.7-flash"),
-      system: `${SYSTEM}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
+      system: `${SYSTEM}\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\nOwner business contact (for approved outreach drafts only): email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`,
       prompt: instruction,
       tools,
       stopWhen: stepCountIs(3),
@@ -88,6 +109,15 @@ export class JbfAgent extends Agent<Env> {
       });
       if (result.state === "authenticating") return json({ state: result.state, authUrl: result.authUrl });
       return json({ state: result.state, id: result.id });
+    }
+
+    if (route === "providers" && request.method === "GET") {
+      const state = this.getMcpServers();
+      return json({ providers: PROVIDERS.map((provider) => ({
+        ...provider,
+        state: provider.connector ? (state.servers[provider.connector]?.state ?? "disconnected") : provider.availability,
+        connected: provider.connector ? state.servers[provider.connector]?.state === "ready" : false,
+      })) });
     }
 
     if (route === "status" && request.method === "GET") {
@@ -119,8 +149,8 @@ export class JbfAgent extends Agent<Env> {
         return json({ taskId, text });
       } catch (error) {
         const detail = String(error);
-        if (/quota|limit|billing|exceeded/i.test(detail)) {
-          return json({ error: "Free Cloudflare AI quota is unavailable. The agent stopped; no paid fallback is configured." }, 429);
+        if (/429|3036|3040|quota|limit|billing|exceeded/i.test(detail)) {
+          return json({ error: "Free Cloudflare AI is temporarily unavailable (daily quota or capacity). The agent stopped; no paid fallback is configured." }, 429);
         }
         return json({ error: "Agent request failed", detail: detail.slice(0, 500) }, 502);
       }

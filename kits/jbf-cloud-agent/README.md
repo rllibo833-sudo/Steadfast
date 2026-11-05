@@ -4,6 +4,8 @@ Remote JBF agent hosted on Cloudflare Workers. `jbf agent <task>` sends work to 
 
 The agent supports GitHub, Cloudflare, and Supabase remote MCP. Explicitly read-only tools may run automatically. Other external calls pause for one exact approval in the local JBF terminal; after approval, the cloud agent resumes the same task. Supabase starts in read-only mode. Sensitive input fields are redacted in approval summaries.
 
+Run `jbf agent providers` to see which provider paths are connected, approval-based, or unavailable without manual setup. JBF reuses the existing GitHub and Cloudflare credentials and can open a dynamic OAuth consent flow for Supabase; it must not ask for pasted API keys, create OAuth apps, or start paid plans. Cloudflare exposes hosting, D1/KV/R2, and Workers AI through the existing account. GitHub Actions is temporary compute, not a persistent VPS. Supabase remains read-only unless a future project-scoped write connection is explicitly approved. Gmail/WhatsApp paths that require manual app registration are skipped. GitHub Models is retired.
+
 Deployment creates a separate Worker named `jbf-cloud-agent` and leaves the existing Steadfast Worker untouched. GitHub Actions uses the existing Cloudflare deployment secrets plus a separate generated `JBF_OWNER_TOKEN` secret. The application code has no provider credentials.
 
 Free quotas can change. When Cloudflare AI's free quota is exhausted, the task stops without a paid fallback. Gmail, WhatsApp, and SnapDeploy are not in this first cloud release.

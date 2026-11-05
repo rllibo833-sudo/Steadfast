@@ -89,6 +89,49 @@ jobs:
           else
             echo "JBF_GROQ_API_KEY is absent; Groq Free fallback remains unavailable."
           fi
+      - name: Install the optional Cerebras Free-tier fallback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_CEREBRAS_API_KEY: ${{ secrets.JBF_CEREBRAS_API_KEY }}
+        run: |
+          if [ -n "$JBF_CEREBRAS_API_KEY" ]; then
+            printf '%s' "$JBF_CEREBRAS_API_KEY" | npx --yes wrangler@4.153.0 secret put CEREBRAS_API_KEY \
+              --name jbf-cloud-agent \
+              --config kits/jbf-cloud-agent/wrangler.toml
+          else
+            echo "JBF_CEREBRAS_API_KEY is absent; Cerebras Free fallback remains unavailable."
+          fi
+      - name: Install the optional NVIDIA NIM Free Endpoint fallback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_NVIDIA_API_KEY: ${{ secrets.JBF_NVIDIA_API_KEY }}
+        run: |
+          if [ -n "$JBF_NVIDIA_API_KEY" ]; then
+            printf '%s' "$JBF_NVIDIA_API_KEY" | npx --yes wrangler@4.153.0 secret put NVIDIA_API_KEY \
+              --name jbf-cloud-agent \
+              --config kits/jbf-cloud-agent/wrangler.toml
+          else
+            echo "JBF_NVIDIA_API_KEY is absent; NVIDIA NIM Free Endpoint fallback remains unavailable."
+          fi
+      - name: Install optional Gemini Free-tier fallback only with owner data-use approval
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JBF_GEMINI_API_KEY: ${{ secrets.JBF_GEMINI_API_KEY }}
+          JBF_GEMINI_FREE_DATA_APPROVED: ${{ vars.JBF_GEMINI_FREE_DATA_APPROVED }}
+        run: |
+          if [ -n "$JBF_GEMINI_API_KEY" ] && [ "$JBF_GEMINI_FREE_DATA_APPROVED" = "true" ]; then
+            printf '%s' "$JBF_GEMINI_API_KEY" | npx --yes wrangler@4.153.0 secret put GEMINI_API_KEY \
+              --name jbf-cloud-agent \
+              --config kits/jbf-cloud-agent/wrangler.toml
+            printf 'true' | npx --yes wrangler@4.153.0 secret put GEMINI_FREE_DATA_APPROVED \
+              --name jbf-cloud-agent \
+              --config kits/jbf-cloud-agent/wrangler.toml
+          else
+            echo "Gemini is not enabled; it requires its API key and owner approval of free-tier data use."
+          fi
       - name: Install owner-provided business contact on the isolated JBF Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

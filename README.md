@@ -68,6 +68,7 @@ python -m pip install --upgrade "git+https://github.com/rllibo833-sudo/Steadfast
 | `steadfast audit` | Check changed files, evidence, contracts, and documentation drift. |
 | `steadfast discover` | Print a machine-readable capability map for tools and agents. |
 | `steadfast universe-check` | Validate the cross-platform ecosystem manifest and its project/source references. |
+| `steadfast universe-model` | Export a deterministic concept graph for experimental NCM integration. |
 | `steadfast mcp-server` | Start the read-only MCP server for compatible agents. |
 
 See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough, the [MCP client setup guide](docs/AGENT_MCP_SETUP.md) to connect compatible AI clients, and the [command reference](docs/COMMANDS.md) for the full CLI list. For a copy-ready pull-request workflow and an adoption checklist, see [Adopt in GitHub Actions](docs/ADOPT_IN_GITHUB_ACTIONS.md).

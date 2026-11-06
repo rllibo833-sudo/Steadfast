@@ -79,6 +79,8 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("discover", help="Emit a machine-readable capability map for any agent or developer")
     ecosystem = commands.add_parser("ecosystem", help="Inventory repository skills and MCP integrations with owner-controlled trust status")
     ecosystem.add_argument("--strict", action="store_true", help="Return failure when any MCP server is not explicitly trusted")
+    universe = commands.add_parser("universe-check", help="Validate the cross-platform ecosystem manifest and source references")
+    universe.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True)
     skills_route = skills_sub.add_parser("route", help="Rank matching SKILL.md files for a task")
@@ -257,6 +259,12 @@ def main(argv: list[str] | None = None) -> int:
             result = ecosystem_report(repo)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 1 if args.strict and result["untrusted_mcp_servers"] else 0
+
+        if args.command == "universe-check":
+            from .universe import universe_report
+            result = universe_report(repo, args.manifest)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["passed"] else 1
 
         if args.command == "skills" and args.skills_action == "route":
             result = route_skills(repo, args.task, limit=args.limit)

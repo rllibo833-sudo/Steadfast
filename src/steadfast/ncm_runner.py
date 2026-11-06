@@ -276,7 +276,8 @@ def run_ncm(
     semantic_failed = semantic_layer["status"] in {"failed", "error"}
     has_semantic_rejections = bool(semantic_layer.get("findings"))
     has_backend_failures = backend_layer.get("summary", {}).get("failed", 0) > 0
-    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed or has_semantic_rejections or has_backend_failures) else "completed"
+    has_inactive_backends = backend_layer.get("summary", {}).get("project_inactive", 0) > 0
+    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed or has_semantic_rejections or has_backend_failures or has_inactive_backends) else "completed"
     return {
         "model_type": "next_concept_model",
         "model_version": "1.0.0",
@@ -315,6 +316,7 @@ def run_ncm(
             "backend_services_ready": backend_layer.get("summary", {}).get("ready", 0),
             "backend_services_auth_required": backend_layer.get("summary", {}).get("reachable_auth_required", 0),
             "backend_service_failures": backend_layer.get("summary", {}).get("failed", 0),
+            "backend_services_project_inactive": backend_layer.get("summary", {}).get("project_inactive", 0),
         },
         "safety": {
             "manifest_modified": False,

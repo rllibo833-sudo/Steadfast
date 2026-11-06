@@ -204,6 +204,7 @@ def run_ncm(
             "adapters_unavailable": adapter_layer["summary"]["unavailable"],
             "adapter_failures": adapter_layer["summary"]["failed"],
             "adapter_archived": adapter_layer["summary"].get("archived", 0),
+            "adapter_documented_only": adapter_layer["summary"].get("documented_only", 0),
             "adapter_capabilities": adapter_capabilities,
             "adapter_outputs": adapter_outputs,
         },

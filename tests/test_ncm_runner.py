@@ -46,7 +46,7 @@ class NcmRunnerTests(unittest.TestCase):
         semantic.return_value = {
             "status": "completed",
             "concepts": [{"id": "candidate-concept:1"}],
-            "relations": [{"from": "project:alpha", "to": "project:beta"}],
+            "relations": [{"from": "project:alpha", "to": "project:beta", "type": "supports", "rationale": "shared workflow", "confidence": 0.8, "evidence": [{"path": "projects[alpha].purpose", "quote": "archive"}]}],
             "possible_conflicts": [],
             "findings": [],
             "summary": {"concepts": 1, "relations": 1},
@@ -66,7 +66,9 @@ class NcmRunnerTests(unittest.TestCase):
             allow_source_content_remote=False,
         )
         self.assertEqual(result["model_type"], "next_concept_model")
-        self.assertEqual(result["ecosystem_graph"], self.graph)
+        self.assertEqual(len(result["ecosystem_graph"]["nodes"]), 1)
+        self.assertEqual(len(result["ecosystem_graph"]["edges"]), 1)
+        self.assertEqual(result["ecosystem_graph"]["edges"][0]["epistemic_status"], "candidate")
         self.assertEqual(result["semantic_layer"]["status"], "completed")
         self.assertEqual(result["summary"]["candidate_concepts"], 4)
         self.assertEqual(result["summary"]["cross_project_relations"], 2)

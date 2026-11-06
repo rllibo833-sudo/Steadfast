@@ -456,7 +456,7 @@ def collect_source_documents(
             "remote_writes": False,
             "local_files_modified": False,
             "local_file_allowlist_only": True,
-            "credentials_in_output": False,
+            "collector_credentials_in_output": False,\n            "source_content_may_contain_embedded_secrets": True,
             "supabase_read_only_publishable_key": True,
             "supabase_table_allowlist_required": True,
             "cloudflare_workers_get_only": True,

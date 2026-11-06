@@ -17,12 +17,12 @@ _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 def _extract_terms(text: str) -> list[dict[str, Any]]:
     """Extract deterministic lexical terms and adjacent phrases with exact character spans."""
     matches = [
-        match for match in _WORD.finditer(text.casefold())
-        if len(match.group()) >= 3 and match.group() not in _STOPWORDS
+        match for match in _WORD.finditer(text)
+        if len(match.group().casefold()) >= 3 and match.group().casefold() not in _STOPWORDS
     ]
     terms: dict[str, dict[str, Any]] = {}
     for match in matches:
-        term = match.group()
+        term = match.group().casefold()
         terms.setdefault(term, {
             "term": term,
             "start": match.start(),
@@ -35,11 +35,11 @@ def _extract_terms(text: str) -> list[dict[str, Any]]:
         for index in range(len(matches) - width + 1):
             window = matches[index:index + width]
             if any(
-                matches[k + 1].start() > matches[k].end() + 1
+                not text[matches[k].end():matches[k + 1].start()].isspace()
                 for k in range(index, index + width - 1)
             ):
                 continue
-            phrase = " ".join(item.group() for item in window)
+            phrase = " ".join(item.group().casefold() for item in window)
             if phrase not in terms:
                 start, end = window[0].start(), window[-1].end()
                 terms[phrase] = {

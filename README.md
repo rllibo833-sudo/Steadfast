@@ -121,3 +121,18 @@ Steadfast can probe source metadata without writing to external systems:
 - Credentials are supplied through environment variables: `NOTION_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Use read-only, least-privilege tokens.
 - `steadfast universe-semantic --allow-remote` optionally sends project descriptions and declared relationships to an OpenAI-compatible model endpoint configured with `NCM_API_KEY`, `NCM_MODEL`, and optional `NCM_BASE_URL`. The explicit flag is required before any remote transfer.
 - Generated concepts, relations, and potential contradictions are evidence-checked candidates, never automatically verified facts. This is a semantic LLM-assisted layer, not a claim of reproducing a particular scientific NCM architecture.
+
+
+### Read-only source content ingestion for NCM
+
+Use `steadfast universe-content --output .steadfast/source-documents.json` to collect a bounded, hash-stamped content snapshot from Notion pages, GitHub repository READMEs, and a strict local JBF/Termux file allowlist. The command performs GET-only remote reads and never writes to source systems.
+
+The initial reader intentionally does **not** claim content access to Supabase or Cloudflare Workers. Supabase projects reported inactive remain metadata-only; Cloudflare Worker source retrieval requires a separately implemented reader and least-privilege token. Failed, inaccessible, and unsupported sources are recorded as failures rather than silently omitted.
+
+To analyze a collected snapshot, configure `NCM_API_KEY` and `NCM_MODEL`, then run:
+
+```bash
+steadfast universe-semantic --documents .steadfast/source-documents.json --allow-remote --allow-source-content-remote --output .steadfast/ncm-semantic.json
+```
+
+The two consent flags are intentionally separate: `--allow-remote` permits manifest transfer, while `--allow-source-content-remote` permits sending collected document text to the model endpoint. Source text is treated as untrusted input, exact evidence quotes are checked against the captured content, and every inference remains a review-only candidate. The document artifact is a local snapshot and may contain proprietary text; protect it accordingly.

@@ -46,7 +46,7 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["summary"]["concepts"], 1)
         self.assertEqual(result["summary"]["relations"], 1)
         self.assertEqual(result["concepts"][0]["epistemic_status"], "candidate")
-        self.assertTrue(result["safety"]["evidence_quotes_verified_against_manifest"])
+        self.assertTrue(result["safety"]["evidence_quotes_verified_against_exact_indexed_source_content"])
 
     def test_fabricated_evidence_is_rejected(self):
         response = {

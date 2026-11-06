@@ -15,7 +15,7 @@ This document is a proposed engineering contract, not a claim that an NCM reason
 - `steadfast universe-infer` provides an experimental purpose-text lexical baseline.
 - `steadfast universe-analyze` provides a multi-field lexical discovery graph, candidate project overlaps, and structural graph findings. It is not a semantic NCM engine.
 - `steadfast universe-review` validates a human review ledger against the exact SHA-256 model artifact and stable edge IDs. It does not edit the graph or promote candidates.
-- No NCM service, model weights, semantic inference runtime, or external reasoning endpoint is configured in this repository.
+- No provider credentials or model are configured by default. An opt-in OpenAI-compatible endpoint adapter exists, but it is an LLM-assisted semantic candidate generator, not a validated scientific NCM architecture.
 
 ## Epistemic rules
 
@@ -70,3 +70,12 @@ The current read-only prototypes implement lexical extraction, relation proposal
 ## Non-goals
 
 This contract does not prescribe a particular neural architecture, claim equivalence to any research implementation called NCM, or establish that lexical similarity is semantic understanding. Any selected NCM algorithm must be documented and evaluated separately before being described as an NCM engine.
+
+
+## Read-only source content ingestion (experimental)
+
+`steadfast universe-content` collects bounded snapshots from Notion page blocks, GitHub repository READMEs, and a strict allowlist of local JBF/Termux metadata files. Each captured document includes a stable source identifier, project association, content SHA-256, and read status. The collector uses HTTP GET only, caps document and aggregate size, and does not recursively crawl arbitrary files or Notion child pages.
+
+Supabase and Cloudflare content readers are not implemented in this stage. Supabase project metadata may be available while an inactive database has no queryable content; the system must not label metadata access as database ingestion. Cloudflare worker inventory is likewise not source-code ingestion. Both remain explicit unsupported-content findings until a separate read-only implementation is tested.
+
+Semantic use of captured text requires both `--allow-remote` and `--allow-source-content-remote`. The second flag is separate because source documents may contain private or proprietary content. Documents are treated as untrusted data, exact evidence quotes are validated against the captured text, and the model artifact records the digest of the source-document snapshot. No source text is sent to a model by the collection command itself.

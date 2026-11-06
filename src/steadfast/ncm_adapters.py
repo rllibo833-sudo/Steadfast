@@ -152,7 +152,7 @@ def build_default_adapter_registry() -> AdapterRegistry:
     registry = AdapterRegistry()
     registry.register(RepositorySmokeAdapter(
         "pusingcuk-compiler",
-        ("python", "-c", "from compiler.ir import from_source, validate; validate(from_source('', 'ncm-smoke')); import compiler.vm, compiler.self_hosted_frontend"),
+        ("python", "-c", "from compiler.ir import from_source, validate; validate(from_source('jancuk\\nselesai jancuk', 'ncm-smoke')); import compiler.vm, compiler.self_hosted_frontend"),
         "pusingcuk:compiler-import-and-runtime",
     ))
     registry.register(RepositorySmokeAdapter(

@@ -1,5 +1,7 @@
 import io
+import socket
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 from steadfast.ncm_backends import probe_backend_services
@@ -28,7 +30,7 @@ class BackendProbeTests(unittest.TestCase):
         ]}
         with patch("steadfast.ncm_backends.urllib.request.urlopen", side_effect=[
             Response(200, b'{"status":"ok"}'),
-            __import__("urllib.error", fromlist=["HTTPError"]).HTTPError(
+            urllib.error.HTTPError(
                 "https://beta.supabase.co/functions/v1/mcp", 401, "Unauthorized", {}, io.BytesIO(b"auth required")
             ),
         ]):
@@ -48,6 +50,21 @@ class BackendProbeTests(unittest.TestCase):
         }]})
         self.assertEqual(result["summary"]["failed"], 1)
         self.assertEqual(result["results"][0]["findings"][0]["code"], "BACKEND_PROBE_ENDPOINT_NOT_ALLOWLISTED")
+
+    def test_exposes_underlying_dns_failure_for_diagnostics(self):
+        manifest = {"backend_services": [{
+            "id": "dns", "project_id": "alpha",
+            "endpoint": "https://alpha.supabase.co/functions/v1/health",
+            "auth_mode": "public", "expected_status": [200],
+        }]}
+        error = urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+        with patch("steadfast.ncm_backends.urllib.request.urlopen", side_effect=error):
+            result = probe_backend_services(manifest)
+
+        finding = result["results"][0]["findings"][0]
+        self.assertEqual(finding["code"], "BACKEND_DNS_RESOLUTION_FAILED")
+        self.assertEqual(finding["error_type"], "gaierror")
+        self.assertIn("Name or service not known", finding["error_reason"])
 
 
 if __name__ == "__main__":

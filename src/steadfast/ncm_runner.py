@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -61,6 +62,48 @@ def run_ncm(
         "source_documents_sha256": semantic.get("source_documents_sha256"),
         "safety": semantic.get("safety", {}),
     }
+
+    # Merge validated semantic candidates into the same ecosystem graph.
+    combined_graph = dict(graph)
+    combined_graph["nodes"] = list(graph.get("nodes", []))
+    combined_graph["edges"] = list(graph.get("edges", []))
+    known_node_ids = {item.get("id") for item in combined_graph["nodes"] if isinstance(item, dict)}
+    for concept in semantic_layer["concepts"]:
+        concept_id = concept.get("id")
+        if not isinstance(concept_id, str) or concept_id in known_node_ids:
+            continue
+        combined_graph["nodes"].append({
+            "id": concept_id,
+            "kind": "semantic_candidate_concept",
+            "label": concept.get("name", concept_id),
+            "attributes": {"definition": concept.get("definition", "")},
+            "provenance": {"evidence": concept.get("evidence", [])},
+            "epistemic_status": "candidate",
+        })
+        known_node_ids.add(concept_id)
+    for relation in semantic_layer["relations"]:
+        edge = {
+            "from": relation["from"],
+            "to": relation["to"],
+            "type": relation["type"],
+            "attributes": {
+                "rationale": relation["rationale"],
+                "confidence": relation["confidence"],
+                "semantic_model_candidate": True,
+            },
+            "evidence": json.dumps(relation["evidence"], ensure_ascii=False, sort_keys=True),
+            "epistemic_status": "candidate",
+        }
+        identity = json.dumps(edge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        edge["edge_id"] = "edge:semantic:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+        combined_graph["edges"].append(edge)
+    combined_graph["semantic_review_queue"] = semantic_layer["possible_conflicts"]
+    combined_graph["summary"] = {
+        **graph.get("summary", {}),
+        "candidate_concepts": combined_graph["summary"]["candidate_concepts"],
+        "cross_project_relations": combined_graph["summary"]["cross_project_relations"],
+        "semantic_conflicts_for_review": len(semantic_layer["possible_conflicts"]),
+    }
     return {
         "model_type": "next_concept_model",
         "model_version": "1.0.0",
@@ -71,7 +114,7 @@ def run_ncm(
             "failures": ingestion.get("failures", []),
             "safety": ingestion.get("safety", {}),
         },
-        "ecosystem_graph": graph,
+        "ecosystem_graph": combined_graph,
         "semantic_layer": semantic_layer,
         "summary": {
             "projects": graph.get("summary", {}).get("projects", 0),

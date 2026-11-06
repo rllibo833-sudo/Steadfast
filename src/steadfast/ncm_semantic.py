@@ -4,8 +4,8 @@ import hashlib
 import json
 import os
 import urllib.error
-import urllib.request
 import urllib.parse
+import urllib.request
 from typing import Any, Mapping
 
 

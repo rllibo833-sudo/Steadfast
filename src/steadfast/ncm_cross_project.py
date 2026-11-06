@@ -301,6 +301,7 @@ def build_cross_project_model(
         "summary": {
             **model["summary"],
             "documents": len(document_records),
+            "candidate_concepts": sum(1 for node in nodes if node.get("kind") == "candidate_concept"),
             "cross_project_relations": len(cross_project_candidates),
             "shared_concepts_across_projects": sum(1 for owners in concept_projects.values() if len(owners) > 1),
             "audit_findings": len(graph_findings) + len(model.get("manifest_findings", [])) + len(findings),

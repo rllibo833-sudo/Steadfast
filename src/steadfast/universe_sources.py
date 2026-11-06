@@ -145,7 +145,7 @@ def _termux_report(repo: Path, env: Mapping[str, str]) -> dict[str, Any]:
     present = [item for item in expected if (root / item).exists()]
     return {
         "source": "termux",
-        "status": "reachable" if present else "partial",
+        "status": "reachable" if len(present) == len(expected) else "partial" if present else "not_found",
         "checked": len(expected),
         "items": [{"path": item, "present": item in present} for item in expected],
         "root": str(root),

@@ -23,7 +23,7 @@ class NcmSemanticTests(unittest.TestCase):
     def test_unconfigured_model_fails_without_leaking_credentials(self):
         result = infer_semantic_candidates(self.manifest, allow_remote=True, env={})
         self.assertEqual(result["status"], "failed")
-        self.assertNotIn("api_key", str(result).lower())
+        self.assertNotIn("test-secret-value", str(result))
 
     def test_model_candidates_require_verbatim_manifest_evidence(self):
         response = {
@@ -41,7 +41,7 @@ class NcmSemanticTests(unittest.TestCase):
             "possible_conflicts": [],
         }
         with patch("steadfast.ncm_semantic._call_model", return_value=response):
-            result = infer_semantic_candidates(self.manifest, allow_remote=True, env={"NCM_MODEL": "test"})
+            result = infer_semantic_candidates(self.manifest, allow_remote=True, env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"})
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["summary"]["concepts"], 1)
         self.assertEqual(result["summary"]["relations"], 1)

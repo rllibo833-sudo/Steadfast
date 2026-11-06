@@ -72,6 +72,8 @@ class NcmRunnerTests(unittest.TestCase):
         self.assertEqual(result["semantic_layer"]["status"], "completed")
         self.assertEqual(result["summary"]["candidate_concepts"], 4)
         self.assertEqual(result["summary"]["cross_project_relations"], 2)
+        self.assertEqual(result["summary"]["source_failures"], 0)
+        self.assertEqual(result["summary"]["semantic_rejected_items"], 0)
 
     @patch("steadfast.ncm_runner.infer_semantic_candidates")
     @patch("steadfast.ncm_runner.build_cross_project_model")

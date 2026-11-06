@@ -16,6 +16,7 @@ class AdapterContext:
     source_documents: tuple[Mapping[str, Any], ...]
     ecosystem_manifest: Mapping[str, Any]
     project_root: Path | None = None
+    project_roots: Mapping[str, Path] = field(default_factory=dict)
 
 
 @dataclass
@@ -148,6 +149,106 @@ class ArchivedProjectAdapter:
         )
 
 
+
+class CrossProjectIntegrationAdapter:
+    """Exercise a real, isolated Pusingcuk-to-Mnemos data contract."""
+
+    adapter_id = "steadfast-ncm-integration"
+
+    def __call__(self, context: AdapterContext) -> AdapterResult:
+        pusingcuk = context.project_roots.get("pusingcuk")
+        mnemos = context.project_roots.get("mnemos-rli")
+        if pusingcuk is None or mnemos is None or not pusingcuk.is_dir() or not mnemos.is_dir():
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "unavailable",
+                findings=[{"code": "CROSS_PROJECT_SOURCE_MISSING"}],
+            )
+
+        bridge = r'''
+import hashlib
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+pusingcuk_root = Path(sys.argv[1]).resolve()
+mnemos_root = Path(sys.argv[2]).resolve()
+sys.path[:0] = [str(pusingcuk_root), str(mnemos_root / "src")]
+from compiler.ir import from_source, validate
+from mnemos.store import MemoryStore
+
+source = "jancuk\nselesai jancuk"
+ir_document = from_source(source, "ncm-cross-project-bridge")
+validate(ir_document)
+payload = json.dumps(ir_document, ensure_ascii=False, sort_keys=True)
+fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+with tempfile.TemporaryDirectory(prefix="steadfast-ncm-bridge-") as directory:
+    store = MemoryStore(Path(directory) / "mnemos.sqlite3")
+    record, inserted = store.add_once(
+        payload, kind="pusingcuk_compiler_ir", fingerprint=fingerprint,
+        tags=["ncm", "cross-project", "pusingcuk"],
+        source="pusingcuk://compiler-ir",
+        metadata={"contract": "pusingcuk-ir-v1", "consumer": "mnemos-memory-store"},
+    )
+    repeated, inserted_again = store.add_once(
+        payload, kind="pusingcuk_compiler_ir", fingerprint=fingerprint,
+        tags=["ncm", "cross-project", "pusingcuk"],
+        source="pusingcuk://compiler-ir",
+        metadata={"contract": "pusingcuk-ir-v1", "consumer": "mnemos-memory-store"},
+    )
+    stored = store.get(record["id"])
+    assert stored is not None and stored["metadata"]["fingerprint"] == fingerprint
+    assert not inserted_again and repeated["id"] == record["id"]
+    assert len(store.list_all(kind="pusingcuk_compiler_ir")) == 1
+print(json.dumps({
+    "contract": "pusingcuk-ir-v1",
+    "producer": "pusingcuk.compiler.ir",
+    "consumer": "mnemos.store.MemoryStore",
+    "validated": True,
+    "persisted": True,
+    "idempotent": True,
+    "record_id": record["id"],
+    "payload_sha256": fingerprint,
+}))
+'''
+        try:
+            completed = subprocess.run(
+                ["python", "-c", bridge, str(pusingcuk), str(mnemos)],
+                cwd=context.project_root or Path.cwd(),
+                env=os.environ.copy(),
+                text=True,
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": "CROSS_PROJECT_BRIDGE_EXECUTION_FAILED", "error_type": type(exc).__name__}],
+            )
+        if completed.returncode != 0:
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": "CROSS_PROJECT_BRIDGE_VALIDATION_FAILED"}],
+            )
+        try:
+            evidence = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": "CROSS_PROJECT_BRIDGE_OUTPUT_INVALID"}],
+            )
+        return AdapterResult(
+            project_id=context.project["id"],
+            adapter_id=self.adapter_id,
+            status="completed",
+            capabilities=[
+                {"id": "cross-project:pusingcuk-ir-to-mnemos-memory", "verification": "end_to_end_contract_test"}
+            ],
+            outputs=[{"kind": "cross_project_integration", **evidence}],
+        )
+
+
 def build_default_adapter_registry() -> AdapterRegistry:
     registry = AdapterRegistry()
     registry.register(RepositorySmokeAdapter(
@@ -168,11 +269,7 @@ def build_default_adapter_registry() -> AdapterRegistry:
     ))
     registry.register(ArchivedProjectAdapter())
     registry.register(DocumentedOnlyAdapter())
-    registry.register(RepositorySmokeAdapter(
-        "steadfast-governance",
-        ("python", "-c", "import steadfast; import steadfast.ncm_runner; import steadfast.ncm_adapters"),
-        "steadfast:ncm-orchestrator-import",
-    ))
+    registry.register(CrossProjectIntegrationAdapter())
     return registry
 
 
@@ -301,7 +398,7 @@ def run_project_adapters(
         )
         context = AdapterContext(
             project=project, source_documents=docs, ecosystem_manifest=manifest,
-            project_root=roots.get(project_id),
+            project_root=roots.get(project_id), project_roots=roots,
         )
         try:
             result = adapter(context)
@@ -347,5 +444,6 @@ def run_project_adapters(
 __all__ = [
     "AdapterContext", "AdapterResult", "AdapterRegistry", "ProjectAdapter",
     "RepositorySmokeAdapter", "ArchivedProjectAdapter", "DocumentedOnlyAdapter",
+    "CrossProjectIntegrationAdapter",
     "build_default_adapter_registry", "run_project_adapters", "derive_ecosystem_synthesis",
 ]

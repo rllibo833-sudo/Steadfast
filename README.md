@@ -68,7 +68,8 @@ python -m pip install --upgrade "git+https://github.com/rllibo833-sudo/Steadfast
 | `steadfast audit` | Check changed files, evidence, contracts, and documentation drift. |
 | `steadfast discover` | Print a machine-readable capability map for tools and agents. |
 | `steadfast universe-check` | Validate the cross-platform ecosystem manifest and its project/source references. |
-| `steadfast universe-model` | Export a deterministic concept graph for experimental NCM integration. |
+| `steadfast universe-model` | Export a deterministic declared-facts concept graph. |
+| `steadfast universe-infer` | Generate review-only lexical-overlap candidates; not semantic NCM inference. |
 | `steadfast mcp-server` | Start the read-only MCP server for compatible agents. |
 
 See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough, the [MCP client setup guide](docs/AGENT_MCP_SETUP.md) to connect compatible AI clients, and the [command reference](docs/COMMANDS.md) for the full CLI list. For a copy-ready pull-request workflow and an adoption checklist, see [Adopt in GitHub Actions](docs/ADOPT_IN_GITHUB_ACTIONS.md).
@@ -86,7 +87,7 @@ These checks are guardrails, not a sandbox or proof of semantic correctness. Res
 
 ## Cross-platform ecosystem index
 
-The `ecosystem/` directory contains a canonical index of projects and their distributed source references. It does not copy project code or claim that remote sources are reachable. Run `steadfast universe-check` from the repository root to validate the manifest structure, identifiers, source references, and relationship endpoints. Remote URLs are syntax-checked only; no network requests or project files are modified.
+The `ecosystem/` directory contains a canonical index of projects and their distributed source references. It does not copy project code or claim that remote sources are reachable. Run `steadfast universe-check` from the repository root to validate the manifest structure, identifiers, source references, and relationship endpoints. Remote URLs are syntax-checked only; no network requests or project files are modified. `steadfast universe-infer` compares declared project-purpose text using token Jaccard overlap and emits evidence-linked `candidate` relations only. It does not establish semantic understanding, verify dependencies, call an NCM service, or change the manifest.
 
 ## Configuration
 

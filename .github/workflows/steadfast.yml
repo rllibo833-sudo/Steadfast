@@ -69,6 +69,13 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           node-version: "22"
+      - name: Prepare public site source inputs
+        if: github.event_name != 'pull_request'
+        run: |
+          cp site-index.template.html docs/index.html
+          rm -rf docs/src
+          cp -R src docs/src
+        working-directory: .steadfast/projects/core-public
       - name: Install project adapter dependencies
         if: github.event_name != 'pull_request'
         run: |

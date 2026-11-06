@@ -34,6 +34,14 @@ def probe_backend_services(
             })
             continue
 
+        if item.get("project_state") == "INACTIVE":
+            results.append({
+                "project_id": project_id, "service_id": service_id, "endpoint": endpoint,
+                "status": "project_inactive",
+                "findings": [{"code": "BACKEND_SUPABASE_PROJECT_INACTIVE"}],
+            })
+            continue
+
         parsed = urlparse(endpoint)
         if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".supabase.co") or not parsed.path.startswith("/functions/v1/"):
             results.append({
@@ -112,9 +120,10 @@ def probe_backend_services(
         "ready": sum(item["status"] == "ready" for item in results),
         "reachable_auth_required": sum(item["status"] == "reachable_auth_required" for item in results),
         "failed": sum(item["status"] == "failed" for item in results),
+        "project_inactive": sum(item["status"] == "project_inactive" for item in results),
     }
     return {
-        "status": "completed" if summary["failed"] == 0 else "partial",
+        "status": "completed" if summary["failed"] == 0 and summary["project_inactive"] == 0 else "partial",
         "summary": summary,
         "results": results,
         "safety": {"read_only": True, "credentials_sent": False, "database_writes": False},

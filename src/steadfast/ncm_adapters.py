@@ -203,7 +203,9 @@ with tempfile.TemporaryDirectory(prefix="steadfast-ncm-bridge-") as directory:
 print(json.dumps({
     "contract": "pusingcuk-ir-v1",
     "producer": "pusingcuk.compiler.ir",
+    "producer_project": "pusingcuk",
     "consumer": "mnemos.store.MemoryStore",
+    "consumer_project": "mnemos-rli",
     "validated": True,
     "persisted": True,
     "idempotent": True,

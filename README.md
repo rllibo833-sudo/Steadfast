@@ -87,7 +87,7 @@ These checks are guardrails, not a sandbox or proof of semantic correctness. Res
 
 ## Cross-platform ecosystem index
 
-The `ecosystem/` directory contains a canonical index of projects and their distributed source references. It does not copy project code or claim that remote sources are reachable. Run `steadfast universe-check` from the repository root to validate the manifest structure, identifiers, source references, and relationship endpoints. Remote URLs are syntax-checked only; no network requests or project files are modified. `steadfast universe-infer` compares declared project-purpose text using token Jaccard overlap and emits evidence-linked `candidate` relations only. It does not establish semantic understanding, verify dependencies, call an NCM service, or change the manifest.
+The `ecosystem/` directory contains a canonical index of projects and their distributed source references. It does not copy project code or claim that remote sources are reachable. Run `steadfast universe-check` from the repository root to validate the manifest structure, identifiers, source references, and relationship endpoints. Remote URLs are syntax-checked only; no network requests or project files are modified. `steadfast universe-infer` emits candidate concepts with exact character-span provenance, lexical overlap relations, and a reconciliation queue against declared project pairs. It is a deterministic symbolic baseline, not semantic understanding or a verified dependency engine; it does not change the manifest or project sources.
 
 ## Configuration
 

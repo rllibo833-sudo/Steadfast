@@ -15,7 +15,7 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `ecosystem [--strict]` | Inventory skill and MCP declarations and apply configured trust labels. |
 | `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
 | `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving graph of declared facts. No inference or source mutation. |
-| `universe-infer [--manifest PATH] [--threshold SCORE]` | Generate review-only candidate relations using lexical token overlap; not semantic NCM inference. |
+| `universe-infer [--manifest PATH] [--threshold SCORE]` | Extract lexical candidate concepts with source spans, relate projects by token overlap, and reconcile candidate pairs against declared relationships. Read-only; not semantic NCM. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
 
@@ -31,7 +31,7 @@ steadfast universe-check
 
 ## Experimental NCM graph projection
 
-Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosystem manifest. Add `--include-audit` to include validation findings as graph nodes. This adapter preserves declared purpose text and source provenance; it does not infer dependencies, verify relationships, call an NCM service, or modify source projects. The command is experimental and is isolated on the `experiment/universe-ncm-adapter` branch pending tests and review.
+Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosystem manifest. Add `--include-audit` to include validation findings as graph nodes. The adapter preserves declared facts and provenance. `universe-infer` is a separate experimental symbolic baseline: it extracts tokens and adjacent phrases from each declared project purpose, records exact character offsets, builds candidate-concept nodes, scores shared project terms with Jaccard similarity, and reconciles candidate project pairs against manifest relationship endpoints. A matching declared pair is not proof of correctness; a missing pair is not a contradiction. All inferred items remain `candidate` and require human review. No source is modified and no remote source is queried.
 
 ## Verification and reporting
 

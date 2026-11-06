@@ -15,11 +15,49 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout Pusingcuk
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: rllibo833-sudo/pusingcuk
+          path: .steadfast/projects/pusingcuk
+          persist-credentials: false
+      - name: Checkout Mnemos-RLI
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: rllibo833-sudo/mnemos-RLI
+          path: .steadfast/projects/mnemos-rli
+          persist-credentials: false
+      - name: Checkout ECOS archive
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: rllibo833-sudo/ECOS
+          path: .steadfast/projects/ecos
+          persist-credentials: false
+      - name: Checkout Kawasan Masjid public site
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: rllibo833-sudo/kawasan-masjid-public
+          path: .steadfast/projects/core-public
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          node-version: "22"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Install
         run: python -m pip install -e .
+      - name: Install project adapter dependencies
+        if: github.event_name != 'pull_request'
+        run: |
+          python -m pip install "cryptography>=42"
+          npm install --no-audit --no-fund
+        working-directory: .steadfast/projects/core-public
       - name: Run tests
         run: python -m unittest discover -s tests -v
       - name: Audit repository
@@ -48,6 +86,7 @@ jobs:
           NCM_API_KEY: ${{ secrets.NCM_API_KEY || secrets.JBF_OPENROUTER_API_KEY }}
           NCM_BASE_URL: ${{ vars.NCM_BASE_URL }}
           NCM_MODEL: ${{ vars.NCM_MODEL }}
+          NCM_PROJECT_ROOTS: '{"pusingcuk":".steadfast/projects/pusingcuk","mnemos-rli":".steadfast/projects/mnemos-rli","ecos":".steadfast/projects/ecos","core-public":".steadfast/projects/core-public"}'
         run: |
           python -m steadfast --repo . ncm \
             --allow-remote \

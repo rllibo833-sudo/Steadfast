@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .ncm_adapters import AdapterRegistry, run_project_adapters
+from .ncm_adapters import AdapterRegistry, derive_ecosystem_synthesis, run_project_adapters
 from .ncm_cross_project import build_cross_project_model
 from .ncm_semantic import infer_semantic_candidates
 from .ncm_sources import collect_source_documents
@@ -43,6 +43,7 @@ def run_ncm(
 
     graph = build_cross_project_model(manifest, documents, threshold=threshold)
     adapter_layer = run_project_adapters(manifest, documents, adapter_registry, env=env)
+    ecosystem_synthesis = derive_ecosystem_synthesis(adapter_layer)
 
     # Source text is sent to the semantic provider only with its separate consent flag.
     semantic_documents = documents if allow_source_content_remote else []
@@ -102,6 +103,36 @@ def run_ncm(
         identity = json.dumps(edge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         edge["edge_id"] = "edge:semantic:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
         combined_graph["edges"].append(edge)
+    # Add deterministic emergent concepts and observed orchestration edges.
+    for concept in ecosystem_synthesis.get("emergent_concepts", []):
+        concept_id = concept.get("id")
+        if not isinstance(concept_id, str) or concept_id in known_node_ids:
+            continue
+        combined_graph["nodes"].append({
+            "id": concept_id,
+            "kind": "emergent_ecosystem_concept",
+            "label": concept.get("name", concept_id),
+            "attributes": {
+                "definition": concept.get("definition", ""),
+                "derivation": concept.get("derivation"),
+            },
+            "provenance": {"evidence": concept.get("evidence", [])},
+            "epistemic_status": "candidate",
+        })
+        known_node_ids.add(concept_id)
+    for relation in ecosystem_synthesis.get("orchestration_relations", []):
+        combined_graph["edges"].append({
+            "from": relation["from"],
+            "to": relation["to"],
+            "type": relation["type"],
+            "attributes": {
+                "rationale": relation["rationale"],
+                "confidence": relation["confidence"],
+                "derivation": "deterministic_adapter_synthesis",
+            },
+            "evidence": json.dumps(relation["evidence"], ensure_ascii=False, sort_keys=True),
+            "epistemic_status": "observed_orchestration_candidate",
+        })
     # Adapter outputs become first-class nodes and edges in the same ecosystem graph.
     adapter_capabilities = 0
     adapter_outputs = 0
@@ -191,10 +222,11 @@ def run_ncm(
         "ecosystem_graph": combined_graph,
         "semantic_layer": semantic_layer,
         "adapter_layer": adapter_layer,
+        "ecosystem_synthesis": ecosystem_synthesis,
         "summary": {
             "projects": graph.get("summary", {}).get("projects", 0),
             "source_documents": len(graph.get("documents", [])),
-            "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0) + len(semantic_layer["concepts"]),
+            "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0) + len(semantic_layer["concepts"]) + len(ecosystem_synthesis["emergent_concepts"]),
             "cross_project_relations": graph.get("summary", {}).get("cross_project_relations", 0) + len(semantic_layer["relations"]),
             "semantic_status": semantic_layer["status"],
             "source_failures": len(ingestion.get("failures", [])),
@@ -208,6 +240,8 @@ def run_ncm(
             "adapter_documented_only": adapter_layer["summary"].get("documented_only", 0),
             "adapter_capabilities": adapter_capabilities,
             "adapter_outputs": adapter_outputs,
+            "emergent_concepts": ecosystem_synthesis["summary"]["emergent_concepts"],
+            "orchestration_relations": ecosystem_synthesis["summary"]["orchestration_relations"],
         },
         "safety": {
             "manifest_modified": False,

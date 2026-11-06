@@ -65,6 +65,8 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
             for field, value in output.items():
                 if isinstance(value, (str, int, float)) and not isinstance(value, bool):
                     index[f"adapter_results[{project_id}].outputs[{number}].{field}"] = str(value)
+                elif isinstance(value, list):
+                    index[f"adapter_results[{project_id}].outputs[{number}].{field}"] = json.dumps(value, ensure_ascii=False)
     for document in source_documents or []:
         if not isinstance(document, dict) or not isinstance(document.get("document_id"), str):
             continue

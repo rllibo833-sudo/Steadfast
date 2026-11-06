@@ -12,6 +12,7 @@ This document is a proposed engineering contract, not a claim that an NCM reason
 - `steadfast universe-check` validates the manifest and reports evidence gaps.
 - `steadfast universe-model` emits a deterministic graph projection.
 - The current projection preserves declared facts and provenance. It does not infer concepts, dependencies, or project status.
+- `steadfast universe-infer` provides an experimental lexical extraction and candidate reconciliation baseline. It is not a semantic NCM engine.
 - No NCM service, model weights, semantic inference runtime, or external reasoning endpoint is configured in this repository.
 
 ## Epistemic rules

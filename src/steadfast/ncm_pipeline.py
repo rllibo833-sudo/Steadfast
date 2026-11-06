@@ -359,6 +359,9 @@ def infer_candidate_relations(
         "source_manifest": {
             "universe_id": manifest.get("universe_id"),
             "manifest_version": manifest.get("manifest_version"),
+            "sha256": hashlib.sha256(
+                json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
         },
         "semantics": {
             "purpose": "Extract candidate concepts from selected manifest text fields and propose project overlaps for review.",

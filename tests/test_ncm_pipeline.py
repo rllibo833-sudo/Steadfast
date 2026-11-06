@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 
 from steadfast.ncm_pipeline import infer_candidate_relations
 
@@ -63,6 +64,17 @@ class NcmPipelineTests(unittest.TestCase):
         self.assertEqual(json.dumps(self.manifest, sort_keys=True), before)
         self.assertFalse(first["semantics"]["canonical_manifest_modified"])
         self.assertFalse(first["semantics"]["remote_sources_read"])
+
+    def test_repository_universe_manifest_produces_integral_graph(self):
+        manifest_path = Path(__file__).resolve().parents[1] / "ecosystem" / "universe.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        result = infer_candidate_relations(manifest)
+        ids = {node["id"] for node in result["nodes"]}
+        self.assertEqual(result["summary"]["projects"], len(manifest["projects"]))
+        self.assertEqual(result["graph_findings"], [])
+        self.assertTrue(all(edge["from"] in ids and edge["to"] in ids for edge in result["edges"]))
+        edge_ids = [edge["edge_id"] for edge in result["edges"]]
+        self.assertEqual(len(edge_ids), len(set(edge_ids)))
 
     def test_threshold_validation(self):
         with self.assertRaises(ValueError):

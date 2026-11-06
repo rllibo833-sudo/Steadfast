@@ -127,7 +127,7 @@ Steadfast can probe source metadata without writing to external systems:
 
 Use `steadfast universe-content --output .steadfast/source-documents.json` to collect a bounded, hash-stamped content snapshot from Notion pages, GitHub repository READMEs, and a strict local JBF/Termux file allowlist. The command performs GET-only remote reads and never writes to source systems.
 
-The initial reader intentionally does **not** claim content access to Supabase or Cloudflare Workers. Supabase projects reported inactive remain metadata-only; Cloudflare Worker source retrieval requires a separately implemented reader and least-privilege token. Failed, inaccessible, and unsupported sources are recorded as failures rather than silently omitted.
+Supabase reads are limited to explicitly allowlisted tables and columns using a publishable key; Cloudflare reads only explicitly indexed Worker scripts using a read-only token. Missing credentials, inactive projects, inaccessible scripts, and unsupported references are recorded as failures rather than silently omitted.
 
 To analyze a collected snapshot, configure `NCM_API_KEY` and `NCM_MODEL`, then run:
 

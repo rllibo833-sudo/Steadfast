@@ -192,6 +192,71 @@ def _project_roots_from_env(env: Mapping[str, str] | None) -> dict[str, Path]:
     }
 
 
+def derive_ecosystem_synthesis(adapter_layer: Mapping[str, Any]) -> dict[str, Any]:
+    """Derive conservative ecosystem-level candidates from successful adapter observations."""
+    results = adapter_layer.get("results", [])
+    if not isinstance(results, list):
+        results = []
+    completed = [
+        item for item in results
+        if isinstance(item, dict) and item.get("status") == "completed"
+        and isinstance(item.get("project_id"), str)
+    ]
+    orchestrator = next((item for item in completed if item.get("project_id") == "steadfast"), None)
+    projects = sorted({item["project_id"] for item in completed})
+    concepts: list[dict[str, Any]] = []
+    relations: list[dict[str, Any]] = []
+    if orchestrator is not None and len(projects) >= 3:
+        evidence = [
+            {
+                "path": f"adapter_results[{item['project_id']}].status",
+                "quote": "completed",
+            }
+            for item in completed
+        ]
+        concept_name = "Shared cross-project verification orchestration"
+        concepts.append({
+            "id": "candidate-concept:shared-cross-project-verification",
+            "name": concept_name,
+            "definition": (
+                "A single NCM runner invokes explicitly registered project adapters, "
+                "checks multiple project codebases, and consolidates their observed results "
+                "into one ecosystem model."
+            ),
+            "evidence": evidence,
+            "epistemic_status": "candidate",
+            "derivation": "deterministic_adapter_synthesis",
+        })
+        for item in completed:
+            project_id = item["project_id"]
+            if project_id == "steadfast":
+                continue
+            relations.append({
+                "from": f"project:{project_id}",
+                "to": "project:steadfast",
+                "type": "verified_by_shared_ncm_orchestrator",
+                "rationale": "The project's registered adapter completed in the same NCM run coordinated by Steadfast.",
+                "confidence": 1.0,
+                "evidence": [{
+                    "path": f"adapter_results[{project_id}].status",
+                    "quote": "completed",
+                }],
+                "epistemic_status": "observed_orchestration_candidate",
+            })
+    return {
+        "status": "completed",
+        "method": "deterministic_adapter_synthesis",
+        "summary": {
+            "completed_projects": len(completed),
+            "emergent_concepts": len(concepts),
+            "orchestration_relations": len(relations),
+        },
+        "emergent_concepts": concepts,
+        "orchestration_relations": relations,
+        "safety": {"outputs_promoted": False, "inferred_dependencies": False},
+    }
+
+
 def run_project_adapters(
     manifest: Mapping[str, Any],
     source_documents: list[dict[str, Any]],
@@ -282,5 +347,5 @@ def run_project_adapters(
 __all__ = [
     "AdapterContext", "AdapterResult", "AdapterRegistry", "ProjectAdapter",
     "RepositorySmokeAdapter", "ArchivedProjectAdapter", "DocumentedOnlyAdapter",
-    "build_default_adapter_registry", "run_project_adapters",
+    "build_default_adapter_registry", "run_project_adapters", "derive_ecosystem_synthesis",
 ]

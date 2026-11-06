@@ -111,3 +111,13 @@ steadfast code-truth
 ```
 
 MIT licensed. See [LICENSE](LICENSE).
+
+
+### Ecosystem source checks and semantic analysis
+
+Steadfast can probe source metadata without writing to external systems:
+
+- `steadfast universe-sources` checks configured Notion, Supabase, Cloudflare Workers, and local JBF/Termux metadata access.
+- Credentials are supplied through environment variables: `NOTION_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Use read-only, least-privilege tokens.
+- `steadfast universe-semantic --allow-remote` optionally sends project descriptions and declared relationships to an OpenAI-compatible model endpoint configured with `NCM_API_KEY`, `NCM_MODEL`, and optional `NCM_BASE_URL`. The explicit flag is required before any remote transfer.
+- Generated concepts, relations, and potential contradictions are evidence-checked candidates, never automatically verified facts. This is a semantic LLM-assisted layer, not a claim of reproducing a particular scientific NCM architecture.

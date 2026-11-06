@@ -134,7 +134,14 @@ def _validate_candidates(
 
     relations = []
     for index, item in enumerate(response.get("relations", []) if isinstance(response.get("relations"), list) else []):
-        if not isinstance(item, dict) or item.get("from") not in project_ids or item.get("to") not in project_ids or item.get("from") == item.get("to"):
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("from"), str)
+            or not isinstance(item.get("to"), str)
+            or item.get("from") not in project_ids
+            or item.get("to") not in project_ids
+            or item.get("from") == item.get("to")
+        ):
             findings.append({"code": "INVALID_RELATION_ENDPOINT", "item": index})
             continue
         confidence = item.get("confidence")
@@ -186,6 +193,13 @@ def infer_semantic_candidates(
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }
     settings = os.environ if env is None else env
+    if not settings.get("NCM_API_KEY", "").strip() or not settings.get("NCM_MODEL", "").strip():
+        return {
+            "status": "failed",
+            "error": "NCM_API_KEY and NCM_MODEL must be configured.",
+            "source_manifest_sha256": digest,
+            "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
+        }
     try:
         response = _call_model(manifest, settings)
     except RuntimeError as exc:

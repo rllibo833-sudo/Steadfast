@@ -122,7 +122,8 @@ def run_ncm(
             "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0) + len(semantic_layer["concepts"]),
             "cross_project_relations": graph.get("summary", {}).get("cross_project_relations", 0) + len(semantic_layer["relations"]),
             "semantic_status": semantic_layer["status"],
-            "source_failures": len(semantic_layer["findings"]) + len(ingestion.get("failures", [])),
+            "source_failures": len(ingestion.get("failures", [])),
+            "semantic_rejected_items": len(semantic_layer["findings"]),
             "graph_findings": len(graph.get("graph_findings", [])) + len(graph.get("manifest_findings", [])),
         },
         "safety": {

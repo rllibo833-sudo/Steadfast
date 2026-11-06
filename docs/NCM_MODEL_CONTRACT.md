@@ -107,3 +107,14 @@ The document artifact is supplied explicitly. The graph builder does not access 
 Cross-project candidate relations carry their contributing shared concepts, source-system IDs, and evidence references. Every generated edge receives a deterministic digest-derived ID. Graph endpoint integrity and source-document ingestion findings are reported separately. The manifest digest and document-inventory digest are distinct so a review ledger can be bound to the exact combined artifact without rewriting canonical project data.
 
 This remains a lexical, evidence-indexing model, not semantic understanding. It does not infer project status, validate external services, decide whether two concepts mean the same thing, or automatically resolve declared relationships. Semantic model candidates remain a separate opt-in operation and require the existing explicit remote-transfer approvals.
+
+
+## Unified Python runner
+
+The complete NCM workflow is orchestrated by one Python entry point:
+
+```bash
+steadfast --repo . ncm --output .steadfast/artifacts/next-concept-model.json
+```
+
+The runner validates the manifest, collects configured read-only source content, builds the cross-project graph, and packages the semantic candidate layer into one combined model artifact. Remote semantic analysis is opt-in with `--allow-remote`; transmitting collected source-document text additionally requires `--allow-source-content-remote`. The individual `universe-*` commands are diagnostic components, not the required execution path.

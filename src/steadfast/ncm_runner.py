@@ -1,0 +1,141 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Mapping
+
+from .ncm_cross_project import build_cross_project_model
+from .ncm_semantic import infer_semantic_candidates
+from .ncm_sources import collect_source_documents
+from .universe import load_universe_manifest
+
+
+def run_ncm(
+    repo: str | Path = ".",
+    *,
+    manifest_path: str = "ecosystem/universe.json",
+    threshold: float = 0.2,
+    allow_remote: bool = False,
+    allow_source_content_remote: bool = False,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Run the complete Next Concept Modelling workflow through one Python entry point."""
+    root = Path(repo).resolve()
+    path = Path(manifest_path)
+    if not path.is_absolute():
+        path = root / path
+    manifest, manifest_findings = load_universe_manifest(path)
+    if manifest is None:
+        return {
+            "model_type": "next_concept_model",
+            "status": "failed",
+            "manifest_findings": manifest_findings,
+            "safety": {"manifest_modified": False, "external_systems_modified": False},
+        }
+
+    ingestion = collect_source_documents(manifest, env=env)
+    documents = ingestion.get("documents", [])
+    if not isinstance(documents, list):
+        documents = []
+
+    graph = build_cross_project_model(manifest, documents, threshold=threshold)
+
+    # Source text is sent to the semantic provider only with its separate consent flag.
+    semantic_documents = documents if allow_source_content_remote else []
+    semantic = infer_semantic_candidates(
+        manifest,
+        allow_remote=allow_remote,
+        env=env,
+        source_documents=semantic_documents,
+        allow_source_content_remote=allow_source_content_remote,
+    )
+
+    semantic_layer = {
+        "status": semantic.get("status", "failed"),
+        "concepts": semantic.get("concepts", []),
+        "relations": semantic.get("relations", []),
+        "possible_conflicts": semantic.get("possible_conflicts", []),
+        "findings": semantic.get("findings", []),
+        "summary": semantic.get("summary", {}),
+        "source_manifest_sha256": semantic.get("source_manifest_sha256"),
+        "source_documents_sha256": semantic.get("source_documents_sha256"),
+        "safety": semantic.get("safety", {}),
+    }
+
+    # Merge validated semantic candidates into the same ecosystem graph.
+    combined_graph = dict(graph)
+    combined_graph["nodes"] = list(graph.get("nodes", []))
+    combined_graph["edges"] = list(graph.get("edges", []))
+    known_node_ids = {item.get("id") for item in combined_graph["nodes"] if isinstance(item, dict)}
+    for concept in semantic_layer["concepts"]:
+        concept_id = concept.get("id")
+        if not isinstance(concept_id, str) or concept_id in known_node_ids:
+            continue
+        combined_graph["nodes"].append({
+            "id": concept_id,
+            "kind": "semantic_candidate_concept",
+            "label": concept.get("name", concept_id),
+            "attributes": {"definition": concept.get("definition", "")},
+            "provenance": {"evidence": concept.get("evidence", [])},
+            "epistemic_status": "candidate",
+        })
+        known_node_ids.add(concept_id)
+    for relation in semantic_layer["relations"]:
+        edge = {
+            "from": relation["from"],
+            "to": relation["to"],
+            "type": relation["type"],
+            "attributes": {
+                "rationale": relation["rationale"],
+                "confidence": relation["confidence"],
+                "semantic_model_candidate": True,
+            },
+            "evidence": json.dumps(relation["evidence"], ensure_ascii=False, sort_keys=True),
+            "epistemic_status": "candidate",
+        }
+        identity = json.dumps(edge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        edge["edge_id"] = "edge:semantic:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+        combined_graph["edges"].append(edge)
+    combined_graph["semantic_review_queue"] = semantic_layer["possible_conflicts"]
+    combined_graph["summary"] = {
+        **graph.get("summary", {}),
+        "candidate_concepts": combined_graph["summary"]["candidate_concepts"],
+        "cross_project_relations": combined_graph["summary"]["cross_project_relations"],
+        "semantic_conflicts_for_review": len(semantic_layer["possible_conflicts"]),
+    }
+    return {
+        "model_type": "next_concept_model",
+        "model_version": "1.0.0",
+        "status": "completed" if not manifest_findings and not graph.get("graph_findings") and not graph.get("manifest_findings") else "findings",
+        "manifest_findings": manifest_findings,
+        "source_ingestion": {
+            "summary": ingestion.get("summary", {}),
+            "failures": ingestion.get("failures", []),
+            "safety": ingestion.get("safety", {}),
+        },
+        "ecosystem_graph": combined_graph,
+        "semantic_layer": semantic_layer,
+        "summary": {
+            "projects": graph.get("summary", {}).get("projects", 0),
+            "source_documents": len(graph.get("documents", [])),
+            "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0) + len(semantic_layer["concepts"]),
+            "cross_project_relations": graph.get("summary", {}).get("cross_project_relations", 0) + len(semantic_layer["relations"]),
+            "semantic_status": semantic_layer["status"],
+            "source_failures": len(semantic_layer["findings"]) + len(ingestion.get("failures", [])),
+            "graph_findings": len(graph.get("graph_findings", [])) + len(graph.get("manifest_findings", [])),
+        },
+        "safety": {
+            "manifest_modified": False,
+            "external_systems_modified": False,
+            "source_documents_sent_to_model": bool(semantic_documents and allow_remote and allow_source_content_remote),
+            "semantic_candidates_promoted": False,
+        },
+    }
+
+
+def render_ncm(result: dict[str, Any]) -> str:
+    return json.dumps(result, indent=2, ensure_ascii=False) + "\n"
+
+
+__all__ = ["run_ncm", "render_ncm"]

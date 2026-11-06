@@ -144,3 +144,14 @@ The two consent flags are intentionally separate: `--allow-remote` permits manif
 - `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` enable GET-only Worker source reads for manifest references shaped as `cloudflare://worker/<script-name>`. Use a token scoped to Workers Scripts Read or Workers Content Read-Only.
 - Supabase source URIs use `supabase://project/<project-ref>`. The reader queries only allowlisted tables for that project, at most 100 rows per table.
 - Store credentials as GitHub Actions repository secrets or local runtime environment variables; never commit them. The source-document artifact can contain proprietary content or hard-coded secrets embedded in source code and must be reviewed and protected.
+
+
+### Run the complete NCM ecosystem in one Python invocation
+
+Run the integrated Next Concept Modelling workflow with one command:
+
+```bash
+steadfast --repo . ncm --output .steadfast/artifacts/next-concept-model.json
+```
+
+This single runner loads and validates the ecosystem manifest, collects bounded read-only source documents, builds the combined cross-project evidence graph, and attaches the evidence-grounded semantic layer in one artifact. Semantic model transfer is disabled by default. Add `--allow-remote` to send manifest descriptions to the configured model; add `--allow-source-content-remote` separately to permit sending collected source text. Existing `universe-*` commands remain available for diagnostics, but are not required for the integrated run.

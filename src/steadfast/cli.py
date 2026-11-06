@@ -109,6 +109,12 @@ def parser() -> argparse.ArgumentParser:
     content = commands.add_parser("universe-content", help="Collect bounded read-only content from Notion, GitHub, Supabase, Cloudflare Workers, and local JBF sources")
     content.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     content.add_argument("--output", help="Optional path for the source-document artifact JSON")
+    ncm = commands.add_parser("ncm", help="Run the complete Next Concept Modelling ecosystem in one Python invocation")
+    ncm.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
+    ncm.add_argument("--threshold", type=float, default=0.2, help="Cross-project lexical discovery threshold")
+    ncm.add_argument("--allow-remote", action="store_true", help="Explicitly allow project descriptions to be sent to the semantic model")
+    ncm.add_argument("--allow-source-content-remote", action="store_true", help="Separately approve sending collected source-document text to the semantic model")
+    ncm.add_argument("--output", help="Optional path for the complete NCM artifact JSON")
     semantic.add_argument("--output", help="Optional path for the generated semantic model JSON artifact")
     skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True)
@@ -357,6 +363,31 @@ def main(argv: list[str] | None = None) -> int:
                 result["output"] = str(output_path)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result.get("status") == "completed" else 1
+
+        if args.command == "ncm":
+            from .ncm_runner import render_ncm, run_ncm
+            result = run_ncm(
+                repo,
+                manifest_path=args.manifest,
+                threshold=args.threshold,
+                allow_remote=args.allow_remote,
+                allow_source_content_remote=args.allow_source_content_remote,
+            )
+            rendered = render_ncm(result)
+            if args.output:
+                output_path = Path(args.output)
+                if not output_path.is_absolute():
+                    output_path = repo / output_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding="utf-8")
+                print(json.dumps({
+                    "output": str(output_path),
+                    "status": result.get("status"),
+                    "summary": result.get("summary", {}),
+                }, indent=2, ensure_ascii=False))
+            else:
+                print(rendered, end="")
+            return 1 if result.get("status") == "failed" or result.get("summary", {}).get("graph_findings", 0) else 0
 
         if args.command == "universe-check":
             from .universe import universe_report

@@ -1,0 +1,274 @@
+{
+  "$schema": "./schema.json",
+  "manifest_version": "1.0.0",
+  "universe_id": "rllibo833-sudo-ecosystem",
+  "title": "Unified Project Ecosystem",
+  "purpose": "Canonical index of projects and their distributed source locations for Harness validation and NCM concept modeling.",
+  "principles": [
+    "Source repositories and documents remain in their original locations.",
+    "This manifest indexes sources; it does not copy project contents.",
+    "Unknown facts are marked unknown or unverified, never inferred as confirmed.",
+    "Project status describes evidence in source systems, not overall project completion."
+  ],
+  "consumers": [
+    {
+      "id": "harness",
+      "role": "Parse, validate, cross-check source references, and report inconsistencies.",
+      "implementation_status": "planned"
+    },
+    {
+      "id": "ncm",
+      "role": "Model concepts, components, and relationships across indexed projects.",
+      "implementation_status": "planned"
+    },
+    {
+      "id": "steadfast",
+      "role": "Potential governance and repository-audit layer for this index.",
+      "implementation_status": "existing_repository; ecosystem_integration_unverified"
+    }
+  ],
+  "sources": [
+    {
+      "id": "github",
+      "type": "git_host",
+      "state": "connected",
+      "scope": "Five repositories enumerated from the connected account."
+    },
+    {
+      "id": "notion",
+      "type": "knowledge_workspace",
+      "state": "connected",
+      "scope": "Nine relevant pages found by targeted search; not an exhaustive workspace inventory."
+    },
+    {
+      "id": "supabase",
+      "type": "backend_platform",
+      "state": "connected",
+      "scope": "Three projects enumerated; all reported INACTIVE at inventory time."
+    },
+    {
+      "id": "cloudflare",
+      "type": "cloud_platform",
+      "state": "unverified",
+      "scope": "User reports usage; no connected account inventory available."
+    },
+    {
+      "id": "termux",
+      "type": "local_device_environment",
+      "state": "partially_documented",
+      "scope": "JBF environment details supplied in conversation; no live filesystem sync."
+    }
+  ],
+  "projects": [
+    {
+      "id": "pusingcuk",
+      "name": "Pusingcuk",
+      "purpose": "Programming language, compiler, bootstrap, and Cuk Reality Engine.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/pusingcuk",
+          "role": "repository",
+          "evidence": "repository listing"
+        },
+        {
+          "source_id": "supabase",
+          "uri": "supabase://project/vcvejjpzklpvknxmymgy",
+          "role": "backend",
+          "status": "INACTIVE",
+          "evidence": "project listing"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "id": "mnemos-rli",
+      "name": "Mnemos-RLI",
+      "purpose": "Digital forensics, cyber defense, and shared evolving knowledge system.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/mnemos-RLI",
+          "role": "repository",
+          "evidence": "repository listing"
+        },
+        {
+          "source_id": "supabase",
+          "uri": "supabase://project/kuditcnmasfjgzmimnlc",
+          "role": "backend",
+          "status": "INACTIVE",
+          "evidence": "project listing"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "id": "steadfast",
+      "name": "Steadfast",
+      "purpose": "Repository governance, audit, scope guardrails, evidence checks, and documentation drift checks.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/Steadfast",
+          "role": "repository",
+          "evidence": "repository listing and README"
+        }
+      ],
+      "status": "repository_confirmed; runtime_status_unverified"
+    },
+    {
+      "id": "ecos",
+      "name": "Ecos",
+      "purpose": "Game studio, open-world game, trailer, book, and lore ecosystem.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/ECOS",
+          "role": "repository",
+          "evidence": "repository listing"
+        },
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/4089135f26c181869d1efb6aedda04a2",
+          "role": "lore_document",
+          "title": "ECOS — Lore Utama"
+        },
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/4089135f26c18107818ce464c10801c7",
+          "role": "book_manuscript",
+          "title": "Nation of ECOS — Buku I (Naskah Suntingan)"
+        },
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/4099135f26c181bd8f8ef2a869e6e0e9",
+          "role": "book_manuscript",
+          "title": "Nation of ECOS — Buku II: Jejak Kehidupan di Tanah ECOS"
+        },
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/4109135f26c1817fb5add6ca6f80023d",
+          "role": "design_reference",
+          "title": "ECOS — UI Reference: Book I Cover & World Overview"
+        },
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/40a9135f26c181b480eaebfa4497f979",
+          "role": "reference_document",
+          "title": "ECOS — Acuan Populasi Nasional"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "id": "core-public",
+      "name": "Core / Public",
+      "purpose": "AI workshop, decision archive, second brain, and public website for mosque area.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/kawasan-masjid-public",
+          "role": "repository",
+          "evidence": "repository listing"
+        },
+        {
+          "source_id": "supabase",
+          "uri": "supabase://project/lnpzgrodwnhthcwudebk",
+          "role": "backend",
+          "status": "INACTIVE",
+          "evidence": "project listing"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "id": "cukmind",
+      "name": "Cukmind",
+      "purpose": "Llama 135+ adapter LoRA packaged as an Android APK.",
+      "sources": [
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/40e9135f26c181a780ece47c1f2dea90",
+          "role": "project_document",
+          "title": "Cukmind — Agent AI Android"
+        }
+      ],
+      "status": "documented; implementation_unverified"
+    },
+    {
+      "id": "beyond-light",
+      "name": "Beyond Light",
+      "purpose": "Scientific calculator, code manipulation, advanced formulas, and cross-disciplinary experiments.",
+      "sources": [
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/40e9135f26c18172b86fda906ac5b522",
+          "role": "project_archive",
+          "title": "Beyond-Light — Arsip Proyek"
+        }
+      ],
+      "status": "documented; implementation_unverified"
+    },
+    {
+      "id": "orbit",
+      "name": "LynOS / Nexus / Orbit",
+      "purpose": "Launcher and mini solar-system simulation.",
+      "sources": [
+        {
+          "source_id": "notion",
+          "uri": "https://app.notion.com/p/40e9135f26c181eeb2fffc64f1b794cb",
+          "role": "project_document",
+          "title": "Orbit — Simulasi Mini Tata Surya"
+        }
+      ],
+      "status": "documented; implementation_unverified"
+    },
+    {
+      "id": "jbf-sandboxos",
+      "name": "JBF / SandboxOS",
+      "purpose": "Device-side framework and effort to flash SandboxOS as a replacement Android OS on vivo V2333.",
+      "sources": [
+        {
+          "source_id": "termux",
+          "uri": "local://termux/JBF",
+          "role": "local_repository",
+          "evidence": "user-supplied environment inventory"
+        }
+      ],
+      "status": "local_environment_documented; flash_capability_unverified"
+    }
+  ],
+  "relationships": [
+    {
+      "from": "steadfast",
+      "to": "harness",
+      "type": "candidate_governance_layer",
+      "status": "proposed"
+    },
+    {
+      "from": "harness",
+      "to": "ncm",
+      "type": "validated_manifest_input",
+      "status": "proposed"
+    },
+    {
+      "from": "pusingcuk",
+      "to": "mnemos-rli",
+      "type": "shared_ecosystem_membership",
+      "status": "indexed_only"
+    },
+    {
+      "from": "ecos",
+      "to": "core-public",
+      "type": "shared_ecosystem_membership",
+      "status": "indexed_only"
+    }
+  ],
+  "inventory_notes": [
+    "GitHub enumeration returned exactly five accessible repositories in the connected account at inventory time.",
+    "Notion search returned nine relevant pages; only pages clearly mapped to known projects are included.",
+    "Supabase listed three projects and reported each as INACTIVE.",
+    "Cloudflare inventory and live Termux filesystem inventory remain pending.",
+    "Relationships are provisional and must be confirmed from project evidence before being treated as technical dependencies."
+  ]
+}

@@ -46,7 +46,7 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["summary"]["concepts"], 1)
         self.assertEqual(result["summary"]["relations"], 1)
         self.assertEqual(result["concepts"][0]["epistemic_status"], "candidate")
-        self.assertTrue(result["safety"]["evidence_quotes_verified_against_manifest"])
+        self.assertTrue(result["safety"]["evidence_quotes_verified_against_exact_indexed_source_content"])
 
     def test_fabricated_evidence_is_rejected(self):
         response = {
@@ -77,6 +77,41 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["summary"]["concepts"], 0)
         self.assertEqual(result["findings"][0]["code"], "UNSUPPORTED_CONCEPT_EVIDENCE")
         self.assertEqual(result["findings"][1]["code"], "INVALID_RELATION_ENDPOINT")
+
+    def test_document_content_requires_separate_remote_approval_and_can_ground_evidence(self):
+        documents = [{
+            "document_id": "notion:page-1",
+            "content": "This project maintains a shared digital evidence archive.",
+            "content_sha256": "abc",
+            "status": "read",
+        }]
+        blocked = infer_semantic_candidates(
+            self.manifest, allow_remote=True, source_documents=documents,
+            env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"},
+        )
+        self.assertEqual(blocked["status"], "blocked")
+        self.assertFalse(blocked["safety"]["remote_request_made"])
+        response = {
+            "concepts": [{
+                "name": "Digital evidence archive",
+                "definition": "A repository for digital evidence.",
+                "evidence": [{
+                    "path": "documents[notion:page-1].content",
+                    "quote": "shared digital evidence archive",
+                }],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        with patch("steadfast.ncm_semantic._call_model", return_value=response) as model_call:
+            result = infer_semantic_candidates(
+                self.manifest, allow_remote=True, source_documents=documents,
+                allow_source_content_remote=True,
+                env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"},
+            )
+        self.assertEqual(result["summary"]["concepts"], 1)
+        self.assertEqual(result["source_documents_count"], 1)
+        self.assertIn("shared digital evidence archive", str(model_call.call_args))
 
 
 if __name__ == "__main__":

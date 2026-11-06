@@ -43,6 +43,32 @@ class NcmPipelineTests(unittest.TestCase):
             self.assertTrue(edge["evidence"])
             self.assertRegex(edge["edge_id"], r"^edge:[a-f0-9]{24}$")
 
+    def test_declared_manifest_relationships_are_explicit_unverified_edges(self):
+        self.manifest["relationships"] = [{
+            "from": "alpha", "to": "ncm",
+            "type": "candidate_consumer_link", "status": "proposed",
+        }]
+        result = infer_candidate_relations(self.manifest)
+        edge = next(item for item in result["edges"] if item["type"] == "manifest_declared_relationship")
+        self.assertEqual(edge["from"], "project:alpha")
+        self.assertEqual(edge["to"], "consumer:ncm")
+        self.assertEqual(edge["attributes"]["declared_type"], "candidate_consumer_link")
+        self.assertEqual(edge["attributes"]["declared_status"], "proposed")
+        self.assertEqual(edge["epistemic_status"], "manifest_asserted_not_independently_verified")
+        self.assertEqual(result["summary"]["declared_relationships"], 1)
+
+    def test_unknown_declared_relationship_endpoint_is_preserved(self):
+        self.manifest["relationships"] = [{
+            "from": "alpha", "to": "not-in-manifest",
+            "type": "unknown_link", "status": "proposed",
+        }]
+        result = infer_candidate_relations(self.manifest)
+        unknown = next(node for node in result["nodes"] if node["kind"] == "unresolved_manifest_endpoint")
+        edge = next(item for item in result["edges"] if item["type"] == "manifest_declared_relationship")
+        self.assertEqual(unknown["label"], "not-in-manifest")
+        self.assertEqual(edge["to"], unknown["id"])
+        self.assertEqual(result["graph_findings"], [])
+
     def test_overlap_candidate_has_reproducible_field_evidence(self):
         result = infer_candidate_relations(self.manifest)
         edge = next(item for item in result["edges"] if item["type"] == "lexical_project_overlap")

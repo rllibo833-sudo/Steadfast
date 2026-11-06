@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.request
 from typing import Any, Mapping
@@ -58,10 +57,27 @@ def probe_backend_services(
             body = exc.read(4096).decode("utf-8", errors="replace")
             content_type = exc.headers.get("Content-Type", "") if exc.headers else ""
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            # Preserve the underlying transport cause. A generic URLError is not
+            # actionable enough to distinguish DNS, TLS, and connection failures.
+            reason = getattr(exc, "reason", exc)
+            reason_type = type(reason).__name__
+            reason_text = " ".join(str(reason).split())[:180]
+            if reason_type == "gaierror":
+                code = "BACKEND_DNS_RESOLUTION_FAILED"
+            elif reason_type == "SSLError":
+                code = "BACKEND_TLS_FAILED"
+            elif isinstance(exc, TimeoutError) or reason_type == "TimeoutError":
+                code = "BACKEND_TIMEOUT"
+            else:
+                code = "BACKEND_CONNECTION_FAILED"
             results.append({
                 "project_id": project_id, "service_id": service_id, "endpoint": endpoint,
                 "status": "failed",
-                "findings": [{"code": "BACKEND_ENDPOINT_UNREACHABLE", "error_type": type(exc).__name__}],
+                "findings": [{
+                    "code": code,
+                    "error_type": reason_type,
+                    "error_reason": reason_text,
+                }],
             })
             continue
 

@@ -16,6 +16,10 @@ def validate_review_ledger(
 ) -> dict[str, Any]:
     """Validate human review decisions without promoting model assertions to facts."""
     findings: list[dict[str, Any]] = []
+    if not isinstance(model, dict):
+        return {"valid": False, "model_sha256": None, "summary": {}, "decisions": [], "findings": [{"code": "INVALID_MODEL", "message": "Model must be a JSON object"}], "safety": {"model_modified": False, "manifest_modified": False, "candidate_promoted_to_verified": False}}
+    if not isinstance(ledger, dict):
+        return {"valid": False, "model_sha256": model_digest(model), "summary": {}, "decisions": [], "findings": [{"code": "INVALID_REVIEW_LEDGER", "message": "Review ledger must be a JSON object"}], "safety": {"model_modified": False, "manifest_modified": False, "candidate_promoted_to_verified": False}}
     digest = model_digest(model)
     if ledger.get("schema_version") != "1.0.0":
         findings.append({"code": "UNSUPPORTED_REVIEW_SCHEMA", "message": "schema_version must be 1.0.0"})

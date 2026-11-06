@@ -112,6 +112,25 @@ class RepositorySmokeAdapter:
         )
 
 
+class DocumentedOnlyAdapter:
+    """Represent projects known only through documents without inventing runtime behavior."""
+
+    def __init__(self, adapter_id: str = "documented-only"):
+        self.adapter_id = adapter_id
+
+    def __call__(self, context: AdapterContext) -> AdapterResult:
+        return AdapterResult(
+            project_id=context.project["id"],
+            adapter_id=self.adapter_id,
+            status="documented_only",
+            outputs=[{
+                "kind": "documented_project_state",
+                "source_document_count": len(context.source_documents),
+            }],
+            findings=[{"code": "NO_EXECUTABLE_REPOSITORY_SOURCE"}],
+        )
+
+
 class ArchivedProjectAdapter:
     adapter_id = "ecos-archive"
 
@@ -148,6 +167,12 @@ def build_default_adapter_registry() -> AdapterRegistry:
         timeout=300,
     ))
     registry.register(ArchivedProjectAdapter())
+    registry.register(DocumentedOnlyAdapter())
+    registry.register(RepositorySmokeAdapter(
+        "steadfast-governance",
+        ("steadfast", "audit"),
+        "steadfast:repository-governance-audit",
+    ))
     return registry
 
 
@@ -232,11 +257,12 @@ def run_project_adapters(
                 "findings": [{"code": "ADAPTER_EXECUTION_FAILED", "error_type": type(exc).__name__}],
             })
 
-    terminal = {"completed", "archived", "not_configured"}
+    terminal = {"completed", "archived", "documented_only", "not_configured"}
     summary = {
         "projects": len(results),
         "executed": sum(item["status"] == "completed" for item in results),
         "archived": sum(item["status"] == "archived" for item in results),
+        "documented_only": sum(item["status"] == "documented_only" for item in results),
         "not_configured": sum(item["status"] == "not_configured" for item in results),
         "unavailable": sum(item["status"] == "unavailable" for item in results),
         "failed": sum(item["status"] == "failed" for item in results),
@@ -255,6 +281,6 @@ def run_project_adapters(
 
 __all__ = [
     "AdapterContext", "AdapterResult", "AdapterRegistry", "ProjectAdapter",
-    "RepositorySmokeAdapter", "ArchivedProjectAdapter",
+    "RepositorySmokeAdapter", "ArchivedProjectAdapter", "DocumentedOnlyAdapter",
     "build_default_adapter_registry", "run_project_adapters",
 ]

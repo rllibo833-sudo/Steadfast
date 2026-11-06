@@ -214,6 +214,56 @@ def infer_candidate_relations(
             "provenance": {"mentions": mentions},
         })
 
+    # Preserve every declared manifest relationship as an explicit graph edge.
+    # These are source assertions, not independently verified facts.
+    endpoint_node_ids = {
+        item["id"]: f"project:{item['id']}"
+        for item in projects
+    }
+    endpoint_node_ids.update({
+        item["id"]: f"consumer:{item['id']}"
+        for item in consumers
+    })
+    endpoint_node_ids.update({
+        item["id"]: f"source:{item['id']}"
+        for item in sources
+    })
+    unresolved_endpoints: set[str] = set()
+    declared_relationship_count = 0
+    for relation_index, relation in enumerate(manifest.get("relationships", [])):
+        if not isinstance(relation, dict):
+            continue
+        left, right = relation.get("from"), relation.get("to")
+        if not isinstance(left, str) or not left.strip() or not isinstance(right, str) or not right.strip():
+            continue
+        endpoint_ids: list[str] = []
+        for endpoint in (left, right):
+            node_id = endpoint_node_ids.get(endpoint)
+            if node_id is None:
+                node_id = f"unresolved-entity:{endpoint}"
+                if node_id not in unresolved_endpoints:
+                    unresolved_endpoints.add(node_id)
+                    nodes.append({
+                        "id": node_id,
+                        "kind": "unresolved_manifest_endpoint",
+                        "label": endpoint,
+                        "attributes": {},
+                        "provenance": {"manifest_field": f"relationships[{relation_index}]"},
+                    })
+            endpoint_ids.append(node_id)
+        edges.append({
+            "from": endpoint_ids[0],
+            "to": endpoint_ids[1],
+            "type": "manifest_declared_relationship",
+            "attributes": {
+                "declared_type": relation.get("type"),
+                "declared_status": relation.get("status", "unknown"),
+            },
+            "evidence": f"relationships[{relation_index}]",
+            "epistemic_status": "manifest_asserted_not_independently_verified",
+        })
+        declared_relationship_count += 1
+
     declared_pairs: dict[frozenset[str], list[dict[str, Any]]] = defaultdict(list)
     for index, relation in enumerate(manifest.get("relationships", [])):
         if isinstance(relation, dict):
@@ -296,7 +346,7 @@ def infer_candidate_relations(
         },
         "summary": {
             "projects": len(projects), "source_systems": len(sources),
-            "consumers": len(consumers), "declared_concepts": 0,
+            "consumers": len(consumers), "declared_relationships": declared_relationship_count, "declared_concepts": 0,
             "candidate_concepts": len(concept_evidence),
             "audit_findings": len(graph_findings), "edges": len(edges),
             "candidate_relations": len(review_queue), "review_items": len(review_queue),

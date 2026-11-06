@@ -414,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"output": str(output_path), "model_sha256": model_digest(result), "summary": result["summary"], "graph_findings": result["graph_findings"]}, indent=2, ensure_ascii=False))
             else:
                 print(rendered, end="")
-            return 1 if result["graph_findings"] else 0
+            return 1 if result["graph_findings"] or result["manifest_findings"] else 0
 
         if args.command == "universe-cross-project":
             from .ncm_cross_project import build_cross_project_model

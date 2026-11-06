@@ -53,7 +53,7 @@ A future NCM implementation should be staged and independently testable:
 5. **Review** — require human approval or a separately authorized verification process before changing canonical facts.
 6. **Export** — emit a versioned model artifact and an auditable change proposal.
 
-The first implementation should be read-only. No automatic edits to `universe.json`, project repositories, Notion pages, Supabase projects, device files, MCP configuration, or Hub/dashboard are permitted.
+The current prototype implements a limited read-only version of extraction, relation proposal, and reconciliation. It extracts lexical tokens and adjacent phrases from project-purpose strings, attaches exact character spans, calculates token-set Jaccard overlap, and checks whether a candidate pair already appears in the declared relationship list. This reconciliation is endpoint-level only; it does not establish semantic agreement or detect logical contradictions. No automatic edits to `universe.json`, project repositories, Notion pages, Supabase projects, device files, MCP configuration, or Hub/dashboard are permitted.
 
 ## Acceptance criteria for an inference prototype
 

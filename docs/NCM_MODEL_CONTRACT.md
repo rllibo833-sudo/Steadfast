@@ -14,6 +14,7 @@ This document is a proposed engineering contract, not a claim that an NCM reason
 - The current projection preserves declared facts and provenance. It does not infer concepts, dependencies, or project status.
 - `steadfast universe-infer` provides an experimental purpose-text lexical baseline.
 - `steadfast universe-analyze` provides a multi-field lexical discovery graph, candidate project overlaps, and structural graph findings. It is not a semantic NCM engine.
+- `steadfast universe-review` validates a human review ledger against the exact SHA-256 model artifact and stable edge IDs. It does not edit the graph or promote candidates.
 - No NCM service, model weights, semantic inference runtime, or external reasoning endpoint is configured in this repository.
 
 ## Epistemic rules

@@ -118,7 +118,7 @@ MIT licensed. See [LICENSE](LICENSE).
 Steadfast can probe source metadata without writing to external systems:
 
 - `steadfast universe-sources` checks configured Notion, Supabase, Cloudflare Workers, and local JBF/Termux metadata access.
-- Credentials are supplied through environment variables: `NOTION_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Use read-only, least-privilege tokens.
+- Credentials are supplied through environment variables: `NOTION_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. GitHub README ingestion uses the Actions-provided `GITHUB_TOKEN`, with `JBF_GITHUB_TOKEN` as the fallback for local/manual runs. The optional Supabase metadata probe requires a Supabase Management API `SUPABASE_ACCESS_TOKEN`; `SUPABASE_SECRET_KEY` is not a substitute and is never used by this reader. Use read-only, least-privilege tokens.
 - `steadfast universe-semantic --allow-remote` optionally sends project descriptions and declared relationships to an OpenAI-compatible model endpoint configured with `NCM_MODEL`, optional `NCM_BASE_URL`, and either `NCM_API_KEY` or the existing `JBF_OPENROUTER_API_KEY` secret (used as a fallback). The explicit flag is required before any remote transfer.
 - Generated concepts, relations, and potential contradictions are evidence-checked candidates, never automatically verified facts. This is a semantic LLM-assisted layer, not a claim of reproducing a particular scientific NCM architecture.
 

@@ -63,7 +63,7 @@ The current read-only prototypes implement lexical extraction, relation proposal
 - Repeated runs on identical input are deterministic, or any nondeterminism is explicitly recorded.
 - Contradictions are reported as review items, not auto-resolved.
 - Missing or inaccessible sources remain `unknown`; absence of evidence is not evidence of absence.
-- Tests cover deterministic extraction, exact source spans, candidate-only status, threshold filtering, and declared-pair reconciliation. Broader manifest graph validation remains a separate validator responsibility.
+- Tests cover deterministic multi-field extraction, exact source spans, Unicode offsets, candidate-only status, threshold filtering, field-level evidence, source-link epistemic status, and graph endpoint integrity. Broader manifest validation remains a separate validator responsibility.
 - Existing Steadfast MCP Server, Hub/dashboard, release configuration, and integrations remain unchanged.
 
 ## Non-goals

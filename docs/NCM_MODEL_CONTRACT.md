@@ -62,7 +62,7 @@ The current prototype implements a limited read-only version of extraction, rela
 - Repeated runs on identical input are deterministic, or any nondeterminism is explicitly recorded.
 - Contradictions are reported as review items, not auto-resolved.
 - Missing or inaccessible sources remain `unknown`; absence of evidence is not evidence of absence.
-- Tests cover duplicate IDs, dangling edges, unsupported status promotion, empty evidence, and conflicting declarations.
+- Tests cover deterministic extraction, exact source spans, candidate-only status, threshold filtering, and declared-pair reconciliation. Broader manifest graph validation remains a separate validator responsibility.
 - Existing Steadfast MCP Server, Hub/dashboard, release configuration, and integrations remain unchanged.
 
 ## Non-goals

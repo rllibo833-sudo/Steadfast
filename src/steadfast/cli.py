@@ -318,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
                 return 1
             result = infer_candidate_relations(manifest, threshold=args.threshold)
-            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\\n"
+            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
             if args.output:
                 output_path = Path(args.output)
                 if not output_path.is_absolute():

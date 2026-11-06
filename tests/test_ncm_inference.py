@@ -42,6 +42,13 @@ class NcmInferenceTests(unittest.TestCase):
         self.assertEqual(result["review_queue"][0]["reconciliation"], "no_matching_declared_pair")
         self.assertIn("not evidence of contradiction", result["review_queue"][0]["note"])
 
+    def test_character_spans_preserve_original_unicode_text(self):
+        manifest = {"projects": [{"id": "unicode", "purpose": "Pemrosesan data — café dan analisis"}]}
+        result = infer_candidate_relations(manifest)
+        project_edge = next(edge for edge in result["edges"] if edge["type"] == "mentions_candidate_concept")
+        _, start, end = project_edge["evidence"].split(":")
+        self.assertEqual(manifest["projects"][0]["purpose"][int(start):int(end)], project_edge["attributes"]["surface"])
+
     def test_threshold_and_validation(self):
         self.assertEqual(infer_candidate_relations(self.manifest, threshold=0.9)["review_queue"], [])
         with self.assertRaises(ValueError):

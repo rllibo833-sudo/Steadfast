@@ -46,7 +46,7 @@ class NcmSourceIngestionTests(unittest.TestCase):
 
     def test_content_artifact_marks_unsupported_services_instead_of_claiming_read(self):
         manifest = {"projects": [{"id": "p", "sources": [
-            {"source_id": "supabase", "uri": "supabase://project/abcdefgh"},
+            {"source_id": "supabase", "uri": "supabase://project/vcvejjpzklpvknxmymgy"},
             {"source_id": "cloudflare", "uri": "cloudflare://worker/example"},
         ]}]}
         result = collect_source_documents(manifest, env={})
@@ -94,7 +94,7 @@ class NcmSourceIngestionTests(unittest.TestCase):
             result = collect_source_documents(manifest, env={"SUPABASE_PUBLISHABLE_KEY": "sb_publishable_test", "SUPABASE_READ_ALLOWLIST": allowlist})
         self.assertEqual(result["summary"]["documents_read"], 1)
         self.assertIn('"title": "hello"', result["documents"][0]["content"])
-        self.assertIn("id,title", request.call_args.args[0])
+        self.assertIn("select=id%2Ctitle", request.call_args.args[0])
         self.assertEqual(request.call_args.kwargs["headers"]["apikey"], "sb_publishable_test")
         self.assertNotIn("service_role", request.call_args.kwargs["headers"].get("Authorization", ""))
 

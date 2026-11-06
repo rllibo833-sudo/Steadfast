@@ -14,6 +14,7 @@ This document is a proposed engineering contract, not a claim that an NCM reason
 - The current projection preserves declared facts and provenance. It does not infer concepts, dependencies, or project status.
 - `steadfast universe-infer` provides an experimental purpose-text lexical baseline.
 - `steadfast universe-analyze` provides a multi-field lexical discovery graph, candidate project overlaps, and structural graph findings. It is not a semantic NCM engine.
+- `steadfast universe-review` validates a human review ledger against the exact SHA-256 model artifact and stable edge IDs. It does not edit the graph or promote candidates.
 - No NCM service, model weights, semantic inference runtime, or external reasoning endpoint is configured in this repository.
 
 ## Epistemic rules
@@ -29,7 +30,7 @@ Every model assertion must carry one of these statuses:
 | `verified` | A human or trusted verification process attached evidence | Yes, within the evidence scope |
 | `rejected` | Reviewed and rejected, with a reason | No |
 
-No model output may silently promote `candidate`, `proposed`, or `unverified` to `verified`.
+No model output may silently promote `candidate`, `proposed`, or `unverified` to `verified`. Human review decisions (`accepted`, `rejected`, or `deferred`) are stored in a separate digest-bound ledger; an `accepted` candidate remains epistemically `candidate` until an independent verification process attaches scoped evidence.
 
 ## Required model structure
 
@@ -54,7 +55,7 @@ A future NCM implementation should be staged and independently testable:
 5. **Review** — require human approval or a separately authorized verification process before changing canonical facts.
 6. **Export** — emit a versioned model artifact and an auditable change proposal.
 
-The current read-only prototypes implement lexical extraction, relation proposal, and endpoint-level reconciliation. `universe-analyze` scans selected descriptive fields across projects, sources, consumers, source references, and inventory notes; extracts normalized tokens and adjacent phrases with exact character spans; creates candidate concept nodes; calculates token-set Jaccard overlap across project text; reconciles candidate project pairs against declared endpoints; and reports unresolved source references or dangling graph edges. This does not establish semantic agreement, detect logical contradictions, or validate external systems. A matching declared pair is not proof of correctness; an absent pair is not a contradiction. No automatic edits to `universe.json`, project repositories, Notion pages, Supabase projects, device files, MCP configuration, or Hub/dashboard are permitted.
+The current read-only prototypes implement lexical extraction, relation proposal, and endpoint-level reconciliation. `universe-analyze` scans selected descriptive fields across projects, sources, consumers, source references, and inventory notes; extracts normalized tokens and adjacent phrases with exact character spans; creates candidate concept nodes; calculates token-set Jaccard overlap across project text; reconciles candidate project pairs against declared endpoints; and reports unresolved source references or dangling graph edges. This does not establish semantic agreement, detect logical contradictions, or validate external systems. A matching declared pair is not proof of correctness; an absent pair is not a contradiction. No automatic edits to `universe.json`, project repositories, Notion pages, Supabase projects, device files, MCP configuration, or Hub/dashboard are permitted. Review decisions belong in a separate `ncm-review.schema.json`-conforming sidecar ledger tied to the exact model digest; they do not mutate the model or canonical sources.
 
 ## Acceptance criteria for an inference prototype
 

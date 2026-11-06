@@ -90,6 +90,10 @@ def parser() -> argparse.ArgumentParser:
     analyze = commands.add_parser("universe-analyze", help="Build a multi-field NCM discovery graph and review queue")
     analyze.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     analyze.add_argument("--threshold", type=float, default=0.2, help="Minimum Jaccard overlap score from 0.0 to 1.0")
+    analyze.add_argument("--output", help="Optional path for the generated model JSON artifact")
+    review = commands.add_parser("universe-review", help="Validate a human review ledger against an exact model artifact")
+    review.add_argument("--model", required=True, help="Path to a previously generated model JSON file")
+    review.add_argument("--ledger", required=True, help="Path to a review decisions JSON file")
     skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True)
     skills_route = skills_sub.add_parser("route", help="Rank matching SKILL.md files for a task")
@@ -289,8 +293,23 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(build_concept_model(manifest, audit), indent=2, ensure_ascii=False))
             return 0
 
+        if args.command == "universe-review":
+            from .ncm_review import validate_review_ledger
+            model_path = Path(args.model)
+            ledger_path = Path(args.ledger)
+            if not model_path.is_absolute():
+                model_path = repo / model_path
+            if not ledger_path.is_absolute():
+                ledger_path = repo / ledger_path
+            model = json.loads(model_path.read_text(encoding="utf-8"))
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            result = validate_review_ledger(model, ledger)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result["valid"] else 1
+
         if args.command == "universe-analyze":
             from .ncm_pipeline import infer_candidate_relations
+            from .ncm_review import model_digest
             from .universe import load_universe_manifest
             manifest_path = Path(args.manifest)
             if not manifest_path.is_absolute():
@@ -300,7 +319,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
                 return 1
             result = infer_candidate_relations(manifest, threshold=args.threshold)
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
+            if args.output:
+                output_path = Path(args.output)
+                if not output_path.is_absolute():
+                    output_path = repo / output_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding="utf-8")
+                print(json.dumps({"output": str(output_path), "model_sha256": model_digest(result), "summary": result["summary"], "graph_findings": result["graph_findings"]}, indent=2, ensure_ascii=False))
+            else:
+                print(rendered, end="")
             return 1 if result["graph_findings"] else 0
 
         if args.command == "universe-infer":

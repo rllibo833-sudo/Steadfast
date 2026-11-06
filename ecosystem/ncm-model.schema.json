@@ -194,6 +194,10 @@
               "verified",
               "rejected"
             ]
+          },
+          "edge_id": {
+            "type": "string",
+            "pattern": "^edge:[a-f0-9]{24}$"
           }
         },
         "additionalProperties": false

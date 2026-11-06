@@ -76,7 +76,7 @@ class NcmRunnerTests(unittest.TestCase):
             ],
         )
         self.assertEqual(result["model_type"], "next_concept_model")
-        self.assertEqual(len(result["ecosystem_graph"]["nodes"]), 1)
+        self.assertEqual(len(result["ecosystem_graph"]["nodes"]), 3)
         self.assertEqual(len(result["ecosystem_graph"]["edges"]), 1)
         self.assertEqual(result["ecosystem_graph"]["edges"][0]["epistemic_status"], "candidate")
         self.assertEqual(result["semantic_layer"]["status"], "completed")

@@ -68,11 +68,17 @@ def validate_review_ledger(
             continue
         rationale = decision.get("rationale")
         evidence = decision.get("evidence")
-        if not isinstance(rationale, str) or not rationale.strip():
+        rationale_valid = isinstance(rationale, str) and bool(rationale.strip())
+        evidence_valid = (
+            isinstance(evidence, list)
+            and bool(evidence)
+            and all(isinstance(item, str) and item.strip() for item in evidence)
+        )
+        if not rationale_valid:
             findings.append({"code": "RATIONALE_REQUIRED", "path": prefix, "message": "A non-empty rationale is required"})
-            continue
-        if not isinstance(evidence, list) or not evidence or not all(isinstance(item, str) and item.strip() for item in evidence):
+        if not evidence_valid:
             findings.append({"code": "REVIEW_EVIDENCE_REQUIRED", "path": prefix, "message": "At least one evidence reference is required"})
+        if not rationale_valid or not evidence_valid:
             continue
         normalized.append({
             "edge_id": edge_id,

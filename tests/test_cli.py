@@ -102,6 +102,33 @@ class CliTests(unittest.TestCase):
             self.assertIn("AGENTS.md", result["preserved_existing_files"])
             self.assertFalse(result["external_registration_required"])
 
+
+    def test_ncm_analysis_commands_fail_on_manifest_graph_findings(self):
+        import contextlib
+        import io
+        import json
+        from unittest.mock import patch
+
+        from steadfast import universe
+
+        manifest = {
+            "projects": [{"id": "alpha", "purpose": "Evidence analysis platform"}],
+            "relationships": [{"from": "alpha", "to": "missing-project", "type": "related"}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            for command in ("universe-analyze", "universe-cross-project"):
+                output = io.StringIO()
+                with patch.object(universe, "load_universe_manifest", return_value=(manifest, [])):
+                    with contextlib.redirect_stdout(output):
+                        result = main(["--repo", directory, command])
+                self.assertEqual(result, 1, command)
+                report = json.loads(output.getvalue())
+                self.assertTrue(
+                    any(item["code"] == "UNRESOLVED_MANIFEST_ENDPOINT"
+                        for item in report["manifest_findings"]),
+                    command,
+                )
+
     def test_python_module_entrypoint_exists(self):
         self.assertTrue(
             (Path(__file__).parents[1] / "src" / "steadfast" / "__main__.py").is_file()

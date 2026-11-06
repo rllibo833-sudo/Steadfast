@@ -325,7 +325,8 @@
       "expected_status": [
         200
       ],
-      "purpose": "Public frontend delivery; GET-only probe"
+      "purpose": "Public frontend delivery; GET-only probe",
+      "project_state": "INACTIVE"
     },
     {
       "id": "pusingcuk-ai",
@@ -336,7 +337,8 @@
         401,
         403
       ],
-      "purpose": "Authenticated AI endpoint; unauthenticated probe must remain protected"
+      "purpose": "Authenticated AI endpoint; unauthenticated probe must remain protected",
+      "project_state": "INACTIVE"
     },
     {
       "id": "mnemos-mcp",
@@ -346,7 +348,8 @@
       "expected_status": [
         200
       ],
-      "purpose": "Public read-only MCP health check; authenticated user JWT remains required for POST JSON-RPC operations"
+      "purpose": "Public read-only MCP health check; authenticated user JWT remains required for POST JSON-RPC operations",
+      "project_state": "INACTIVE"
     },
     {
       "id": "kawasan-api-health",
@@ -356,7 +359,8 @@
       "expected_status": [
         200
       ],
-      "purpose": "Read-only public API health endpoint"
+      "purpose": "Read-only public API health endpoint",
+      "project_state": "INACTIVE"
     }
   ]
 }

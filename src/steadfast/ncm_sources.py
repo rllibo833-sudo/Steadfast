@@ -315,7 +315,8 @@ def collect_source_documents(
     """Read bounded Notion, GitHub, allowlisted Supabase tables, Cloudflare Workers, and local JBF metadata; never writes."""
     settings = os.environ if env is None else env
     notion_token = settings.get("NOTION_API_TOKEN", "").strip()
-    github_token = settings.get("GITHUB_TOKEN", "").strip()
+    # Prefer the Actions-provided token; reuse the repository secret for local/manual runs.
+    github_token = (settings.get("GITHUB_TOKEN") or settings.get("JBF_GITHUB_TOKEN") or "").strip()
     jbf_root = Path(settings.get("JBF_ROOT") or (Path.home() / "JBF")).expanduser()
     documents: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []

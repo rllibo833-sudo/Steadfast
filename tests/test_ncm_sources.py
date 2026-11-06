@@ -28,6 +28,15 @@ class NcmSourceIngestionTests(unittest.TestCase):
         self.assertIn("Project purpose", content)
         self.assertIn("/blob/abc123", uri)
 
+    def test_existing_jbf_github_token_is_used_when_actions_token_is_absent(self):
+        manifest = {"projects": [{"id": "p", "name": "Project", "sources": [
+            {"source_id": "github", "uri": "https://github.com/example/project"},
+        ]}]}
+        with patch("steadfast.ncm_sources._github_readme", return_value=("# README", "read", "https://github.com/example/project")) as reader:
+            result = collect_source_documents(manifest, env={"JBF_GITHUB_TOKEN": "existing-token"})
+        self.assertEqual(result["summary"]["documents_read"], 1)
+        self.assertEqual(reader.call_args.kwargs["token"], "existing-token")
+
     def test_local_jbf_ingestion_uses_allowlist_and_skips_symlinks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

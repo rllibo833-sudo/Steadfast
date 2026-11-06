@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "description": "Provisional graph edges extracted from known project context. These are not technical dependency claims unless explicitly verified.",
+  "nodes": [
+    {
+      "id": "pusingcuk",
+      "name": "Pusingcuk"
+    },
+    {
+      "id": "mnemos-rli",
+      "name": "Mnemos-RLI"
+    },
+    {
+      "id": "steadfast",
+      "name": "Steadfast"
+    },
+    {
+      "id": "ecos",
+      "name": "Ecos"
+    },
+    {
+      "id": "core-public",
+      "name": "Core / Public"
+    },
+    {
+      "id": "cukmind",
+      "name": "Cukmind"
+    },
+    {
+      "id": "beyond-light",
+      "name": "Beyond Light"
+    },
+    {
+      "id": "orbit",
+      "name": "LynOS / Nexus / Orbit"
+    },
+    {
+      "id": "jbf-sandboxos",
+      "name": "JBF / SandboxOS"
+    },
+    {
+      "id": "harness",
+      "name": "Harness"
+    },
+    {
+      "id": "ncm",
+      "name": "NCM"
+    }
+  ],
+  "edges": [
+    {
+      "from": "steadfast",
+      "to": "harness",
+      "type": "candidate_governance_layer",
+      "status": "proposed"
+    },
+    {
+      "from": "harness",
+      "to": "ncm",
+      "type": "validated_manifest_input",
+      "status": "proposed"
+    },
+    {
+      "from": "pusingcuk",
+      "to": "mnemos-rli",
+      "type": "shared_ecosystem_membership",
+      "status": "indexed_only"
+    },
+    {
+      "from": "ecos",
+      "to": "core-public",
+      "type": "shared_ecosystem_membership",
+      "status": "indexed_only"
+    }
+  ]
+}

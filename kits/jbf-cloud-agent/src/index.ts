@@ -189,10 +189,11 @@ export class JbfAgent extends Agent<Env> {
     await this.mcp.waitForConnections({ timeout: 8_000 });
     const allTools = this.mcp.getAITools();
     const catalog = this.mcp.listTools();
-    if (catalog.length === 0) throw new Error("Connected services exposed no remote tools. Reconnect GitHub and Cloudflare before asking the agent to manage them.");
+    if (catalog.length === 0) throw new Error("No connected service exposed remote tools. Connect the provider needed for this task, then retry.");
     const servers = this.getMcpServers().servers;
     const specialists = selectOperationsRoles(instruction);
-    const isAccountRegistration = specialists.some((role) => role.id === "account-onboarding");
+    const isAccountRegistration = specialists.some((role) => role.id === "account-onboarding")
+      && /\b(daftar|registr|signup|sign up|buat akun|register|create account)\b/i.test(instruction);
     const isOutreachTask = /\b(outreach|prospecting|hubungi calon pelanggan|kirim pesan|contact lead)\b/i.test(instruction);
     const personalDataInPrompt = isAccountRegistration || isOutreachTask
       || /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\+?\d[\d\s().-]{8,}\d/.test(instruction);
@@ -202,13 +203,9 @@ export class JbfAgent extends Agent<Env> {
     const outreachContext = isOutreachTask
       ? `Owner business contact for this approved outreach task: email=${this.env.BUSINESS_EMAIL || "unavailable"}; WhatsApp=${this.env.BUSINESS_WHATSAPP || "unavailable"}.`
       : "Owner business contact details are withheld for this task.";
-    const specialistConnectors = new Set(specialists.flatMap((role) => role.connectors === "all" ? Object.keys(servers) : role.connectors));
-    const tools = specialists.length
-      ? Object.fromEntries(Object.entries(allTools).filter(([key]) => {
-          const item = catalog.find((tool) => key === `tool_${tool.serverId}_${tool.name}`);
-          return item && specialistConnectors.has(item.serverId);
-        })) as typeof allTools
-      : allTools;
+    // Roles guide task focus, not connector permissions. Every role can use
+    // tools from every currently connected service when the task needs them.
+    const tools = allTools;
     const providerContext = PROVIDERS.map((provider) => ({
       id: provider.id,
       category: provider.category,
@@ -251,7 +248,7 @@ export class JbfAgent extends Agent<Env> {
     const readOnlyTools = Object.fromEntries(Object.entries(tools).filter(([key]) => readOnlyKeys.has(key))) as typeof tools;
     const ai = createAI({ binding: this.env.AI });
     const generation = {
-      system: `${SYSTEM}\n\nYou are the JBF Coordinator. Route each task to the relevant listed specialist, use their permitted connected services, carry out the authorized work, and report evidence, results, blockers, and any exact approval needed. Specialists share this single task and free inference call; do not claim separate agents ran. If several departments match, coordinate them in this call and do not stop after giving a plan when an available action can be completed safely.\n\nSelected specialists: ${specialists.length ? specialists.map((role) => `${role.name} (${role.id}): ${role.purpose}`).join("\\n") : "Coordinator handles the task directly."}\n\nAdditional inference policy: use configured free providers in this order after Cloudflare: OpenRouter Free, Groq Free, Cerebras Free, NVIDIA NIM free endpoints, then Gemini Free only when GEMINI_FREE_DATA_APPROVED is true. Cerebras Free and NVIDIA NIM Free Endpoints have rate limits. Gemini Free inputs may be used by Google to improve products; never route secrets, personal data, or confidential business data there. Never use paid inference.\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\n${outreachContext}\n\n${registrationContext}`,
+      system: `${SYSTEM}\n\nYou are the JBF Coordinator. Route each task to the relevant listed specialist, use any connected service tools needed across the task, carry out the authorized work, and report evidence, results, blockers, and any exact approval needed. Specialists share this single task and free inference call; do not claim separate agents ran. If several departments match, coordinate them in this call and do not stop after giving a plan when an available action can be completed safely.\n\nSelected specialists: ${specialists.length ? specialists.map((role) => `${role.name} (${role.id}): ${role.purpose}`).join("\\n") : "Coordinator handles the task directly."}\n\nSpecialist roles are focus areas; every specialist has access to tools from all connected services.\n\nAdditional inference policy: use configured free providers in this order after Cloudflare: OpenRouter Free, Groq Free, Cerebras Free, NVIDIA NIM free endpoints, then Gemini Free only when GEMINI_FREE_DATA_APPROVED is true. Cerebras Free and NVIDIA NIM Free Endpoints have rate limits. Gemini Free inputs may be used by Google to improve products; never route secrets, personal data, or confidential business data there. Never use paid inference.\n\nProvider catalog: ${JSON.stringify(providerContext)}\n\n${outreachContext}\n\n${registrationContext}`,
       prompt: instruction,
       tools,
       stopWhen: stepCountIs(8),

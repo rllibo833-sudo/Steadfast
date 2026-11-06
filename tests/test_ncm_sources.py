@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from steadfast.ncm_sources import collect_source_documents, _notion_document, _github_readme
+from steadfast.ncm_sources import _github_readme, _notion_document, collect_source_documents
 
 
 class NcmSourceIngestionTests(unittest.TestCase):
@@ -46,13 +46,13 @@ class NcmSourceIngestionTests(unittest.TestCase):
 
     def test_content_artifact_marks_unsupported_services_instead_of_claiming_read(self):
         manifest = {"projects": [{"id": "p", "sources": [
-            {"source_id": "supabase", "uri": "supabase://project/abcdefgh"},
+            {"source_id": "supabase", "uri": "supabase://project/vcvejjpzklpvknxmymgy"},
             {"source_id": "cloudflare", "uri": "cloudflare://worker/example"},
         ]}]}
         result = collect_source_documents(manifest, env={})
         statuses = {item["source_id"]: item["status"] for item in result["failures"]}
-        self.assertEqual(statuses["supabase"], "content_reader_not_implemented")
-        self.assertEqual(statuses["cloudflare"], "content_reader_not_implemented")
+        self.assertEqual(statuses["supabase"], "not_configured")
+        self.assertEqual(statuses["cloudflare"], "not_configured")
         self.assertEqual(result["documents"], [])
 
     def test_notion_nested_blocks_are_read_and_depth_is_bounded(self):
@@ -82,6 +82,60 @@ class NcmSourceIngestionTests(unittest.TestCase):
                 content, status = _notion_document("a" * 32, token="token")
         self.assertEqual(len(content), 12)
         self.assertEqual(status, "partial")
+
+
+    def test_supabase_reader_uses_explicit_table_and_column_allowlist(self):
+        project_ref = "vcvejjpzklpvknxmymgy"
+        manifest = {"projects": [{"id": "p", "name": "P", "sources": [
+            {"source_id": "supabase", "uri": f"supabase://project/{project_ref}"},
+        ]}]}
+        allowlist = json.dumps([{"project_ref": project_ref, "table": "public.notes", "columns": ["id", "title"]}])
+        with patch("steadfast.ncm_sources._http", return_value=(200, b'[{"id":1,"title":"hello"}]', {"Content-Type": "application/json"})) as request:
+            result = collect_source_documents(manifest, env={"SUPABASE_PUBLISHABLE_KEY": "sb_publishable_test", "SUPABASE_READ_ALLOWLIST": allowlist})
+        self.assertEqual(result["summary"]["documents_read"], 1)
+        self.assertIn('"title": "hello"', result["documents"][0]["content"])
+        self.assertIn("select=id%2Ctitle", request.call_args.args[0])
+        self.assertEqual(request.call_args.kwargs["headers"]["apikey"], "sb_publishable_test")
+        self.assertNotIn("service_role", request.call_args.kwargs["headers"].get("Authorization", ""))
+
+    def test_supabase_reader_refuses_unlisted_tables(self):
+        project_ref = "vcvejjpzklpvknxmymgy"
+        manifest = {"projects": [{"id": "p", "sources": [
+            {"source_id": "supabase", "uri": f"supabase://project/{project_ref}"},
+        ]}]}
+        result = collect_source_documents(manifest, env={"SUPABASE_PUBLISHABLE_KEY": "sb_publishable_test"})
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["failures"][0]["status"], "not_configured")
+
+    def test_cloudflare_worker_reader_is_get_only_and_captures_source(self):
+        manifest = {"projects": [{"id": "edge-app", "name": "Edge App", "sources": [
+            {"source_id": "cloudflare", "uri": "cloudflare://worker/edge-api"},
+        ]}]}
+        with patch("steadfast.ncm_sources._http", return_value=(200, b"export default { fetch() { return new Response('ok') } }", {"Content-Type": "text/javascript"})) as request:
+            result = collect_source_documents(manifest, env={"CLOUDFLARE_ACCOUNT_ID": "a" * 32, "CLOUDFLARE_API_TOKEN": "token"})
+        self.assertEqual(result["summary"]["documents_read"], 1)
+        self.assertIn("new Response", result["documents"][0]["content"])
+        self.assertTrue(request.call_args.args[0].endswith("/workers/scripts/edge-api"))
+        self.assertEqual(request.call_args.kwargs["token"], "token")
+
+    def test_cloudflare_reader_requires_account_and_token(self):
+        manifest = {"projects": [{"id": "edge-app", "sources": [
+            {"source_id": "cloudflare", "uri": "cloudflare://worker/edge-api"},
+        ]}]}
+        result = collect_source_documents(manifest, env={})
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["failures"][0]["status"], "not_configured")
+
+
+    def test_supabase_reader_rejects_secret_key(self):
+        project_ref = "vcvejjpzklpvknxmymgy"
+        manifest = {"projects": [{"id": "p", "sources": [
+            {"source_id": "supabase", "uri": f"supabase://project/{project_ref}"},
+        ]}]}
+        allowlist = json.dumps([{"project_ref": project_ref, "table": "public.notes", "columns": ["id"]}])
+        result = collect_source_documents(manifest, env={"SUPABASE_PUBLISHABLE_KEY": "sb_secret_never-use", "SUPABASE_READ_ALLOWLIST": allowlist})
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["failures"][0]["status"], "not_configured")
 
 
 if __name__ == "__main__":

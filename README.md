@@ -127,7 +127,7 @@ Steadfast can probe source metadata without writing to external systems:
 
 Use `steadfast universe-content --output .steadfast/source-documents.json` to collect a bounded, hash-stamped content snapshot from Notion pages, GitHub repository READMEs, and a strict local JBF/Termux file allowlist. The command performs GET-only remote reads and never writes to source systems.
 
-The initial reader intentionally does **not** claim content access to Supabase or Cloudflare Workers. Supabase projects reported inactive remain metadata-only; Cloudflare Worker source retrieval requires a separately implemented reader and least-privilege token. Failed, inaccessible, and unsupported sources are recorded as failures rather than silently omitted.
+Supabase reads are limited to explicitly allowlisted tables and columns using a publishable key; Cloudflare reads only explicitly indexed Worker scripts using a read-only token. Missing credentials, inactive projects, inaccessible scripts, and unsupported references are recorded as failures rather than silently omitted.
 
 To analyze a collected snapshot, configure `NCM_API_KEY` and `NCM_MODEL`, then run:
 
@@ -136,3 +136,11 @@ steadfast universe-semantic --documents .steadfast/source-documents.json --allow
 ```
 
 The two consent flags are intentionally separate: `--allow-remote` permits manifest transfer, while `--allow-source-content-remote` permits sending collected document text to the model endpoint. Source text is treated as untrusted input, exact evidence quotes are checked against the captured content, and every inference remains a review-only candidate. The document artifact is a local snapshot and may contain proprietary text; protect it accordingly.
+
+
+### Read-only source credentials
+
+- `SUPABASE_PUBLISHABLE_KEY` plus `SUPABASE_READ_ALLOWLIST` (JSON array of `{project_ref, table, columns}` entries) enables GET-only reads of named columns from explicitly allowlisted tables. Never use a Supabase secret/service-role key for this collector.
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` enable GET-only Worker source reads for manifest references shaped as `cloudflare://worker/<script-name>`. Use a token scoped to Workers Scripts Read or Workers Content Read-Only.
+- Supabase source URIs use `supabase://project/<project-ref>`. The reader queries only allowlisted tables for that project, at most 100 rows per table.
+- Store credentials as GitHub Actions repository secrets or local runtime environment variables; never commit them. The source-document artifact can contain proprietary content or hard-coded secrets embedded in source code and must be reviewed and protected.

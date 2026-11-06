@@ -74,8 +74,18 @@ This contract does not prescribe a particular neural architecture, claim equival
 
 ## Read-only source content ingestion (experimental)
 
-`steadfast universe-content` collects bounded snapshots from Notion page blocks, GitHub repository READMEs, and a strict allowlist of local JBF/Termux metadata files. Each captured document includes a stable source identifier, project association, content SHA-256, and read status. The collector uses HTTP GET only, caps document and aggregate size, and does not recursively crawl arbitrary files or Notion child pages.
+`steadfast universe-content` collects bounded snapshots from Notion page blocks, GitHub repository READMEs, explicitly allowlisted Supabase tables, explicitly indexed Cloudflare Worker scripts, and a strict allowlist of local JBF/Termux metadata files. Each captured document includes a stable source identifier, project association, content SHA-256, and read status. The collector uses HTTP GET only, caps document and aggregate size, and does not recursively crawl arbitrary files or Notion child pages.
 
-Supabase and Cloudflare content readers are not implemented in this stage. Supabase project metadata may be available while an inactive database has no queryable content; the system must not label metadata access as database ingestion. Cloudflare worker inventory is likewise not source-code ingestion. Both remain explicit unsupported-content findings until a separate read-only implementation is tested.
+Supabase content ingestion uses the Data REST API with a publishable key and a required JSON table/column allowlist (`SUPABASE_READ_ALLOWLIST`). Only named columns from named tables are queried, with a 100-row cap per table; no secret/service-role key is accepted. Cloudflare content ingestion fetches explicitly indexed Worker script source with the Workers Scripts GET endpoint and a token scoped to Workers Scripts Read or Workers Content Read-Only. References use `supabase://project/<project-ref>` and `cloudflare://worker/<script-name>`. Missing credentials, unlisted tables, inactive projects, inaccessible scripts, and malformed references remain explicit failures; metadata access is never labelled as content ingestion. Neither reader performs writes or discovers arbitrary tables/workers.
 
 Semantic use of captured text requires both `--allow-remote` and `--allow-source-content-remote`. The second flag is separate because source documents may contain private or proprietary content. Documents are treated as untrusted data, exact evidence quotes are validated against the captured text, and the model artifact records the digest of the source-document snapshot. No source text is sent to a model by the collection command itself.
+
+
+### Source reader environment configuration
+
+- `SUPABASE_PUBLISHABLE_KEY`: publishable (`sb_publishable_...`) key; do not use `sb_secret_...` or legacy `service_role` credentials.
+- `SUPABASE_READ_ALLOWLIST`: JSON array such as `[{"project_ref":"<20-char-ref>","table":"public.notes","columns":["id","title"]}]`.
+- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account identifier.
+- `CLOUDFLARE_API_TOKEN`: read-only token with Workers Scripts Read or Workers Content Read-Only.
+
+Keep these as repository Actions secrets or local runtime environment variables. Never store them in the manifest. Collected documents may contain private records or hard-coded secrets embedded in source code; review and protect artifacts, keep them out of public commits, and require the separate `--allow-source-content-remote` consent before sending content to a model.

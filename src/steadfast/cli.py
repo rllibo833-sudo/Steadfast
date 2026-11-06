@@ -101,7 +101,7 @@ def parser() -> argparse.ArgumentParser:
     semantic.add_argument("--allow-remote", action="store_true", help="Explicitly allow sending project descriptions to the configured model endpoint")
     semantic.add_argument("--documents", help="Previously collected source-document artifact JSON")
     semantic.add_argument("--allow-source-content-remote", action="store_true", help="Separately approve sending collected source-document text to the model endpoint")
-    content = commands.add_parser("universe-content", help="Collect bounded read-only content from configured Notion, GitHub, and local JBF sources")
+    content = commands.add_parser("universe-content", help="Collect bounded read-only content from Notion, GitHub, Supabase, Cloudflare Workers, and local JBF sources")
     content.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     content.add_argument("--output", help="Optional path for the source-document artifact JSON")
     semantic.add_argument("--output", help="Optional path for the generated semantic model JSON artifact")

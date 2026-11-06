@@ -45,8 +45,13 @@ jobs:
           NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          NCM_API_KEY: ${{ secrets.NCM_API_KEY || secrets.JBF_OPENROUTER_API_KEY }}
+          NCM_BASE_URL: ${{ vars.NCM_BASE_URL }}
+          NCM_MODEL: ${{ vars.NCM_MODEL }}
         run: |
           python -m steadfast --repo . ncm \
+            --allow-remote \
+            --allow-source-content-remote \
             --output .steadfast/artifacts/next-concept-model.json
       - name: Upload NCM model artifact
         if: github.event_name != 'pull_request'

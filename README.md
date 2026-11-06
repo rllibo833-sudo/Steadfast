@@ -119,7 +119,7 @@ Steadfast can probe source metadata without writing to external systems:
 
 - `steadfast universe-sources` checks configured Notion, Supabase, Cloudflare Workers, and local JBF/Termux metadata access.
 - Credentials are supplied through environment variables: `NOTION_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Use read-only, least-privilege tokens.
-- `steadfast universe-semantic --allow-remote` optionally sends project descriptions and declared relationships to an OpenAI-compatible model endpoint configured with `NCM_API_KEY`, `NCM_MODEL`, and optional `NCM_BASE_URL`. The explicit flag is required before any remote transfer.
+- `steadfast universe-semantic --allow-remote` optionally sends project descriptions and declared relationships to an OpenAI-compatible model endpoint configured with `NCM_MODEL`, optional `NCM_BASE_URL`, and either `NCM_API_KEY` or the existing `JBF_OPENROUTER_API_KEY` secret (used as a fallback). The explicit flag is required before any remote transfer.
 - Generated concepts, relations, and potential contradictions are evidence-checked candidates, never automatically verified facts. This is a semantic LLM-assisted layer, not a claim of reproducing a particular scientific NCM architecture.
 
 
@@ -129,7 +129,7 @@ Use `steadfast universe-content --output .steadfast/source-documents.json` to co
 
 Supabase reads are limited to explicitly allowlisted tables and columns using a publishable key; Cloudflare reads only explicitly indexed Worker scripts using a read-only token. Missing credentials, inactive projects, inaccessible scripts, and unsupported references are recorded as failures rather than silently omitted.
 
-To analyze a collected snapshot, configure `NCM_API_KEY` and `NCM_MODEL`, then run:
+To analyze a collected snapshot, configure `NCM_MODEL` and either `NCM_API_KEY` or the existing `JBF_OPENROUTER_API_KEY` secret, then run:
 
 ```bash
 steadfast universe-semantic --documents .steadfast/source-documents.json --allow-remote --allow-source-content-remote --output .steadfast/ncm-semantic.json

@@ -1,0 +1,44 @@
+name: Steadfast repository checks
+description: Run Steadfast governance checks in a GitHub Actions workflow and upload a JSON report.
+inputs:
+  python-version:
+    description: Python version used to install and run Steadfast.
+    required: false
+    default: "3.11"
+  package-version:
+    description: Exact steadfast-governance version to install.
+    required: false
+    default: "0.4.1"
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install Steadfast
+      shell: bash
+      env:
+        STEADFAST_PACKAGE_VERSION: ${{ inputs.package-version }}
+      run: python -m pip install --disable-pip-version-check "steadfast-governance==${STEADFAST_PACKAGE_VERSION}"
+    - name: Run governance verification
+      id: verify
+      shell: bash
+      run: steadfast verify
+    - name: Save JSON report
+      if: always()
+      shell: bash
+      run: |
+        if command -v steadfast >/dev/null 2>&1; then
+          steadfast report --format json > steadfast-report.json
+        else
+          printf '{"error":"Steadfast was not installed; see preceding workflow logs."}\n' > steadfast-report.json
+        fi
+    - name: Upload Steadfast report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: steadfast-governance-report
+        path: steadfast-report.json
+        if-no-files-found: warn
+        retention-days: 14

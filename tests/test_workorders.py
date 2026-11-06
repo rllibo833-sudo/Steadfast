@@ -71,7 +71,7 @@ class WorkOrderTests(unittest.TestCase):
             "Read policy, run audit, and verify evidence.\n",
             encoding="utf-8",
         )
-        order = issue_work_order(self.repo, "repo-audit", scope_paths=["src/**"])
+        order = issue_work_order(self.repo, "goal", scope_paths=["src/**"])
         selected = order["skill_selection"]["skills"]
         self.assertTrue(selected)
         self.assertEqual(selected[0]["name"], "repo-audit")

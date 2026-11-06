@@ -40,7 +40,8 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
 
 
 def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    api_key = env.get("NCM_API_KEY", "").strip()
+    # Reuse the repository's existing OpenRouter credential when no NCM-specific key is set.
+    api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
     base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     model = env.get("NCM_MODEL", "").strip()
     if not api_key or not model:
@@ -219,10 +220,11 @@ def infer_semantic_candidates(
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }
     settings = os.environ if env is None else env
-    if not settings.get("NCM_API_KEY", "").strip() or not settings.get("NCM_MODEL", "").strip():
+    api_key = (settings.get("NCM_API_KEY") or settings.get("JBF_OPENROUTER_API_KEY") or "").strip()
+    if not api_key or not settings.get("NCM_MODEL", "").strip():
         return {
             "status": "failed",
-            "error": "NCM_API_KEY and NCM_MODEL must be configured.",
+            "error": "Configure NCM_API_KEY or JBF_OPENROUTER_API_KEY, and NCM_MODEL.",
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }

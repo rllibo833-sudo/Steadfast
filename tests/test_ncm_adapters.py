@@ -1,6 +1,6 @@
 import unittest
 
-from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters
+from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters, DocumentedOnlyAdapter
 
 
 class ExampleAdapter:
@@ -42,6 +42,19 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result["summary"]["executed"], 1)
         self.assertEqual(result["results"][0]["status"], "completed")
         self.assertEqual(result["results"][0]["capabilities"][0]["id"], "capability:example")
+
+
+    def test_documented_only_projects_are_explicitly_not_executable(self):
+        registry = AdapterRegistry()
+        registry.register(DocumentedOnlyAdapter())
+        result = run_project_adapters(
+            {"projects": [{"id": "archive", "adapter": {"id": "documented-only"}}]},
+            [],
+            registry,
+        )
+        self.assertEqual(result["results"][0]["status"], "documented_only")
+        self.assertEqual(result["summary"]["documented_only"], 1)
+        self.assertEqual(result["status"], "completed")
 
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()

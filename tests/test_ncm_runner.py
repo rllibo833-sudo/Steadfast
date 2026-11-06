@@ -24,6 +24,11 @@ class NcmRunnerTests(unittest.TestCase):
             "safety": {"read_only": True},
         }
         self.graph = {
+            "nodes": [
+                {"id": "project:alpha", "kind": "project", "label": "Alpha"},
+                {"id": "project:beta", "kind": "project", "label": "Beta"},
+            ],
+            "edges": [],
             "summary": {
                 "projects": 2,
                 "candidate_concepts": 3,

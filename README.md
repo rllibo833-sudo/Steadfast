@@ -136,3 +136,11 @@ steadfast universe-semantic --documents .steadfast/source-documents.json --allow
 ```
 
 The two consent flags are intentionally separate: `--allow-remote` permits manifest transfer, while `--allow-source-content-remote` permits sending collected document text to the model endpoint. Source text is treated as untrusted input, exact evidence quotes are checked against the captured content, and every inference remains a review-only candidate. The document artifact is a local snapshot and may contain proprietary text; protect it accordingly.
+
+
+### Read-only source credentials
+
+- `SUPABASE_PUBLISHABLE_KEY` plus `SUPABASE_READ_ALLOWLIST` (JSON array of `{project_ref, table, columns}` entries) enables GET-only reads of named columns from explicitly allowlisted tables. Never use a Supabase secret/service-role key for this collector.
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` enable GET-only Worker source reads for manifest references shaped as `cloudflare://worker/<script-name>`. Use a token scoped to Workers Scripts Read or Workers Content Read-Only.
+- Supabase source URIs use `supabase://project/<project-ref>`. The reader queries only allowlisted tables for that project, at most 100 rows per table.
+- Store credentials as GitHub Actions repository secrets or local runtime environment variables; never commit them. The source-document artifact can contain proprietary content and must be protected.

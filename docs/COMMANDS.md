@@ -15,7 +15,8 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `ecosystem [--strict]` | Inventory skill and MCP declarations and apply configured trust labels. |
 | `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
 | `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving graph of declared facts. No inference or source mutation. |
-| `universe-infer [--manifest PATH] [--threshold SCORE]` | Extract lexical candidate concepts with source spans, relate projects by token overlap, and reconcile candidate pairs against declared relationships. Read-only; not semantic NCM. |
+| `universe-infer [--manifest PATH] [--threshold SCORE]` | Run the original purpose-text lexical candidate prototype. |
+| `universe-analyze [--manifest PATH] [--threshold SCORE]` | Build a multi-field concept graph from project, source, consumer, and inventory descriptions; emit candidate overlaps and graph findings. Read-only; not semantic NCM. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
 
@@ -31,7 +32,7 @@ steadfast universe-check
 
 ## Experimental NCM graph projection
 
-Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosystem manifest. Add `--include-audit` to include validation findings as graph nodes. The adapter preserves declared facts and provenance. `universe-infer` is a separate experimental symbolic baseline: it extracts tokens and adjacent phrases from each declared project purpose, records exact character offsets, builds candidate-concept nodes, scores shared project terms with Jaccard similarity, and reconciles candidate project pairs against manifest relationship endpoints. A matching declared pair is not proof of correctness; a missing pair is not a contradiction. All inferred items remain `candidate` and require human review. No source is modified and no remote source is queried.
+Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosystem manifest. Add `--include-audit` to include validation findings as graph nodes. The adapter preserves declared facts and provenance. `universe-infer` is a separate experimental symbolic baseline: it extracts tokens and adjacent phrases from each declared project purpose, records exact character offsets, builds candidate-concept nodes, scores shared project terms with Jaccard similarity, and reconciles candidate project pairs against manifest relationship endpoints. A matching declared pair is not proof of correctness; a missing pair is not a contradiction. All inferred items remain `candidate` and require human review. `universe-analyze` also extracts from project names, purposes, source-reference roles/titles/evidence, source scopes, consumer roles, and inventory notes. It emits source-system and consumer nodes, preserves field-level spans, flags unresolved source IDs and dangling graph edges, and keeps manifest-declared source links epistemically separate from inferred links. No source is modified and no remote source is queried.
 
 ## Verification and reporting
 

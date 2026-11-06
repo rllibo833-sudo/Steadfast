@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Any
 
 
@@ -30,12 +31,25 @@ def validate_review_ledger(
     reviewed_at = ledger.get("reviewed_at")
     if not isinstance(reviewer, str) or not reviewer.strip():
         findings.append({"code": "REVIEWER_REQUIRED", "message": "A non-empty reviewer is required"})
+    timestamp_valid = False
     if not isinstance(reviewed_at, str) or not reviewed_at.strip():
         findings.append({"code": "REVIEW_TIMESTAMP_REQUIRED", "message": "A review timestamp is required"})
+    else:
+        try:
+            parsed_timestamp = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
+            timestamp_valid = parsed_timestamp.tzinfo is not None and parsed_timestamp.utcoffset() is not None
+        except ValueError:
+            timestamp_valid = False
+        if not timestamp_valid:
+            findings.append({"code": "INVALID_REVIEW_TIMESTAMP", "message": "reviewed_at must be an ISO-8601 timestamp with an explicit timezone"})
 
+    model_edges = model.get("edges", [])
+    if not isinstance(model_edges, list):
+        findings.append({"code": "MODEL_EDGES_MUST_BE_ARRAY", "message": "model.edges must be an array"})
+        model_edges = []
     edge_by_id = {
         edge.get("edge_id"): edge
-        for edge in model.get("edges", [])
+        for edge in model_edges
         if isinstance(edge, dict) and isinstance(edge.get("edge_id"), str)
     }
     decisions = ledger.get("decisions", [])
@@ -44,6 +58,7 @@ def validate_review_ledger(
         decisions = []
 
     seen: set[str] = set()
+    reviewed_candidates: set[str] = set()
     normalized: list[dict[str, Any]] = []
     for index, decision in enumerate(decisions):
         prefix = f"decisions[{index}]"
@@ -63,7 +78,7 @@ def validate_review_ledger(
             findings.append({"code": "NON_CANDIDATE_REVIEW", "path": prefix, "message": "Only candidate edges may receive this review decision"})
             continue
         outcome = decision.get("decision")
-        if outcome not in {"accepted", "rejected", "deferred"}:
+        if not isinstance(outcome, str) or outcome not in {"accepted", "rejected", "deferred"}:
             findings.append({"code": "INVALID_REVIEW_OUTCOME", "path": prefix, "message": "decision must be accepted, rejected, or deferred"})
             continue
         rationale = decision.get("rationale")
@@ -80,6 +95,7 @@ def validate_review_ledger(
             findings.append({"code": "REVIEW_EVIDENCE_REQUIRED", "path": prefix, "message": "At least one evidence reference is required"})
         if not rationale_valid or not evidence_valid:
             continue
+        reviewed_candidates.add(edge_id)
         normalized.append({
             "edge_id": edge_id,
             "decision": outcome,
@@ -90,7 +106,7 @@ def validate_review_ledger(
             "epistemic_status_after_review": "candidate",
         })
 
-    candidate_count = sum(1 for edge in model.get("edges", []) if isinstance(edge, dict) and edge.get("epistemic_status") == "candidate")
+    candidate_count = sum(1 for edge in model_edges if isinstance(edge, dict) and edge.get("epistemic_status") == "candidate")
     accepted = sum(item["decision"] == "accepted" for item in normalized)
     rejected = sum(item["decision"] == "rejected" for item in normalized)
     deferred = sum(item["decision"] == "deferred" for item in normalized)
@@ -106,7 +122,7 @@ def validate_review_ledger(
             "accepted": accepted,
             "rejected": rejected,
             "deferred": deferred,
-            "pending": candidate_count - len(seen),
+            "pending": candidate_count - len(reviewed_candidates),
         },
         "decisions": normalized,
         "findings": findings,

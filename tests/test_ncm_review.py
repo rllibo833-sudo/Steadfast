@@ -59,6 +59,29 @@ class NcmReviewTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("INVALID_REVIEW_LEDGER", {item["code"] for item in result["findings"]})
 
+    def test_timestamp_requires_timezone_aware_iso8601(self):
+        ledger = dict(self.ledger, reviewed_at="2026-11-07 10:00:00")
+        result = validate_review_ledger(self.model, ledger)
+        self.assertIn("INVALID_REVIEW_TIMESTAMP", {item["code"] for item in result["findings"]})
+
+    def test_malformed_model_edges_are_reported_without_crashing(self):
+        model = dict(self.model, edges=None)
+        result = validate_review_ledger(model, self.ledger)
+        self.assertFalse(result["valid"])
+        self.assertIn("MODEL_EDGES_MUST_BE_ARRAY", {item["code"] for item in result["findings"]})
+
+    def test_invalid_review_of_non_candidate_does_not_reduce_pending_count(self):
+        ledger = dict(self.ledger, decisions=[
+            dict(self.ledger["decisions"][0], edge_id="edge:" + "b" * 24),
+        ])
+        result = validate_review_ledger(self.model, ledger)
+        self.assertEqual(result["summary"]["pending"], 1)
+
+    def test_unhashable_outcome_is_rejected_without_crashing(self):
+        decision = dict(self.ledger["decisions"][0], decision=["accepted"])
+        result = validate_review_ledger(self.model, dict(self.ledger, decisions=[decision]))
+        self.assertIn("INVALID_REVIEW_OUTCOME", {item["code"] for item in result["findings"]})
+
     def test_rationale_and_evidence_are_mandatory(self):
         decision = dict(self.ledger["decisions"][0], rationale="", evidence=[])
         result = validate_review_ledger(self.model, dict(self.ledger, decisions=[decision]))

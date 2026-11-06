@@ -25,7 +25,8 @@
     "reviewed_at": {
       "type": "string",
       "minLength": 1,
-      "description": "ISO-8601 timestamp supplied by reviewer"
+      "description": "ISO-8601 timestamp supplied by reviewer",
+      "format": "date-time"
     },
     "decisions": {
       "type": "array",

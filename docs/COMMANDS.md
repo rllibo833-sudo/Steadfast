@@ -14,7 +14,8 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `integration-status` | Report installed integration adapters. |
 | `ecosystem [--strict]` | Inventory skill and MCP declarations and apply configured trust labels. |
 | `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
-| `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving concept graph for experimental NCM integration. No inference or source mutation. |
+| `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving graph of declared facts. No inference or source mutation. |
+| `universe-infer [--manifest PATH] [--threshold SCORE]` | Generate review-only candidate relations using lexical token overlap; not semantic NCM inference. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
 

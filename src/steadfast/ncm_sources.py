@@ -240,7 +240,7 @@ def _cloudflare_worker(account_id: str, script_name: str, *, token: str) -> tupl
             from email.parser import BytesParser
             message = BytesParser(policy=policy.default).parsebytes(
                 b"Content-Type: " + str(headers.get("Content-Type", "")).encode("ascii", "replace")
-                + b"\\r\\nMIME-Version: 1.0\\r\\n\\r\\n" + body
+                + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
             )
             parts = []
             for part in message.walk():
@@ -249,7 +249,7 @@ def _cloudflare_worker(account_id: str, script_name: str, *, token: str) -> tupl
                 payload = part.get_payload(decode=True)
                 if payload:
                     parts.append(payload.decode("utf-8"))
-            body_text = "\\n\\n".join(parts)
+            body_text = "\n\n".join(parts)
         except (UnicodeDecodeError, ValueError):
             return "", "partial", url
     else:

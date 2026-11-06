@@ -146,6 +146,47 @@ class NcmRunnerTests(unittest.TestCase):
         self.assertEqual(result["summary"]["adapter_capabilities"], 1)
         self.assertEqual(result["summary"]["adapter_outputs"], 1)
 
+
+    def test_emergent_synthesis_is_merged_into_the_single_ecosystem_graph(self):
+        projects = ["pusingcuk", "mnemos-rli", "steadfast"]
+        manifest = {
+            "universe_id": "test",
+            "projects": [{"id": item, "adapter": {"id": "smoke"}} for item in projects],
+        }
+        graph = {
+            "nodes": [{"id": f"project:{item}", "kind": "project", "label": item} for item in projects],
+            "edges": [],
+            "summary": {"projects": 3, "candidate_concepts": 0, "cross_project_relations": 0},
+            "documents": [],
+            "graph_findings": [],
+            "manifest_findings": [],
+        }
+
+        class SmokeAdapter:
+            adapter_id = "smoke"
+
+            def __call__(self, context):
+                return AdapterResult(
+                    project_id=context.project["id"],
+                    adapter_id=self.adapter_id,
+                    status="completed",
+                    capabilities=[{"id": f"{context.project['id']}:smoke", "verification": "smoke_test"}],
+                )
+
+        registry = AdapterRegistry()
+        registry.register(SmokeAdapter())
+        with patch("steadfast.ncm_runner.load_universe_manifest", return_value=(manifest, [])), \
+             patch("steadfast.ncm_runner.collect_source_documents", return_value={"documents": [], "failures": [], "summary": {}, "safety": {}}), \
+             patch("steadfast.ncm_runner.build_cross_project_model", return_value=graph), \
+             patch("steadfast.ncm_runner.infer_semantic_candidates", return_value={"status": "blocked", "concepts": [], "relations": [], "possible_conflicts": [], "findings": [], "summary": {}, "safety": {}}):
+            result = run_ncm("/tmp/repo", adapter_registry=registry)
+
+        self.assertEqual(result["summary"]["emergent_concepts"], 1)
+        self.assertEqual(result["summary"]["orchestration_relations"], 2)
+        self.assertTrue(any(node["kind"] == "emergent_ecosystem_concept" for node in result["ecosystem_graph"]["nodes"]))
+        self.assertEqual(sum(edge["type"] == "verified_by_shared_ncm_orchestrator" for edge in result["ecosystem_graph"]["edges"]), 2)
+        self.assertEqual(result["ecosystem_graph"]["summary"]["nodes"], len(result["ecosystem_graph"]["nodes"]))
+
     def test_rendered_artifact_is_single_json_document_with_newline(self):
         rendered = render_ncm({"model_type": "next_concept_model"})
         self.assertTrue(rendered.endswith("\n"))

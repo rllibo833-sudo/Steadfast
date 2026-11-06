@@ -16,6 +16,7 @@ def build_concept_model(
     edges: list[dict[str, Any]] = []
     source_ids: set[str] = set()
     project_ids: set[str] = set()
+    node_ids: set[str] = set()
 
     for source in manifest.get("sources", []):
         if not isinstance(source, dict) or not isinstance(source.get("id"), str):
@@ -24,6 +25,7 @@ def build_concept_model(
         if source_id in source_ids:
             continue
         source_ids.add(source_id)
+        node_ids.add(f"source:{source_id}")
         nodes.append({
             "id": f"source:{source_id}",
             "kind": "source_system",
@@ -44,6 +46,7 @@ def build_concept_model(
             continue
         project_ids.add(project_id)
         project_node = f"project:{project_id}"
+        node_ids.add(project_node)
         nodes.append({
             "id": project_node,
             "kind": "project",
@@ -58,6 +61,7 @@ def build_concept_model(
         purpose = project.get("purpose")
         if isinstance(purpose, str) and purpose.strip():
             concept_id = f"concept:{project_id}:purpose"
+            node_ids.add(concept_id)
             nodes.append({
                 "id": concept_id,
                 "kind": "declared_concept",
@@ -99,7 +103,8 @@ def build_concept_model(
         target = relationship.get("to")
         source_node = f"project:{source}" if source in project_ids else f"system:{source}"
         target_node = f"project:{target}" if target in project_ids else f"system:{target}"
-        if source_node.startswith("system:"):
+        if source_node.startswith("system:") and source_node not in node_ids:
+            node_ids.add(source_node)
             nodes.append({
                 "id": source_node,
                 "kind": "external_system",
@@ -107,7 +112,8 @@ def build_concept_model(
                 "attributes": {},
                 "provenance": {"manifest_field": "relationships"},
             })
-        if target_node.startswith("system:"):
+        if target_node.startswith("system:") and target_node not in node_ids:
+            node_ids.add(target_node)
             nodes.append({
                 "id": target_node,
                 "kind": "external_system",

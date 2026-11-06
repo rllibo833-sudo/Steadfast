@@ -14,7 +14,7 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, Any]] | None = None) -> dict[str, str]:
+def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, Any]] | None = None, adapter_results: list[dict[str, Any]] | None = None) -> dict[str, str]:
     index: dict[str, str] = {}
     for project in manifest.get("projects", []):
         if not isinstance(project, dict) or not isinstance(project.get("id"), str):
@@ -45,6 +45,26 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
     for field in ("title", "purpose", "principles", "sources", "consumers", "relationships", "inventory_notes"):
         if field in manifest:
             add_manifest_evidence(manifest[field], field)
+    for result in adapter_results or []:
+        if not isinstance(result, dict) or not isinstance(result.get("project_id"), str):
+            continue
+        project_id = result["project_id"]
+        for field in ("adapter_id", "status"):
+            value = result.get(field)
+            if isinstance(value, str) and value.strip():
+                index[f"adapter_results[{project_id}].{field}"] = value
+        for number, capability in enumerate(result.get("capabilities", []) if isinstance(result.get("capabilities"), list) else []):
+            if not isinstance(capability, dict):
+                continue
+            for field, value in capability.items():
+                if isinstance(value, str) and value.strip():
+                    index[f"adapter_results[{project_id}].capabilities[{number}].{field}"] = value
+        for number, output in enumerate(result.get("outputs", []) if isinstance(result.get("outputs"), list) else []):
+            if not isinstance(output, dict):
+                continue
+            for field, value in output.items():
+                if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+                    index[f"adapter_results[{project_id}].outputs[{number}].{field}"] = str(value)
     for document in source_documents or []:
         if not isinstance(document, dict) or not isinstance(document.get("document_id"), str):
             continue
@@ -54,7 +74,7 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
     return index
 
 
-def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documents: list[dict[str, Any]] | None = None, adapter_results: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     # Reuse the repository's existing OpenRouter credential when no NCM-specific key is set.
     api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
     base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
@@ -97,7 +117,7 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
                     "The path must be copied exactly from one of the supplied evidence paths. The quote must be a "
                     "contiguous substring copied character-for-character from that path's source text; do not paraphrase, "
                     "add ellipses, normalize punctuation, or combine passages. Use short distinctive excerpts. "
-                    "Allowed manifest paths include projects[PROJECT_ID].name, .purpose, .status, "
+                    "Allowed evidence paths include adapter_results[PROJECT_ID].adapter_id, .status, .capabilities[N].id/.name/.verification, and .outputs[N].kind/.exit_code/.expected_files/.present_files. Allowed manifest paths include projects[PROJECT_ID].name, .purpose, .status, "
                     "projects[PROJECT_ID].sources[N].title/.role/.status/.uri, and the supplied ecosystem-context paths. "
                     "Document paths must be documents[DOCUMENT_ID].content using the exact document_id. "
                     "Concept schema: {name:string,definition:string,evidence:[{path:string,quote:string}]}. "
@@ -121,6 +141,11 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
                     "projects": projects,
                     "relationships": manifest.get("relationships", []),
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],
+                    "adapter_results": [{
+                        "project_id": item.get("project_id"), "adapter_id": item.get("adapter_id"),
+                        "status": item.get("status"), "capabilities": item.get("capabilities", []),
+                        "outputs": [{key: output.get(key) for key in ("kind", "exit_code", "expected_files", "present_files")} if isinstance(output, dict) else {} for output in item.get("outputs", [])],
+                    } for item in (adapter_results or []) if isinstance(item, dict)],
                 }, ensure_ascii=False),
             },
         ],
@@ -155,8 +180,9 @@ def _validate_candidates(
     response: dict[str, Any],
     manifest: dict[str, Any],
     source_documents: list[dict[str, Any]] | None = None,
+    adapter_results: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    evidence_index = _evidence_index(manifest, source_documents)
+    evidence_index = _evidence_index(manifest, source_documents, adapter_results)
     project_ids = {
         item["id"] for item in manifest.get("projects", [])
         if isinstance(item, dict) and isinstance(item.get("id"), str)
@@ -250,6 +276,7 @@ def infer_semantic_candidates(
     env: Mapping[str, str] | None = None,
     source_documents: list[dict[str, Any]] | None = None,
     allow_source_content_remote: bool = False,
+    adapter_results: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run opt-in semantic analysis; every generated assertion remains a candidate."""
     digest = _digest(manifest)
@@ -279,7 +306,7 @@ def infer_semantic_candidates(
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }
     try:
-        response = _call_model(manifest, settings, documents)
+        response = _call_model(manifest, settings, documents, adapter_results)
     except RuntimeError as exc:
         return {
             "status": "failed",
@@ -287,7 +314,7 @@ def infer_semantic_candidates(
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": True, "manifest_modified": False, "candidates_promoted": False},
         }
-    concepts, relations, conflicts, findings = _validate_candidates(response, manifest, documents)
+    concepts, relations, conflicts, findings = _validate_candidates(response, manifest, documents, adapter_results)
     return {
         "status": "completed",
         "model_type": "evidence_grounded_semantic_candidates",

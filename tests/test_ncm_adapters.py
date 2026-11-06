@@ -1,6 +1,6 @@
 import unittest
 
-from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters, DocumentedOnlyAdapter
+from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters, DocumentedOnlyAdapter, derive_ecosystem_synthesis
 
 
 class ExampleAdapter:
@@ -55,6 +55,31 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result["results"][0]["status"], "documented_only")
         self.assertEqual(result["summary"]["documented_only"], 1)
         self.assertEqual(result["status"], "completed")
+
+
+    def test_synthesis_derives_shared_verification_from_three_completed_projects(self):
+        result = derive_ecosystem_synthesis({
+            "results": [
+                {"project_id": "pusingcuk", "status": "completed"},
+                {"project_id": "mnemos-rli", "status": "completed"},
+                {"project_id": "steadfast", "status": "completed"},
+                {"project_id": "ecos", "status": "archived"},
+            ]
+        })
+        self.assertEqual(result["summary"]["emergent_concepts"], 1)
+        self.assertEqual(result["summary"]["orchestration_relations"], 2)
+        self.assertEqual(result["emergent_concepts"][0]["epistemic_status"], "candidate")
+        self.assertEqual(result["safety"]["inferred_dependencies"], False)
+
+    def test_synthesis_does_not_infer_integration_from_two_non_orchestrator_projects(self):
+        result = derive_ecosystem_synthesis({
+            "results": [
+                {"project_id": "pusingcuk", "status": "completed"},
+                {"project_id": "mnemos-rli", "status": "completed"},
+            ]
+        })
+        self.assertEqual(result["summary"]["emergent_concepts"], 0)
+        self.assertEqual(result["summary"]["orchestration_relations"], 0)
 
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()

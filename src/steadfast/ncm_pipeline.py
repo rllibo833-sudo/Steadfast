@@ -229,12 +229,32 @@ def infer_candidate_relations(
         for item in sources
     })
     unresolved_endpoints: set[str] = set()
+    manifest_findings: list[dict[str, Any]] = []
     declared_relationship_count = 0
-    for relation_index, relation in enumerate(manifest.get("relationships", [])):
+    raw_relationships = manifest.get("relationships", [])
+    if not isinstance(raw_relationships, list):
+        manifest_findings.append({
+            "code": "RELATIONSHIPS_MUST_BE_ARRAY",
+            "message": "manifest.relationships must be an array",
+        })
+        raw_relationships = []
+    for relation_index, relation in enumerate(raw_relationships):
         if not isinstance(relation, dict):
+            manifest_findings.append({
+                "code": "INVALID_MANIFEST_RELATIONSHIP",
+                "relationship_index": relation_index,
+                "message": "Relationship entry must be an object",
+            })
             continue
         left, right = relation.get("from"), relation.get("to")
         if not isinstance(left, str) or not left.strip() or not isinstance(right, str) or not right.strip():
+            manifest_findings.append({
+                "code": "INVALID_MANIFEST_RELATIONSHIP_ENDPOINT",
+                "relationship_index": relation_index,
+                "from": left if isinstance(left, str) else None,
+                "to": right if isinstance(right, str) else None,
+                "message": "Relationship requires non-empty string from and to endpoints",
+            })
             continue
         endpoint_ids: list[str] = []
         for endpoint in (left, right):
@@ -243,6 +263,13 @@ def infer_candidate_relations(
                 node_id = f"unresolved-entity:{endpoint}"
                 if node_id not in unresolved_endpoints:
                     unresolved_endpoints.add(node_id)
+                    manifest_findings.append({
+                        "code": "UNRESOLVED_MANIFEST_ENDPOINT",
+                        "relationship_index": relation_index,
+                        "endpoint": endpoint,
+                        "node_id": node_id,
+                        "message": "Declared relationship endpoint does not resolve to a project, source, or consumer",
+                    })
                     nodes.append({
                         "id": node_id,
                         "kind": "unresolved_manifest_endpoint",
@@ -348,11 +375,12 @@ def infer_candidate_relations(
             "projects": len(projects), "source_systems": len(sources),
             "consumers": len(consumers), "declared_relationships": declared_relationship_count, "declared_concepts": 0,
             "candidate_concepts": len(concept_evidence),
-            "audit_findings": len(graph_findings), "edges": len(edges),
+            "audit_findings": len(graph_findings) + len(manifest_findings), "edges": len(edges),
             "candidate_relations": len(review_queue), "review_items": len(review_queue),
         },
         "nodes": nodes,
         "edges": edges,
         "review_queue": review_queue,
         "graph_findings": graph_findings,
+        "manifest_findings": manifest_findings,
     }

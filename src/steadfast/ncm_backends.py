@@ -69,10 +69,13 @@ def probe_backend_services(
         if not isinstance(expected, list):
             expected = [200]
         auth_required = status_code in {401, 403} and item.get("auth_mode") == "required"
-        if status_code in expected:
-            state = "ready"
-        elif auth_required:
+        # Authentication challenges prove the route is reachable, not that the
+        # protected application operation is ready. Keep this distinction even
+        # when 401/403 are listed as expected transport responses.
+        if auth_required:
             state = "reachable_auth_required"
+        elif status_code in expected:
+            state = "ready"
         else:
             state = "failed"
 

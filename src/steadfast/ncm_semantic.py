@@ -145,10 +145,14 @@ def _validate_candidates(
             findings.append({"code": "INVALID_RELATION_ENDPOINT", "item": index})
             continue
         confidence = item.get("confidence")
-        if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
             findings.append({"code": "INVALID_RELATION_CONFIDENCE", "item": index})
             continue
-        if not isinstance(item.get("type"), str) or not isinstance(item.get("rationale"), str) or not evidence_valid(item.get("evidence"), f"relations[{index}]"):
+        if (
+            not isinstance(item.get("type"), str) or not item["type"].strip()
+            or not isinstance(item.get("rationale"), str) or not item["rationale"].strip()
+            or not evidence_valid(item.get("evidence"), f"relations[{index}]")
+        ):
             findings.append({"code": "UNSUPPORTED_RELATION_EVIDENCE", "item": index})
             continue
         relations.append({

@@ -455,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
                 }, indent=2, ensure_ascii=False))
             else:
                 print(rendered, end="")
-            return 1 if result["graph_findings"] or result["source_document_findings"] else 0
+            return 1 if result["graph_findings"] or result["manifest_findings"] or result["source_document_findings"] else 0
 
         if args.command == "universe-infer":
             from .ncm_inference import infer_candidate_relations

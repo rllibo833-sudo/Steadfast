@@ -124,6 +124,25 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["source_documents_count"], 1)
         self.assertIn("shared digital evidence archive", str(model_call.call_args))
 
+    def test_ecosystem_context_fields_can_ground_semantic_evidence(self):
+        from steadfast.ncm_semantic import _validate_candidates
+
+        response = {
+            "concepts": [{
+                "name": "Governance boundary",
+                "definition": "A boundary between validation and modeling.",
+                "evidence": [{"path": "consumers[0].role", "quote": "Model concepts across indexed projects"}],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        concepts, _, _, findings = _validate_candidates(response, {
+            **self.manifest,
+            "consumers": [{"id": "ncm", "role": "Model concepts across indexed projects"}],
+        })
+        self.assertEqual(len(concepts), 1)
+        self.assertEqual(findings, [])
+
     def test_non_tls_remote_endpoint_is_rejected_before_sending_credentials(self):
         from steadfast.ncm_semantic import _call_model
 

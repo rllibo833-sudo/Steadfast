@@ -10,7 +10,8 @@
     "semantics",
     "summary",
     "nodes",
-    "edges"
+    "edges",
+    "manifest_findings"
   ],
   "properties": {
     "model_version": {
@@ -267,6 +268,53 @@
           },
           "to": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "manifest_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "RELATIONSHIPS_MUST_BE_ARRAY",
+              "INVALID_MANIFEST_RELATIONSHIP",
+              "INVALID_MANIFEST_RELATIONSHIP_ENDPOINT",
+              "UNRESOLVED_MANIFEST_ENDPOINT"
+            ]
+          },
+          "relationship_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "additionalProperties": false

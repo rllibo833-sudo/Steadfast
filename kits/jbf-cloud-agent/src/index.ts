@@ -90,6 +90,17 @@ function needsOwnerApproval(
           || /(?:^|\/)[a-z0-9_-]*-(?:regions|sizes|size-list)$/i.test(nestedName ?? ""))) return false;
   }
 
+  // Cloudflare MCP exposes read and write API calls through one generic
+  // `execute` tool, so its annotation cannot distinguish GET from mutations.
+  // Let explicit, static GET-only scripts run; keep mutations approval-gated.
+  if (raw?.serverId === "cloudflare" && raw.name === "execute" && typeof args.code === "string") {
+    const code = args.code;
+    const requestCount = (code.match(/cloudflare\.request\s*\(/g) ?? []).length;
+    const methods = [...code.matchAll(/method\s*:\s*["']([A-Z]+)["']/g)].map((match) => match[1]);
+    if (requestCount > 0 && methods.length === requestCount && methods.every((method) => method === "GET")
+      && !/\b(fetch|eval|Function)\s*\(/i.test(code)) return false;
+  }
+
   // Do not silently spend, publish, delete, message, or change live advertising.
   if (/delete|destroy|terminate|billing|payment|purchase|budget|spend|campaign|adset|ad_set|delivery|publish|deploy|release|send_message|create_(droplet|database|app|cluster)|resize/i.test(operation)) {
     return true;
@@ -337,9 +348,12 @@ export class JbfAgent extends Agent<Env> {
       };
     }
 
-    const result = await runFreeFirst(
-      () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") }),
-      [
+    const operationFallbacks = [
+        {
+          id: "cloudflare-ai-glm47",
+          available: true,
+          run: () => generateText({ ...generation, model: ai("@cf/zai-org/glm-4.7-flash") }),
+        },
         {
           id: "cloudflare-ai-gemma4",
           available: true,
@@ -375,8 +389,14 @@ export class JbfAgent extends Agent<Env> {
           available: Boolean(gemini) && !personalDataInPrompt,
           run: () => generateText({ ...generation, model: gemini!.chatModel("gemini-3.8-flash") }),
         },
-      ],
-    );
+      ];
+    const preferredProvider = specialists[0]?.preferredProvider;
+    const preferredIndex = operationFallbacks.findIndex((provider) => provider.id === preferredProvider);
+    if (preferredIndex >= 0) {
+      const [preferred] = operationFallbacks.splice(preferredIndex, 1);
+      operationFallbacks.unshift(preferred);
+    }
+    const result = await runFreeProviders(operationFallbacks);
     return { text: result.value.text, provider: result.provider };
   }
 
@@ -408,7 +428,7 @@ export class JbfAgent extends Agent<Env> {
       return json({
         agents: [
           { id: "coordinator", name: "JBF Coordinator", purpose: "Mengarahkan tugas ke spesialis dan menjalankan pekerjaan yang diizinkan dengan satu panggilan AI gratis.", enabled, execution: "routes tasks to specialists" },
-          ...OPERATIONS_AGENT_ROLES.map((agent) => ({ id: agent.id, name: agent.name, purpose: agent.purpose, enabled, execution: "selected by coordinator; connector-scoped; shares coordinator inference call" })),
+          ...OPERATIONS_AGENT_ROLES.map((agent) => ({ id: agent.id, name: agent.name, purpose: agent.purpose, preferredProvider: agent.preferredProvider, enabled, execution: "selected by coordinator; connector-scoped; shares coordinator inference call" })),
           ...BUSINESS_AGENT_ROLES.map((agent) => ({ ...agent, enabled, execution: "evidence-gated business research specialist" })),
         ],
         providerAgents: PROVIDERS.filter((provider) => provider.category.startsWith("AI inference")).map((provider) => ({

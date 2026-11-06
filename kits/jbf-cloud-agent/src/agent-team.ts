@@ -30,18 +30,19 @@ export type OperationsRole = {
   id: string;
   name: string;
   purpose: string;
+  preferredProvider: "openrouter-free" | "groq-free";
   match: RegExp;
   connectors: string[] | "all";
 };
 
 /** Specialist roles selected by the coordinator; they share one free inference call per task. */
 export const OPERATIONS_AGENT_ROLES: OperationsRole[] = [
-  { id: "database-manager", name: "Database Manager", purpose: "Memeriksa dan mengelola database yang terhubung; menjaga backup, akses minimum, dan batas read-only setiap provider.", match: /\b(database|db|sql|postgres|supabase|d1|kv|r2|basis data|tabel)\b/i, connectors: ["supabase", "cloudflare", "digitalocean"] },
-  { id: "seo-editor", name: "SEO & Content Editor", purpose: "Mengaudit SEO teknis dan menyusun atau memperbarui konten yang membantu pengguna, berdasarkan produk dan situs yang benar-benar terhubung.", match: /\b(seo|search console|sitemap|robots|keyword|kata kunci|konten|artikel|blog|ranking|indeks)\b/i, connectors: ["github", "cloudflare"] },
-  { id: "vps-operator", name: "VPS & Hosting Operator", purpose: "Menginventarisasi hosting/VPS, menjaga layanan, dan memilih opsi gratis terlebih dahulu; minta approval untuk resource berbiaya atau publikasi.", match: /\b(vps|droplet|server|hosting|deploy|deployment|cloudflare|digitalocean|worker|workers|pages)\b/i, connectors: ["digitalocean", "cloudflare", "github"] },
-  { id: "account-onboarding", name: "Account Onboarding Agent", purpose: "Menghubungkan akun hanya melalui OAuth resmi yang tersedia dan melaporkan langkah login/verifikasi yang harus dilakukan pemilik; jangan mengaku akun berhasil dibuat tanpa bukti.", match: /\b(daftar|registr|signup|sign up|buat akun|hubungkan akun|connect account|onboarding)\b/i, connectors: "all" },
-  { id: "ads-manager", name: "Ads & Analytics Manager", purpose: "Membaca performa iklan dan analitik yang terhubung, menyiapkan optimasi, serta menahan perubahan budget atau delivery untuk approval spesifik.", match: /\b(ads?|iklan|campaign|kampanye|meta ads|google ads|analytics|konversi)\b/i, connectors: ["meta-ads", "cloudflare", "github"] },
-  { id: "product-algorithm", name: "Product & Algorithm Agent", purpose: "Menganalisis dan memperbaiki algoritma produk lewat repositori dan layanan yang terhubung; minta approval sebelum perubahan live.", match: /\b(algoritma|algorithm|ranking|rekomendasi|recommendation|fitur|produk|product|bug|perbaiki|ubah kode)\b/i, connectors: ["github", "cloudflare", "supabase"] },
+  { id: "database-manager", name: "Database Manager", purpose: "Mengelola database yang terhubung seperti Cloudflare D1/KV/R2 dan DigitalOcean; Supabase hanya untuk transport Steadfast menuju Mnemos-RLI cabang Knowledge, bukan database umum.", preferredProvider: "groq-free", match: /\b(database|db|sql|postgres|supabase|d1|kv|r2|basis data|tabel)\b/i, connectors: ["cloudflare", "digitalocean"] },
+  { id: "seo-editor", name: "SEO & Content Editor", purpose: "Mengaudit SEO teknis dan menyusun atau memperbarui konten yang membantu pengguna, berdasarkan produk dan situs yang benar-benar terhubung.", preferredProvider: "openrouter-free", match: /\b(seo|search console|sitemap|robots|keyword|kata kunci|konten|artikel|blog|ranking|indeks)\b/i, connectors: ["github", "cloudflare"] },
+  { id: "vps-operator", name: "VPS & Hosting Operator", purpose: "Menginventarisasi hosting/VPS, menjaga layanan, dan memilih opsi gratis terlebih dahulu; minta approval untuk resource berbiaya atau publikasi.", preferredProvider: "groq-free", match: /\b(vps|droplet|server|hosting|deploy|deployment|cloudflare|digitalocean|worker|workers|pages)\b/i, connectors: ["digitalocean", "cloudflare", "github"] },
+  { id: "account-onboarding", name: "Account Onboarding Agent", purpose: "Menghubungkan akun hanya melalui OAuth resmi yang tersedia dan melaporkan langkah login/verifikasi yang harus dilakukan pemilik; jangan mengaku akun berhasil dibuat tanpa bukti.", preferredProvider: "openrouter-free", match: /\b(daftar|registr|signup|sign up|buat akun|hubungkan akun|connect account|onboarding)\b/i, connectors: "all" },
+  { id: "ads-manager", name: "Ads & Analytics Manager", purpose: "Membaca performa iklan dan analitik yang terhubung, menyiapkan optimasi, serta menahan perubahan budget atau delivery untuk approval spesifik.", preferredProvider: "groq-free", match: /\b(ads?|iklan|campaign|kampanye|meta ads|google ads|analytics|konversi)\b/i, connectors: ["meta-ads", "cloudflare", "github"] },
+  { id: "product-algorithm", name: "Product & Algorithm Agent", purpose: "Menganalisis dan memperbaiki algoritma produk lewat repositori dan layanan yang terhubung; minta approval sebelum perubahan live.", preferredProvider: "openrouter-free", match: /\b(algoritma|algorithm|ranking|rekomendasi|recommendation|fitur|produk|product|bug|perbaiki|ubah kode)\b/i, connectors: ["github", "cloudflare"] },
 ];
 
 export function selectOperationsRoles(task: string): OperationsRole[] {

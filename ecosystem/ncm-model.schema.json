@@ -269,42 +269,5 @@
       }
     }
   },
-  "review_queue": {
-    "type": "array",
-    "items": {
-      "type": "object",
-      "required": [
-        "candidate_edge",
-        "reconciliation",
-        "matching_manifest_relationships",
-        "review_required",
-        "note"
-      ],
-      "properties": {
-        "candidate_edge": {
-          "type": "object"
-        },
-        "reconciliation": {
-          "enum": [
-            "declared_pair_exists",
-            "no_matching_declared_pair"
-          ]
-        },
-        "matching_manifest_relationships": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "review_required": {
-          "const": true
-        },
-        "note": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    }
-  },
   "additionalProperties": false
 }

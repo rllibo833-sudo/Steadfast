@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rllibo833-sudo/Steadfast/blob/main/ecosystem/ncm-model.schema.json",
+  "title": "Experimental NCM Concept Graph Projection",
+  "type": "object",
+  "required": [
+    "model_version",
+    "model_type",
+    "source_manifest",
+    "semantics",
+    "summary",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "model_version": {
+      "type": "string"
+    },
+    "model_type": {
+      "const": "ncm_concept_graph_projection"
+    },
+    "source_manifest": {
+      "type": "object",
+      "required": [
+        "universe_id",
+        "manifest_version"
+      ],
+      "properties": {
+        "universe_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manifest_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "semantics": {
+      "type": "object",
+      "required": [
+        "purpose",
+        "inference_performed",
+        "relationships_are_verified",
+        "project_sources_are_live_checked",
+        "source_text_is_preserved"
+      ],
+      "properties": {
+        "purpose": {
+          "type": "string"
+        },
+        "inference_performed": {
+          "type": "boolean"
+        },
+        "relationships_are_verified": {
+          "type": "boolean"
+        },
+        "project_sources_are_live_checked": {
+          "type": "boolean"
+        },
+        "source_text_is_preserved": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "projects",
+        "source_systems",
+        "declared_concepts",
+        "audit_findings",
+        "edges"
+      ],
+      "properties": {
+        "projects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_systems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "declared_concepts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audit_findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "edges": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "attributes",
+          "provenance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attributes": {
+            "type": "object"
+          },
+          "provenance": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "type",
+          "evidence",
+          "epistemic_status"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attributes": {
+            "type": "object"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "epistemic_status": {
+            "enum": [
+              "source_declared",
+              "indexed_reference_not_live_verified",
+              "manifest_asserted_not_independently_verified",
+              "candidate",
+              "verified",
+              "rejected"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

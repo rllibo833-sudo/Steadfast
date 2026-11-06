@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: steadfast-governance-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   governance:
     runs-on: ubuntu-latest

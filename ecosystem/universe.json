@@ -342,12 +342,11 @@
       "id": "mnemos-mcp",
       "project_id": "mnemos-rli",
       "endpoint": "https://kuditcnmasfjgzmimnlc.supabase.co/functions/v1/mnemos-mcp",
-      "auth_mode": "required",
+      "auth_mode": "public",
       "expected_status": [
-        401,
-        403
+        200
       ],
-      "purpose": "Authenticated MCP endpoint; unauthenticated probe must remain protected"
+      "purpose": "Public read-only MCP health check; authenticated user JWT remains required for POST JSON-RPC operations"
     },
     {
       "id": "kawasan-api-health",

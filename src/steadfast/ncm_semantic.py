@@ -320,6 +320,11 @@ def infer_semantic_candidates(
         "model_type": "evidence_grounded_semantic_candidates",
         "source_manifest_sha256": digest,
         "source_documents_sha256": _digest([{key: item.get(key) for key in ("document_id", "content_sha256", "status")} for item in documents]),
+        "adapter_results_sha256": _digest([{
+            "project_id": item.get("project_id"), "adapter_id": item.get("adapter_id"),
+            "status": item.get("status"), "capabilities": item.get("capabilities", []),
+            "outputs": [{key: output.get(key) for key in ("kind", "exit_code", "expected_files", "present_files")} for output in item.get("outputs", []) if isinstance(output, dict)],
+        } for item in (adapter_results or []) if isinstance(item, dict)]),
         "source_documents_count": len(documents),
         "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": settings.get("NCM_MODEL")},
         "summary": {

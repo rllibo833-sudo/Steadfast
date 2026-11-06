@@ -87,7 +87,7 @@ def _evidence_catalog(evidence_index: dict[str, str], *, max_paths: int = 100, m
         if len(text) <= 280:
             candidates = [text]
         else:
-            candidates = [part.strip() for part in re.split(r"(?<=[.!?])\\s+", text) if len(part.strip()) >= 35]
+            candidates = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if len(part.strip()) >= 35]
             if not candidates:
                 candidates = [text[i:i + 220].strip() for i in range(0, min(len(text), 440), 220)]
         added = 0

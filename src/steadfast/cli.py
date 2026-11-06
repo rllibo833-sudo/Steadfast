@@ -99,6 +99,11 @@ def parser() -> argparse.ArgumentParser:
     semantic = commands.add_parser("universe-semantic", help="Generate evidence-grounded semantic candidates using an explicitly enabled model endpoint")
     semantic.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     semantic.add_argument("--allow-remote", action="store_true", help="Explicitly allow sending project descriptions to the configured model endpoint")
+    semantic.add_argument("--documents", help="Previously collected source-document artifact JSON")
+    semantic.add_argument("--allow-source-content-remote", action="store_true", help="Separately approve sending collected source-document text to the model endpoint")
+    content = commands.add_parser("universe-content", help="Collect bounded read-only content from configured Notion, GitHub, and local JBF sources")
+    content.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
+    content.add_argument("--output", help="Optional path for the source-document artifact JSON")
     semantic.add_argument("--output", help="Optional path for the generated semantic model JSON artifact")
     skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True)
@@ -293,6 +298,27 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result["summary"]["errors"] == 0 else 1
 
+        if args.command == "universe-content":
+            from .ncm_sources import collect_source_documents
+            from .universe import load_universe_manifest
+            manifest_path = Path(args.manifest)
+            if not manifest_path.is_absolute():
+                manifest_path = repo / manifest_path
+            manifest, load_findings = load_universe_manifest(manifest_path)
+            if manifest is None:
+                print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
+                return 1
+            result = collect_source_documents(manifest)
+            if args.output:
+                output_path = Path(args.output)
+                if not output_path.is_absolute():
+                    output_path = repo / output_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+                result["output"] = str(output_path)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
+
         if args.command == "universe-semantic":
             from .ncm_semantic import infer_semantic_candidates
             from .universe import load_universe_manifest
@@ -303,7 +329,20 @@ def main(argv: list[str] | None = None) -> int:
             if manifest is None:
                 print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
                 return 1
-            result = infer_semantic_candidates(manifest, allow_remote=args.allow_remote)
+            source_documents = []
+            if args.documents:
+                documents_path = Path(args.documents)
+                if not documents_path.is_absolute():
+                    documents_path = repo / documents_path
+                try:
+                    document_artifact = json.loads(documents_path.read_text(encoding="utf-8"))
+                    source_documents = document_artifact.get("documents", []) if isinstance(document_artifact, dict) else []
+                    if not isinstance(source_documents, list):
+                        raise ValueError("documents must be a list")
+                except (OSError, json.JSONDecodeError, ValueError) as exc:
+                    print(json.dumps({"status": "failed", "error": f"Invalid source-document artifact: {type(exc).__name__}"}, indent=2))
+                    return 1
+            result = infer_semantic_candidates(manifest, allow_remote=args.allow_remote, source_documents=source_documents, allow_source_content_remote=args.allow_source_content_remote)
             if args.output and result.get("status") == "completed":
                 output_path = Path(args.output)
                 if not output_path.is_absolute():

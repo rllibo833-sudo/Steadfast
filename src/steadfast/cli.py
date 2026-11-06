@@ -84,6 +84,9 @@ def parser() -> argparse.ArgumentParser:
     model = commands.add_parser("universe-model", help="Export a deterministic concept graph for a future NCM reasoning layer")
     model.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     model.add_argument("--include-audit", action="store_true", help="Include findings from the manifest validation report")
+    infer = commands.add_parser("universe-infer", help="Generate review-only lexical relation candidates; not semantic NCM inference")
+    infer.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
+    infer.add_argument("--threshold", type=float, default=0.2, help="Minimum Jaccard overlap score from 0.0 to 1.0")
     skills = commands.add_parser("skills", help="Route a task to relevant repository skills without executing them")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True)
     skills_route = skills_sub.add_parser("route", help="Rank matching SKILL.md files for a task")
@@ -281,6 +284,20 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             audit = universe_report(repo, args.manifest) if args.include_audit else None
             print(json.dumps(build_concept_model(manifest, audit), indent=2, ensure_ascii=False))
+            return 0
+
+        if args.command == "universe-infer":
+            from .ncm_inference import infer_candidate_relations
+            from .universe import load_universe_manifest
+            manifest_path = Path(args.manifest)
+            if not manifest_path.is_absolute():
+                manifest_path = repo / manifest_path
+            manifest, load_findings = load_universe_manifest(manifest_path)
+            if manifest is None:
+                print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
+                return 1
+            result = infer_candidate_relations(manifest, threshold=args.threshold)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
 
         if args.command == "skills" and args.skills_action == "route":

@@ -170,6 +170,99 @@ def _github_readme(uri: str, *, token: str) -> tuple[str, str, str]:
     return text[:MAX_DOCUMENT_CHARS], "partial" if truncated else "read" if text else "empty", f"https://github.com/{owner}/{repo}/blob/{payload.get('sha', '')}"
 
 
+
+def _supabase_allowlist(raw: str) -> list[dict[str, Any]]:
+    try:
+        entries = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(entries, list):
+        return []
+    valid = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        project_ref, table, columns = item.get("project_ref"), item.get("table"), item.get("columns")
+        if not isinstance(project_ref, str) or not re.fullmatch(r"[a-z0-9]{20}", project_ref):
+            continue
+        if not isinstance(table, str) or not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*", table):
+            continue
+        if not isinstance(columns, list) or not columns or len(columns) > 40:
+            continue
+        if not all(isinstance(column, str) and re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", column) for column in columns):
+            continue
+        valid.append({"project_ref": project_ref, "table": table, "columns": columns})
+    return valid
+
+
+def _supabase_table(project_ref: str, entry: dict[str, Any], *, key: str) -> tuple[str, str, str]:
+    schema, table = entry["table"].split(".", 1)
+    columns = ",".join(entry["columns"])
+    query = urllib.parse.urlencode({"select": columns, "limit": "100"})
+    url = f"https://{project_ref}.supabase.co/rest/v1/{urllib.parse.quote(table)}?{query}"
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+        "Range": "0-99",
+        "Accept-Profile": schema,
+    }
+    status, body, _ = _http(url, headers=headers)
+    if status != 200:
+        return "", "unavailable" if status in (401, 403, 404, 502, 503, 522) or status == 0 else "read_failed", ""
+    try:
+        rows = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return "", "invalid_response", ""
+    if not isinstance(rows, list):
+        return "", "invalid_response", ""
+    content = json.dumps(rows, ensure_ascii=False, sort_keys=True, indent=2)
+    truncated = len(content) > MAX_DOCUMENT_CHARS
+    return content[:MAX_DOCUMENT_CHARS], "partial" if truncated or len(rows) >= 100 else "read" if rows else "empty", url
+
+
+def _cloudflare_worker(account_id: str, script_name: str, *, token: str) -> tuple[str, str, str]:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", script_name):
+        return "", "invalid_reference", ""
+    url = (
+        "https://api.cloudflare.com/client/v4/accounts/"
+        + urllib.parse.quote(account_id, safe="")
+        + "/workers/scripts/"
+        + urllib.parse.quote(script_name, safe="")
+    )
+    status, body, headers = _http(url, token=token, headers={"Accept": "*/*"})
+    if status != 200:
+        return "", "unavailable" if status in (401, 403, 404) or status == 0 else "read_failed", ""
+    content_type = str(headers.get("Content-Type", "")).lower()
+    if "multipart/" in content_type:
+        try:
+            from email import policy
+            from email.parser import BytesParser
+            message = BytesParser(policy=policy.default).parsebytes(
+                b"Content-Type: " + str(headers.get("Content-Type", "")).encode("ascii", "replace")
+                + b"\\r\\nMIME-Version: 1.0\\r\\n\\r\\n" + body
+            )
+            parts = []
+            for part in message.walk():
+                if part.is_multipart():
+                    continue
+                payload = part.get_payload(decode=True)
+                if payload:
+                    parts.append(payload.decode("utf-8"))
+            body_text = "\\n\\n".join(parts)
+        except (UnicodeDecodeError, ValueError):
+            return "", "partial", url
+    else:
+        try:
+            body_text = body.decode("utf-8")
+        except UnicodeDecodeError:
+            return "", "unsupported_binary_content", url
+    if not body_text.strip():
+        return "", "empty", url
+    truncated = len(body_text) > MAX_DOCUMENT_CHARS
+    return body_text[:MAX_DOCUMENT_CHARS], "partial" if truncated else "read", url
+
+
 def _local_documents(project: dict[str, Any], root: Path) -> list[dict[str, Any]]:
     result = []
     for relative in sorted(LOCAL_ALLOWLIST):
@@ -219,7 +312,7 @@ def collect_source_documents(
     *,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Read bounded Notion pages, GitHub READMEs, and allowlisted local JBF metadata; never writes."""
+    """Read bounded Notion, GitHub, allowlisted Supabase tables, Cloudflare Workers, and local JBF metadata; never writes."""
     settings = os.environ if env is None else env
     notion_token = settings.get("NOTION_API_TOKEN", "").strip()
     github_token = settings.get("GITHUB_TOKEN", "").strip()
@@ -263,10 +356,58 @@ def collect_source_documents(
                 seen.add(key)
                 text, status, resolved_uri = _github_readme(uri, token=github_token)
                 doc = {"document_id": f"github:{key[1]}", "project_id": project.get("id"), "source_id": "github", "title": f"{project.get('name', key[1])} README", "uri": resolved_uri or uri, "content": text, "status": status}
-            elif source_id in {"supabase", "cloudflare"}:
-                # Metadata probes are not content access. Keep this explicit rather than implying ingestion.
-                failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "content_reader_not_implemented"})
+            elif source_id == "supabase":
+                parsed = urllib.parse.urlparse(uri)
+                project_ref = parsed.path.strip("/").split("/")[0] if parsed.scheme == "supabase" else ""
+                if not re.fullmatch(r"[a-z0-9]{20}", project_ref):
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "invalid_reference"})
+                    continue
+                key = ("supabase", project_ref)
+                if key in seen:
+                    continue
+                seen.add(key)
+                api_key = settings.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+                allowlist = [item for item in _supabase_allowlist(settings.get("SUPABASE_READ_ALLOWLIST", "")) if item["project_ref"] == project_ref]
+                if not api_key or not allowlist:
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "not_configured" if not api_key or not settings.get("SUPABASE_READ_ALLOWLIST") else "no_tables_allowlisted"})
+                    continue
+                for entry in allowlist:
+                    table_content, table_status, resolved_uri = _supabase_table(project_ref, entry, key=api_key)
+                    doc = {"document_id": f"supabase:{project_ref}:{entry['table']}", "project_id": project.get("id"), "source_id": "supabase", "title": f"{project.get('name', project_ref)} — {entry['table']}", "uri": resolved_uri or uri, "content": table_content, "status": table_status}
+                    if doc["status"] not in {"read", "partial"}:
+                        failures.append({"project_id": project.get("id"), "source_id": source_id, "status": table_status, "table": entry["table"]})
+                        continue
+                    remaining = MAX_TOTAL_CHARS - total_chars
+                    if remaining <= 0:
+                        failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "total_content_limit_reached"})
+                        break
+                    original_length = len(doc["content"])
+                    doc["content"] = doc["content"][:min(MAX_DOCUMENT_CHARS, remaining)]
+                    doc["truncated"] = doc["status"] == "partial" or len(doc["content"]) < original_length
+                    if doc["truncated"]:
+                        doc["status"] = "partial"
+                    total_chars += len(doc["content"])
+                    doc["content_sha256"] = hashlib.sha256(doc["content"].encode("utf-8")).hexdigest()
+                    documents.append(doc)
                 continue
+            elif source_id == "cloudflare":
+                parsed = urllib.parse.urlparse(uri)
+                parts = [part for part in parsed.path.split("/") if part]
+                account_id = settings.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
+                token = settings.get("CLOUDFLARE_API_TOKEN", "").strip()
+                if parsed.scheme != "cloudflare" or parsed.netloc != "worker" or len(parts) != 1:
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "invalid_reference"})
+                    continue
+                script_name = parts[0]
+                key = ("cloudflare", account_id + ":" + script_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if not account_id or not token:
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "not_configured"})
+                    continue
+                text, status, resolved_uri = _cloudflare_worker(account_id, script_name, token=token)
+                doc = {"document_id": f"cloudflare:{account_id}:{script_name}", "project_id": project.get("id"), "source_id": "cloudflare", "title": f"Cloudflare Worker {script_name}", "uri": resolved_uri or uri, "content": text, "status": status}
             else:
                 continue
             if doc["status"] not in {"read", "partial"}:
@@ -315,7 +456,7 @@ def collect_source_documents(
             "remote_writes": False,
             "local_files_modified": False,
             "local_file_allowlist_only": True,
-            "credentials_in_output": False,
+            "credentials_in_output": False,\n            "supabase_read_only_publishable_key": True,\n            "supabase_table_allowlist_required": True,\n            "cloudflare_workers_get_only": True,
             "content_sent_to_model": False,
         },
     }

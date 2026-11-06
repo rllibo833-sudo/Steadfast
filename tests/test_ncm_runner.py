@@ -1,0 +1,105 @@
+import unittest
+from unittest.mock import patch
+
+from steadfast.ncm_runner import render_ncm, run_ncm
+
+
+class NcmRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.manifest = {
+            "universe_id": "test",
+            "projects": [{"id": "alpha"}, {"id": "beta"}],
+        }
+        self.ingestion = {
+            "documents": [{
+                "document_id": "notion:alpha",
+                "project_id": "alpha",
+                "source_id": "notion",
+                "content": "shared evidence archive",
+                "status": "read",
+            }],
+            "summary": {"documents_read": 1},
+            "failures": [],
+            "safety": {"read_only": True},
+        }
+        self.graph = {
+            "summary": {
+                "projects": 2,
+                "candidate_concepts": 3,
+                "cross_project_relations": 1,
+            },
+            "documents": [{"document_id": "notion:alpha"}],
+            "graph_findings": [],
+            "manifest_findings": [],
+        }
+
+    @patch("steadfast.ncm_runner.infer_semantic_candidates")
+    @patch("steadfast.ncm_runner.build_cross_project_model")
+    @patch("steadfast.ncm_runner.collect_source_documents")
+    @patch("steadfast.ncm_runner.load_universe_manifest")
+    def test_one_runner_executes_and_combines_all_ncm_layers(
+        self, load_manifest, collect, build_graph, semantic
+    ):
+        load_manifest.return_value = (self.manifest, [])
+        collect.return_value = self.ingestion
+        build_graph.return_value = self.graph
+        semantic.return_value = {
+            "status": "completed",
+            "concepts": [{"id": "candidate-concept:1"}],
+            "relations": [{"from": "project:alpha", "to": "project:beta"}],
+            "possible_conflicts": [],
+            "findings": [],
+            "summary": {"concepts": 1, "relations": 1},
+            "safety": {"remote_request_made": True},
+        }
+
+        result = run_ncm("/tmp/repo", allow_remote=True)
+
+        load_manifest.assert_called_once()
+        collect.assert_called_once_with(self.manifest, env=None)
+        build_graph.assert_called_once_with(self.manifest, self.ingestion["documents"], threshold=0.2)
+        semantic.assert_called_once_with(
+            self.manifest,
+            allow_remote=True,
+            env=None,
+            source_documents=[],
+            allow_source_content_remote=False,
+        )
+        self.assertEqual(result["model_type"], "next_concept_model")
+        self.assertEqual(result["ecosystem_graph"], self.graph)
+        self.assertEqual(result["semantic_layer"]["status"], "completed")
+        self.assertEqual(result["summary"]["candidate_concepts"], 4)
+        self.assertEqual(result["summary"]["cross_project_relations"], 2)
+
+    @patch("steadfast.ncm_runner.infer_semantic_candidates")
+    @patch("steadfast.ncm_runner.build_cross_project_model")
+    @patch("steadfast.ncm_runner.collect_source_documents")
+    @patch("steadfast.ncm_runner.load_universe_manifest")
+    def test_source_text_is_not_sent_without_separate_consent(
+        self, load_manifest, collect, build_graph, semantic
+    ):
+        load_manifest.return_value = (self.manifest, [])
+        collect.return_value = self.ingestion
+        build_graph.return_value = self.graph
+        semantic.return_value = {"status": "blocked", "safety": {"remote_request_made": False}}
+
+        result = run_ncm("/tmp/repo", allow_remote=True)
+
+        self.assertEqual(semantic.call_args.kwargs["source_documents"], [])
+        self.assertFalse(result["safety"]["source_documents_sent_to_model"])
+
+    @patch("steadfast.ncm_runner.load_universe_manifest")
+    def test_invalid_manifest_stops_pipeline(self, load_manifest):
+        load_manifest.return_value = (None, [{"code": "INVALID"}])
+        result = run_ncm("/tmp/repo")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["manifest_findings"], [{"code": "INVALID"}])
+
+    def test_rendered_artifact_is_single_json_document_with_newline(self):
+        rendered = render_ncm({"model_type": "next_concept_model"})
+        self.assertTrue(rendered.endswith("\n"))
+        self.assertTrue(rendered.startswith("{"))
+
+
+if __name__ == "__main__":
+    unittest.main()

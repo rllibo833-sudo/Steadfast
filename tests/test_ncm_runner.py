@@ -65,6 +65,10 @@ class NcmRunnerTests(unittest.TestCase):
             env=None,
             source_documents=[],
             allow_source_content_remote=False,
+            adapter_results=[
+                {"project_id": "alpha", "adapter_id": None, "status": "not_configured", "capabilities": [], "outputs": [], "dependencies": [], "findings": [{"code": "ADAPTER_NOT_DECLARED"}]},
+                {"project_id": "beta", "adapter_id": None, "status": "not_configured", "capabilities": [], "outputs": [], "dependencies": [], "findings": [{"code": "ADAPTER_NOT_DECLARED"}]},
+            ],
         )
         self.assertEqual(result["model_type"], "next_concept_model")
         self.assertEqual(len(result["ecosystem_graph"]["nodes"]), 1)

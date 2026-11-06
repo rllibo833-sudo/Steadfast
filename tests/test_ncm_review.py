@@ -54,6 +54,11 @@ class NcmReviewTests(unittest.TestCase):
         result = validate_review_ledger(self.model, ledger)
         self.assertIn("DUPLICATE_EDGE_DECISION", {item["code"] for item in result["findings"]})
 
+    def test_non_object_ledger_is_rejected_safely(self):
+        result = validate_review_ledger(self.model, [])
+        self.assertFalse(result["valid"])
+        self.assertIn("INVALID_REVIEW_LEDGER", {item["code"] for item in result["findings"]})
+
     def test_rationale_and_evidence_are_mandatory(self):
         decision = dict(self.ledger["decisions"][0], rationale="", evidence=[])
         result = validate_review_ledger(self.model, dict(self.ledger, decisions=[decision]))

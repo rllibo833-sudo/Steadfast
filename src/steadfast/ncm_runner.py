@@ -176,7 +176,8 @@ def run_ncm(
     has_partial_sources = bool(ingestion.get("failures"))
     has_adapter_issues = adapter_layer.get("status") != "completed"
     semantic_failed = semantic_layer["status"] in {"failed", "error"}
-    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed) else "completed"
+    has_semantic_rejections = bool(semantic_layer.get("findings"))
+    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed or has_semantic_rejections) else "completed"
     return {
         "model_type": "next_concept_model",
         "model_version": "1.0.0",

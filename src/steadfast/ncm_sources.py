@@ -94,34 +94,58 @@ def _notion_document(page_id: str, *, token: str) -> tuple[str, str]:
                 if title:
                     break
     lines = [f"# {title}"] if title else []
-    cursor = ""
     count = 0
-    while count < MAX_NOTION_BLOCKS:
-        query = {"page_size": "100"}
-        if cursor:
-            query["start_cursor"] = cursor
-        url = f"https://api.notion.com/v1/blocks/{page_id}/children?{urllib.parse.urlencode(query)}"
-        block_status, payload = _json(url, token=token, headers=headers)
-        if block_status != 200:
-            return ("\n".join(lines), "partial" if lines else "unreachable")
-        blocks = payload.get("results", [])
-        if not isinstance(blocks, list):
-            break
-        for block in blocks:
-            if not isinstance(block, dict):
-                continue
-            count += 1
-            text = _block_text(block)
-            if text.strip():
-                lines.append(text.strip())
-            # Nested block children are deliberately not recursively fetched in this bounded first pass.
-            if count >= MAX_NOTION_BLOCKS:
-                break
-        if not payload.get("has_more") or not isinstance(payload.get("next_cursor"), str):
-            break
-        cursor = payload["next_cursor"]
+    incomplete = False
+
+    def walk(parent_id: str, depth: int) -> None:
+        nonlocal count, incomplete
+        cursor = ""
+        while count < MAX_NOTION_BLOCKS:
+            query = {"page_size": "100"}
+            if cursor:
+                query["start_cursor"] = cursor
+            url = f"https://api.notion.com/v1/blocks/{parent_id}/children?{urllib.parse.urlencode(query)}"
+            block_status, payload = _json(url, token=token, headers=headers)
+            if block_status != 200:
+                incomplete = True
+                return
+            blocks = payload.get("results", [])
+            if not isinstance(blocks, list):
+                incomplete = True
+                return
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+                count += 1
+                kind = block.get("type")
+                text = _block_text(block)
+                if text.strip():
+                    lines.append(text.strip())
+                if kind in {"file", "pdf", "image", "video", "audio"}:
+                    incomplete = True
+                if block.get("has_children") is True:
+                    child_id = block.get("id")
+                    if depth >= 3 or not isinstance(child_id, str):
+                        incomplete = True
+                    else:
+                        walk(child_id, depth + 1)
+                if count >= MAX_NOTION_BLOCKS:
+                    incomplete = True
+                    break
+            if incomplete or not payload.get("has_more"):
+                return
+            next_cursor = payload.get("next_cursor")
+            if not isinstance(next_cursor, str) or not next_cursor:
+                incomplete = True
+                return
+            cursor = next_cursor
+        incomplete = True
+
+    walk(page_id, 0)
     text = "\n".join(lines).strip()
-    return text[:MAX_DOCUMENT_CHARS], "read" if text else "empty"
+    if len(text) > MAX_DOCUMENT_CHARS:
+        incomplete = True
+    return text[:MAX_DOCUMENT_CHARS], "partial" if incomplete else "read" if text else "empty"
 
 
 def _github_readme(uri: str, *, token: str) -> tuple[str, str, str]:
@@ -142,7 +166,8 @@ def _github_readme(uri: str, *, token: str) -> tuple[str, str, str]:
         text = base64.b64decode(encoded).decode("utf-8", errors="replace")
     except (ValueError, base64.binascii.Error):
         return "", "invalid_response", ""
-    return text[:MAX_DOCUMENT_CHARS], "read" if text else "empty", f"https://github.com/{owner}/{repo}/blob/{payload.get('sha', '')}"
+    truncated = len(text) > MAX_DOCUMENT_CHARS
+    return text[:MAX_DOCUMENT_CHARS], "partial" if truncated else "read" if text else "empty", f"https://github.com/{owner}/{repo}/blob/{payload.get('sha', '')}"
 
 
 def _local_documents(project: dict[str, Any], root: Path) -> list[dict[str, Any]]:
@@ -251,7 +276,11 @@ def collect_source_documents(
             if remaining <= 0:
                 failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "total_content_limit_reached"})
                 continue
+            original_length = len(doc["content"])
             doc["content"] = doc["content"][:min(MAX_DOCUMENT_CHARS, remaining)]
+            doc["truncated"] = doc.get("status") == "partial" or len(doc["content"]) < original_length
+            if doc["truncated"]:
+                doc["status"] = "partial"
             total_chars += len(doc["content"])
             doc["content_sha256"] = hashlib.sha256(doc["content"].encode("utf-8")).hexdigest()
             documents.append(doc)
@@ -261,7 +290,11 @@ def collect_source_documents(
                 remaining = MAX_TOTAL_CHARS - total_chars
                 if remaining <= 0:
                     break
+                original_length = len(doc["content"])
                 doc["content"] = doc["content"][:min(MAX_DOCUMENT_CHARS, remaining)]
+                doc["truncated"] = len(doc["content"]) < original_length
+                if doc["truncated"]:
+                    doc["status"] = "partial"
                 total_chars += len(doc["content"])
                 doc["content_sha256"] = hashlib.sha256(doc["content"].encode("utf-8")).hexdigest()
                 documents.append(doc)
@@ -275,6 +308,7 @@ def collect_source_documents(
             "documents_read": len(documents),
             "characters_read": total_chars,
             "sources_with_failures": len(failures),
+            "partial_documents": sum(item.get("status") == "partial" for item in documents),
         },
         "safety": {
             "http_method": "GET",

@@ -236,7 +236,11 @@ def build_cross_project_model(
                 if left in owners and right in owners
             )
             shared_sources = sorted(project_source_ids[left] & project_source_ids[right])
-            if not shared_concepts and not shared_sources:
+            left_concepts = {concept for concept, owners in concept_projects.items() if left in owners}
+            right_concepts = {concept for concept, owners in concept_projects.items() if right in owners}
+            concept_union = left_concepts | right_concepts
+            concept_score = len(left_concepts & right_concepts) / len(concept_union) if concept_union else 0.0
+            if not shared_sources and (not shared_concepts or concept_score < threshold):
                 continue
             relation = {
                 "from": f"project:{left}",
@@ -246,6 +250,8 @@ def build_cross_project_model(
                     "shared_concepts": shared_concepts,
                     "shared_source_systems": shared_sources,
                     "concept_count": len(shared_concepts),
+                    "concept_jaccard_score": round(concept_score, 6),
+                    "threshold": threshold,
                     "source_system_count": len(shared_sources),
                     "interpretation": "shared_indexed_evidence_is_not_a_dependency_or_semantic_equivalence",
                 },

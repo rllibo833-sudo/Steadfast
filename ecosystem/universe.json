@@ -79,7 +79,12 @@
           "evidence": "project listing"
         }
       ],
-      "status": "unverified"
+      "status": "unverified",
+      "adapter": {
+        "id": "pusingcuk-compiler",
+        "version": "1.0.0",
+        "status": "enabled"
+      }
     },
     {
       "id": "mnemos-rli",
@@ -100,7 +105,12 @@
           "evidence": "project listing"
         }
       ],
-      "status": "unverified"
+      "status": "unverified",
+      "adapter": {
+        "id": "mnemos-engine",
+        "version": "1.0.0",
+        "status": "enabled"
+      }
     },
     {
       "id": "steadfast",
@@ -158,7 +168,12 @@
           "title": "ECOS — Acuan Populasi Nasional"
         }
       ],
-      "status": "unverified"
+      "status": "unverified",
+      "adapter": {
+        "id": "ecos-archive",
+        "version": "1.0.0",
+        "status": "archived"
+      }
     },
     {
       "id": "core-public",
@@ -179,7 +194,12 @@
           "evidence": "project listing"
         }
       ],
-      "status": "unverified"
+      "status": "unverified",
+      "adapter": {
+        "id": "kawasan-masjid-site",
+        "version": "1.0.0",
+        "status": "enabled"
+      }
     },
     {
       "id": "cukmind",

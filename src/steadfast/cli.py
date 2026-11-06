@@ -309,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not output_path.is_absolute():
                     output_path = repo / output_path
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+                output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
                 result["output"] = str(output_path)
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result.get("status") == "completed" else 1

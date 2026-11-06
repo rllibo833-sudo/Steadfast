@@ -283,7 +283,7 @@ def _local_documents(project: dict[str, Any], root: Path) -> list[dict[str, Any]
             "title": relative,
             "uri": relative,
             "content": text[:MAX_DOCUMENT_CHARS],
-            "status": "read",
+            "status": "partial" if len(text) > MAX_DOCUMENT_CHARS else "read",
         })
     catalog = root / "modules" / "catalog"
     if catalog.is_dir() and not catalog.is_symlink():
@@ -302,7 +302,7 @@ def _local_documents(project: dict[str, Any], root: Path) -> list[dict[str, Any]
                 "title": path.name,
                 "uri": path.relative_to(root).as_posix(),
                 "content": text[:MAX_DOCUMENT_CHARS],
-                "status": "read",
+                "status": "partial" if len(text) > MAX_DOCUMENT_CHARS else "read",
             })
     return result
 

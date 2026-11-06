@@ -192,6 +192,47 @@ class NcmRunnerTests(unittest.TestCase):
         self.assertEqual(sum(edge["type"] == "verified_by_shared_ncm_orchestrator" for edge in result["ecosystem_graph"]["edges"]), 2)
         self.assertEqual(result["ecosystem_graph"]["summary"]["nodes"], len(result["ecosystem_graph"]["nodes"]))
 
+    def test_verified_cross_project_contract_becomes_two_graph_edges(self):
+        manifest = {
+            "universe_id": "test",
+            "projects": [{"id": "alpha", "adapter": {"id": "bridge"}}, {"id": "beta"}],
+        }
+        graph = {
+            "nodes": [
+                {"id": "project:alpha", "kind": "project", "label": "Alpha"},
+                {"id": "project:beta", "kind": "project", "label": "Beta"},
+            ],
+            "edges": [],
+            "summary": {"projects": 2, "candidate_concepts": 0, "cross_project_relations": 0},
+            "documents": [], "graph_findings": [], "manifest_findings": [],
+        }
+
+        class BridgeAdapter:
+            adapter_id = "bridge"
+
+            def __call__(self, context):
+                return AdapterResult(
+                    project_id="alpha", adapter_id="bridge", status="completed",
+                    outputs=[{
+                        "kind": "cross_project_integration",
+                        "contract": "alpha-beta-v1",
+                        "producer_project": "alpha",
+                        "consumer_project": "beta",
+                    }],
+                )
+
+        registry = AdapterRegistry()
+        registry.register(BridgeAdapter())
+        with patch("steadfast.ncm_runner.load_universe_manifest", return_value=(manifest, [])), \\
+             patch("steadfast.ncm_runner.collect_source_documents", return_value={"documents": [], "failures": [], "summary": {}, "safety": {}}), \\
+             patch("steadfast.ncm_runner.build_cross_project_model", return_value=graph), \\
+             patch("steadfast.ncm_runner.infer_semantic_candidates", return_value={"status": "blocked", "concepts": [], "relations": [], "possible_conflicts": [], "findings": [], "summary": {}, "safety": {}}):
+            result = run_ncm("/tmp/repo", adapter_registry=registry)
+
+        edge_types = {edge["type"] for edge in result["ecosystem_graph"]["edges"]}
+        self.assertIn("provided_cross_project_payload", edge_types)
+        self.assertIn("consumed_cross_project_payload", edge_types)
+
     def test_rendered_artifact_is_single_json_document_with_newline(self):
         rendered = render_ncm({"model_type": "next_concept_model"})
         self.assertTrue(rendered.endswith("\n"))

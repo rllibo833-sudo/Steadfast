@@ -24,7 +24,8 @@
       "type": "object",
       "required": [
         "universe_id",
-        "manifest_version"
+        "manifest_version",
+        "sha256"
       ],
       "properties": {
         "universe_id": {
@@ -38,6 +39,10 @@
             "string",
             "null"
           ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       },
       "additionalProperties": false

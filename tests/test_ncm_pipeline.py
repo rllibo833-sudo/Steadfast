@@ -1,3 +1,4 @@
+import hashlib
 import json
 import unittest
 from pathlib import Path
@@ -116,6 +117,20 @@ class NcmPipelineTests(unittest.TestCase):
         self.assertTrue(all(edge["from"] in ids and edge["to"] in ids for edge in result["edges"]))
         edge_ids = [edge["edge_id"] for edge in result["edges"]]
         self.assertEqual(len(edge_ids), len(set(edge_ids)))
+
+    def test_source_manifest_digest_is_canonical_and_traceable(self):
+        result = infer_candidate_relations(self.manifest)
+        expected = hashlib.sha256(
+            json.dumps(self.manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(result["source_manifest"]["sha256"], expected)
+
+    def test_source_manifest_digest_changes_when_manifest_changes(self):
+        first = infer_candidate_relations(self.manifest)
+        changed = json.loads(json.dumps(self.manifest))
+        changed["title"] = "Changed Universe"
+        second = infer_candidate_relations(changed)
+        self.assertNotEqual(first["source_manifest"]["sha256"], second["source_manifest"]["sha256"])
 
     def test_threshold_validation(self):
         with self.assertRaises(ValueError):

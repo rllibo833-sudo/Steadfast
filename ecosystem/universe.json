@@ -44,7 +44,7 @@
       "id": "supabase",
       "type": "backend_platform",
       "state": "connected",
-      "scope": "Three projects enumerated; all reported INACTIVE at inventory time."
+      "scope": "Three Supabase projects enumerated; deployed Edge Functions are ACTIVE. Database availability is a separate runtime concern."
     },
     {
       "id": "cloudflare",
@@ -75,8 +75,8 @@
           "source_id": "supabase",
           "uri": "supabase://project/vcvejjpzklpvknxmymgy",
           "role": "backend",
-          "status": "INACTIVE",
-          "evidence": "project listing"
+          "evidence": "Supabase project inventory; deployed Edge Function inventory separately confirms ACTIVE services.",
+          "project_status": "INACTIVE"
         }
       ],
       "status": "unverified",
@@ -101,8 +101,8 @@
           "source_id": "supabase",
           "uri": "supabase://project/kuditcnmasfjgzmimnlc",
           "role": "backend",
-          "status": "INACTIVE",
-          "evidence": "project listing"
+          "evidence": "Supabase project inventory; deployed Edge Function inventory separately confirms ACTIVE services.",
+          "project_status": "INACTIVE"
         }
       ],
       "status": "unverified",
@@ -195,8 +195,8 @@
           "source_id": "supabase",
           "uri": "supabase://project/lnpzgrodwnhthcwudebk",
           "role": "backend",
-          "status": "INACTIVE",
-          "evidence": "project listing"
+          "evidence": "Supabase project inventory; deployed Edge Function inventory separately confirms ACTIVE services.",
+          "project_status": "INACTIVE"
         }
       ],
       "status": "unverified",

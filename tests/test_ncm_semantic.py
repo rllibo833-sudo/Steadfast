@@ -48,6 +48,17 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["concepts"][0]["epistemic_status"], "candidate")
         self.assertTrue(result["safety"]["evidence_quotes_verified_against_exact_indexed_source_content"])
 
+    def test_existing_openrouter_secret_is_accepted_as_ncm_key(self):
+        response = {"concepts": [], "relations": [], "possible_conflicts": []}
+        with patch("steadfast.ncm_semantic._call_model", return_value=response) as model_call:
+            result = infer_semantic_candidates(
+                self.manifest,
+                allow_remote=True,
+                env={"JBF_OPENROUTER_API_KEY": "existing-openrouter-secret", "NCM_MODEL": "test-model"},
+            )
+        self.assertEqual(result["status"], "completed")
+        model_call.assert_called_once()
+
     def test_fabricated_evidence_is_rejected(self):
         response = {
             "concepts": [{

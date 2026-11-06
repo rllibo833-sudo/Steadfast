@@ -315,5 +315,49 @@
     "Supabase listed three projects and reported each as INACTIVE.",
     "Cloudflare inventory and live Termux filesystem inventory remain pending.",
     "Relationships are provisional and must be confirmed from project evidence before being treated as technical dependencies."
+  ],
+  "backend_services": [
+    {
+      "id": "pusingcuk-web",
+      "project_id": "pusingcuk",
+      "endpoint": "https://vcvejjpzklpvknxmymgy.supabase.co/functions/v1/pusingcuk-web",
+      "auth_mode": "public",
+      "expected_status": [
+        200
+      ],
+      "purpose": "Public frontend delivery; GET-only probe"
+    },
+    {
+      "id": "pusingcuk-ai",
+      "project_id": "pusingcuk",
+      "endpoint": "https://vcvejjpzklpvknxmymgy.supabase.co/functions/v1/pusingcuk-ai",
+      "auth_mode": "required",
+      "expected_status": [
+        401,
+        403
+      ],
+      "purpose": "Authenticated AI endpoint; unauthenticated probe must remain protected"
+    },
+    {
+      "id": "mnemos-mcp",
+      "project_id": "mnemos-rli",
+      "endpoint": "https://kuditcnmasfjgzmimnlc.supabase.co/functions/v1/mnemos-mcp",
+      "auth_mode": "required",
+      "expected_status": [
+        401,
+        403
+      ],
+      "purpose": "Authenticated MCP endpoint; unauthenticated probe must remain protected"
+    },
+    {
+      "id": "kawasan-api-health",
+      "project_id": "core-public",
+      "endpoint": "https://lnpzgrodwnhthcwudebk.supabase.co/functions/v1/api-v1/health",
+      "auth_mode": "public",
+      "expected_status": [
+        200
+      ],
+      "purpose": "Read-only public API health endpoint"
+    }
   ]
 }

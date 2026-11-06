@@ -98,6 +98,10 @@
         "edges": {
           "type": "integer",
           "minimum": 0
+        },
+        "candidate_relations": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false

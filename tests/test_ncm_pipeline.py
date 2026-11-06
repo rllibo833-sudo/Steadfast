@@ -68,6 +68,19 @@ class NcmPipelineTests(unittest.TestCase):
         self.assertEqual(unknown["label"], "not-in-manifest")
         self.assertEqual(edge["to"], unknown["id"])
         self.assertEqual(result["graph_findings"], [])
+        self.assertEqual(result["manifest_findings"][0]["code"], "UNRESOLVED_MANIFEST_ENDPOINT")
+        self.assertEqual(result["summary"]["audit_findings"], 1)
+
+    def test_malformed_declared_relationship_is_reported(self):
+        self.manifest["relationships"] = [{"from": "alpha"}]
+        result = infer_candidate_relations(self.manifest)
+        self.assertEqual(result["manifest_findings"][0]["code"], "INVALID_MANIFEST_RELATIONSHIP_ENDPOINT")
+        self.assertEqual(result["summary"]["audit_findings"], 1)
+
+    def test_non_array_relationship_collection_is_reported(self):
+        self.manifest["relationships"] = {}
+        result = infer_candidate_relations(self.manifest)
+        self.assertEqual(result["manifest_findings"][0]["code"], "RELATIONSHIPS_MUST_BE_ARRAY")
 
     def test_overlap_candidate_has_reproducible_field_evidence(self):
         result = infer_candidate_relations(self.manifest)
@@ -98,6 +111,8 @@ class NcmPipelineTests(unittest.TestCase):
         ids = {node["id"] for node in result["nodes"]}
         self.assertEqual(result["summary"]["projects"], len(manifest["projects"]))
         self.assertEqual(result["graph_findings"], [])
+        self.assertEqual(result["manifest_findings"], [])
+        self.assertEqual(result["summary"]["audit_findings"], 0)
         self.assertTrue(all(edge["from"] in ids and edge["to"] in ids for edge in result["edges"]))
         edge_ids = [edge["edge_id"] for edge in result["edges"]]
         self.assertEqual(len(edge_ids), len(set(edge_ids)))

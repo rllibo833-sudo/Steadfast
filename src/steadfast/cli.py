@@ -438,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
                 documents = artifact["documents"]
             result = build_cross_project_model(manifest, documents, threshold=args.threshold)
-            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\\n"
+            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
             if args.output:
                 output_path = Path(args.output)
                 if not output_path.is_absolute():

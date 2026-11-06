@@ -67,6 +67,7 @@ python -m pip install --upgrade "git+https://github.com/rllibo833-sudo/Steadfast
 | `steadfast report` | Generate a human-readable audit report. |
 | `steadfast audit` | Check changed files, evidence, contracts, and documentation drift. |
 | `steadfast discover` | Print a machine-readable capability map for tools and agents. |
+| `steadfast universe-check` | Validate the cross-platform ecosystem manifest and its project/source references. |
 | `steadfast mcp-server` | Start the read-only MCP server for compatible agents. |
 
 See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough, the [MCP client setup guide](docs/AGENT_MCP_SETUP.md) to connect compatible AI clients, and the [command reference](docs/COMMANDS.md) for the full CLI list. For a copy-ready pull-request workflow and an adoption checklist, see [Adopt in GitHub Actions](docs/ADOPT_IN_GITHUB_ACTIONS.md).
@@ -81,6 +82,10 @@ See the [quick-start guide](docs/QUICKSTART.md) for a short walkthrough, the [MC
 - **Agent support:** discover skills, inspect MCP configuration, and install repo-local guidance.
 
 These checks are guardrails, not a sandbox or proof of semantic correctness. Results depend on repository policy and configuration; review findings before treating them as release decisions. Steadfast does not silently rewrite plans or execute the configured pipeline as part of `verify`. Run `steadfast pipeline` separately only after reviewing its manifest.
+
+## Cross-platform ecosystem index
+
+The `ecosystem/` directory contains a canonical index of projects and their distributed source references. It does not copy project code or claim that remote sources are reachable. Run `steadfast universe-check` from the repository root to validate the manifest structure, identifiers, source references, and relationship endpoints. Remote URLs are syntax-checked only; no network requests or project files are modified.
 
 ## Configuration
 

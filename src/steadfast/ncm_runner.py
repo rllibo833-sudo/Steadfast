@@ -42,7 +42,7 @@ def run_ncm(
         documents = []
 
     graph = build_cross_project_model(manifest, documents, threshold=threshold)
-    adapter_layer = run_project_adapters(manifest, documents, adapter_registry)
+    adapter_layer = run_project_adapters(manifest, documents, adapter_registry, env=env)
 
     # Source text is sent to the semantic provider only with its separate consent flag.
     semantic_documents = documents if allow_source_content_remote else []

@@ -76,7 +76,15 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
     return index
 
 
-def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documents: list[dict[str, Any]] | None = None, adapter_results: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _call_model(
+    manifest: dict[str, Any],
+    env: Mapping[str, str],
+    source_documents: list[dict[str, Any]] | None = None,
+    adapter_results: list[dict[str, Any]] | None = None,
+    *,
+    repair_response: dict[str, Any] | None = None,
+    validation_findings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     # Reuse the repository's existing OpenRouter credential when no NCM-specific key is set.
     api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
     base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
@@ -152,6 +160,21 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
             },
         ],
     }
+    if repair_response is not None:
+        payload["messages"].append({
+            "role": "user",
+            "content": json.dumps({
+                "task": "repair_only_validation_failures",
+                "instructions": (
+                    "Your previous JSON response failed strict evidence validation. Return a corrected complete JSON object. "
+                    "Fix every reported item using ONLY the exact evidence paths and verbatim source excerpts supplied above. "
+                    "Do not invent paths, project IDs, quotes, or capabilities. If an item cannot be repaired with exact evidence, omit it. "
+                    "Keep the same output schema and the same arrays concepts, relations, possible_conflicts."
+                ),
+                "validation_findings": validation_findings or [],
+                "previous_response": repair_response,
+            }, ensure_ascii=False),
+        })
     request = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
@@ -317,6 +340,23 @@ def infer_semantic_candidates(
             "safety": {"remote_request_made": True, "manifest_modified": False, "candidates_promoted": False},
         }
     concepts, relations, conflicts, findings = _validate_candidates(response, manifest, documents, adapter_results)
+    initial_rejected_items = len(findings)
+    repair_attempted = False
+    if findings:
+        repair_attempted = True
+        try:
+            repaired_response = _call_model(
+                manifest, settings, documents, adapter_results,
+                repair_response=response, validation_findings=findings,
+            )
+            repaired = _validate_candidates(repaired_response, manifest, documents, adapter_results)
+            initial_quality = (len(concepts) + len(relations) + len(conflicts), -len(findings))
+            repaired_quality = (len(repaired[0]) + len(repaired[1]) + len(repaired[2]), -len(repaired[3]))
+            if repaired_quality > initial_quality:
+                concepts, relations, conflicts, findings = repaired
+        except RuntimeError:
+            # Keep the first validated result; a failed repair never erases it.
+            pass
     return {
         "status": "completed",
         "model_type": "evidence_grounded_semantic_candidates",
@@ -334,6 +374,8 @@ def infer_semantic_candidates(
             "relations": len(relations),
             "possible_conflicts": len(conflicts),
             "rejected_items": len(findings),
+            "initial_rejected_items": initial_rejected_items,
+            "repair_attempted": repair_attempted,
         },
         "concepts": concepts,
         "relations": relations,

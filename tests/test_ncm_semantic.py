@@ -124,6 +124,60 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["source_documents_count"], 1)
         self.assertIn("shared digital evidence archive", str(model_call.call_args))
 
+    def test_ecosystem_context_fields_can_ground_semantic_evidence(self):
+        from steadfast.ncm_semantic import _validate_candidates
+
+        response = {
+            "concepts": [{
+                "name": "Governance boundary",
+                "definition": "A boundary between validation and modeling.",
+                "evidence": [{"path": "consumers[0].role", "quote": "Model concepts across indexed projects"}],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        concepts, _, _, findings = _validate_candidates(response, {
+            **self.manifest,
+            "consumers": [{"id": "ncm", "role": "Model concepts across indexed projects"}],
+        })
+        self.assertEqual(len(concepts), 1)
+        self.assertEqual(findings, [])
+
+    def test_non_tls_remote_endpoint_is_rejected_before_sending_credentials(self):
+        from steadfast.ncm_semantic import _call_model
+
+        with patch("steadfast.ncm_semantic.urllib.request.urlopen") as send:
+            with self.assertRaisesRegex(RuntimeError, "must use HTTPS"):
+                _call_model(
+                    self.manifest,
+                    {"NCM_API_KEY": "secret", "NCM_MODEL": "test", "NCM_BASE_URL": "http://example.com/v1"},
+                )
+        send.assert_not_called()
+
+    def test_local_http_endpoint_is_allowed_for_development(self):
+        import json
+        from steadfast.ncm_semantic import _call_model
+
+        response = {"choices": [{"message": {"content": '{"concepts":[],"relations":[],"possible_conflicts":[]}'}}]}
+        with patch("steadfast.ncm_semantic.urllib.request.urlopen") as send:
+            send.return_value.__enter__.return_value.read.return_value = json.dumps(response).encode()
+            result = _call_model(
+                self.manifest,
+                {"NCM_API_KEY": "secret", "NCM_MODEL": "test", "NCM_BASE_URL": "http://localhost:1234/v1"},
+            )
+        self.assertEqual(result["concepts"], [])
+        send.assert_called_once()
+
+    def test_incomplete_model_response_schema_is_rejected(self):
+        import json
+        from steadfast.ncm_semantic import _call_model
+
+        response = {"choices": [{"message": {"content": '{"concepts":[]}'}}]}
+        with patch("steadfast.ncm_semantic.urllib.request.urlopen") as send:
+            send.return_value.__enter__.return_value.read.return_value = json.dumps(response).encode()
+            with self.assertRaisesRegex(RuntimeError, "must contain concepts"):
+                _call_model(self.manifest, {"NCM_API_KEY": "secret", "NCM_MODEL": "test"})
+
 
 if __name__ == "__main__":
     unittest.main()

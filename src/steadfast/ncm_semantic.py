@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Mapping
 
@@ -30,6 +31,20 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
                 value = ref.get(field)
                 if isinstance(value, str) and value.strip():
                     index[f"projects[{project_id}].sources[{number}].{field}"] = value
+    def add_manifest_evidence(value: Any, path: str) -> None:
+        if isinstance(value, str) and value.strip():
+            index[path] = value
+        elif isinstance(value, list):
+            for number, item in enumerate(value):
+                add_manifest_evidence(item, f"{path}[{number}]")
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(key, str):
+                    add_manifest_evidence(item, f"{path}.{key}")
+
+    for field in ("title", "purpose", "principles", "sources", "consumers", "relationships", "inventory_notes"):
+        if field in manifest:
+            add_manifest_evidence(manifest[field], field)
     for document in source_documents or []:
         if not isinstance(document, dict) or not isinstance(document.get("document_id"), str):
             continue
@@ -42,10 +57,21 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
 def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     # Reuse the repository's existing OpenRouter credential when no NCM-specific key is set.
     api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
-    base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
     model = env.get("NCM_MODEL", "").strip()
     if not api_key or not model:
         raise RuntimeError("NCM_API_KEY and NCM_MODEL must be configured.")
+    endpoint = urllib.parse.urlsplit(base_url)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if (
+        not endpoint.hostname
+        or endpoint.username
+        or endpoint.password
+        or endpoint.query
+        or endpoint.fragment
+        or (endpoint.scheme != "https" and not (endpoint.scheme == "http" and endpoint.hostname in local_hosts))
+    ):
+        raise RuntimeError("NCM_BASE_URL must use HTTPS (HTTP is allowed only for localhost).")
     projects = [
         {key: item.get(key) for key in ("id", "name", "purpose", "status", "sources")}
         for item in manifest.get("projects", [])
@@ -61,7 +87,7 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
                 "content": (
                     "You are a cautious cross-project concept analyst. Return one JSON object with keys "
                     "concepts, relations, and possible_conflicts. Do not invent facts. Every evidence item "
-                    "must contain path and quote copied verbatim from the supplied manifest. Concepts: "
+                    "must contain path and quote copied verbatim from the supplied manifest or source documents. Concepts: "
                     "{id,name,definition,evidence:[{path,quote}]}. Relations: "
                     "{from,to,type,rationale,confidence,evidence:[{path,quote}]}. "
                     "Conflicts: {claim_a,claim_b,reason,evidence:[{path,quote}]}. "
@@ -73,6 +99,10 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
                 "content": json.dumps({
                     "universe_id": manifest.get("universe_id"),
                     "manifest_version": manifest.get("manifest_version"),
+                    "ecosystem_context": {
+                        key: manifest.get(key)
+                        for key in ("title", "purpose", "principles", "sources", "consumers", "inventory_notes")
+                    },
                     "projects": projects,
                     "relationships": manifest.get("relationships", []),
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],
@@ -88,7 +118,10 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
     )
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
-            result = json.loads(response.read().decode("utf-8"))
+            body = response.read(1_000_001)
+            if len(body) > 1_000_000:
+                raise RuntimeError("Semantic model response exceeded the 1 MB limit.")
+            result = json.loads(body.decode("utf-8"))
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError) as exc:
         raise RuntimeError(f"Semantic model request failed: {type(exc).__name__}") from None
     try:
@@ -98,6 +131,8 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
         raise RuntimeError("Semantic model returned an invalid JSON response.") from None
     if not isinstance(parsed, dict):
         raise RuntimeError("Semantic model response must be a JSON object.")
+    if any(not isinstance(parsed.get(key), list) for key in ("concepts", "relations", "possible_conflicts")):
+        raise RuntimeError("Semantic model response must contain concepts, relations, and possible_conflicts arrays.")
     return parsed
 
 

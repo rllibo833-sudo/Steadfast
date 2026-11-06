@@ -76,6 +76,33 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
     return index
 
 
+def _evidence_catalog(evidence_index: dict[str, str], *, max_paths: int = 100, max_quotes_per_path: int = 2) -> list[dict[str, str]]:
+    """Expose short, exact excerpts so the model can cite evidence without guessing."""
+    import re
+    catalog: list[dict[str, str]] = []
+    for path, source in evidence_index.items():
+        text = source.strip()
+        if not text:
+            continue
+        if len(text) <= 280:
+            candidates = [text]
+        else:
+            candidates = [part.strip() for part in re.split(r"(?<=[.!?])\\s+", text) if len(part.strip()) >= 35]
+            if not candidates:
+                candidates = [text[i:i + 220].strip() for i in range(0, min(len(text), 440), 220)]
+        added = 0
+        for quote in candidates:
+            quote = quote[:280]
+            if quote and quote in source:
+                catalog.append({"path": path, "quote": quote})
+                added += 1
+            if added >= max_quotes_per_path or len(catalog) >= max_paths * max_quotes_per_path:
+                break
+        if len(catalog) >= max_paths * max_quotes_per_path:
+            break
+    return catalog
+
+
 def _call_model(
     manifest: dict[str, Any],
     env: Mapping[str, str],
@@ -102,6 +129,7 @@ def _call_model(
         or (endpoint.scheme != "https" and not (endpoint.scheme == "http" and endpoint.hostname in local_hosts))
     ):
         raise RuntimeError("NCM_BASE_URL must use HTTPS (HTTP is allowed only for localhost).")
+    evidence_catalog = _evidence_catalog(_evidence_index(manifest, source_documents, adapter_results))
     projects = [
         {key: item.get(key) for key in ("id", "name", "purpose", "status", "sources")}
         for item in manifest.get("projects", [])
@@ -150,6 +178,7 @@ def _call_model(
                     },
                     "projects": projects,
                     "relationships": manifest.get("relationships", []),
+                    "verbatim_evidence_catalog": evidence_catalog,
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],
                     "verbatim_evidence_catalog": evidence_catalog,\n                    "adapter_results": [{
                         "project_id": item.get("project_id"), "adapter_id": item.get("adapter_id"),

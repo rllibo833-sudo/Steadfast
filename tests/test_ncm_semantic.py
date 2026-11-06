@@ -59,6 +59,37 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         model_call.assert_called_once()
 
+
+    def test_semantic_validation_gets_one_bounded_repair_attempt(self):
+        invalid = {
+            "concepts": [{
+                "name": "Grounded capability",
+                "definition": "A reusable capability grounded in source evidence.",
+                "evidence": [{"path": "projects[alpha].purpose", "quote": "fabricated quote"}],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        repaired = {
+            "concepts": [{
+                "name": "Grounded capability",
+                "definition": "A reusable capability grounded in source evidence.",
+                "evidence": [{"path": "projects[alpha].purpose", "quote": "shared knowledge archive"}],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        with patch("steadfast.ncm_semantic._call_model", side_effect=[invalid, repaired]) as model_call:
+            result = infer_semantic_candidates(
+                self.manifest, allow_remote=True,
+                env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"},
+            )
+        self.assertEqual(model_call.call_count, 2)
+        self.assertEqual(result["summary"]["concepts"], 1)
+        self.assertEqual(result["summary"]["initial_rejected_items"], 1)
+        self.assertTrue(result["summary"]["repair_attempted"])
+        self.assertEqual(result["findings"], [])
+
     def test_fabricated_evidence_is_rejected(self):
         response = {
             "concepts": [{

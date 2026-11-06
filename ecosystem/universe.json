@@ -126,7 +126,7 @@
       ],
       "status": "repository_confirmed; runtime_status_unverified",
       "adapter": {
-        "id": "steadfast-governance",
+        "id": "steadfast-ncm-integration",
         "version": "1.0.0",
         "status": "enabled"
       }

@@ -1,6 +1,6 @@
 import unittest
 
-from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters, DocumentedOnlyAdapter, derive_ecosystem_synthesis
+from steadfast.ncm_adapters import AdapterContext, AdapterRegistry, AdapterResult, run_project_adapters, DocumentedOnlyAdapter, CrossProjectIntegrationAdapter, derive_ecosystem_synthesis
 
 
 class ExampleAdapter:
@@ -80,6 +80,18 @@ class NcmAdapterTests(unittest.TestCase):
         })
         self.assertEqual(result["summary"]["emergent_concepts"], 0)
         self.assertEqual(result["summary"]["orchestration_relations"], 0)
+
+    def test_cross_project_adapter_fails_closed_without_both_source_roots(self):
+        adapter = CrossProjectIntegrationAdapter()
+        context = AdapterContext(
+            project={"id": "steadfast"},
+            source_documents=(),
+            ecosystem_manifest={"projects": []},
+            project_roots={},
+        )
+        result = adapter(context)
+        self.assertEqual(result.status, "unavailable")
+        self.assertEqual(result.findings[0]["code"], "CROSS_PROJECT_SOURCE_MISSING")
 
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()

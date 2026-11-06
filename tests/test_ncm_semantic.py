@@ -143,6 +143,33 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(len(concepts), 1)
         self.assertEqual(findings, [])
 
+
+    def test_adapter_capability_evidence_can_ground_emergent_concepts(self):
+        from steadfast.ncm_semantic import _validate_candidates
+
+        adapters = [{
+            "project_id": "alpha",
+            "adapter_id": "alpha-adapter",
+            "status": "completed",
+            "capabilities": [{"id": "compiler:frontend", "verification": "smoke_test"}],
+            "outputs": [{"kind": "command_result", "exit_code": 0}],
+        }]
+        response = {
+            "concepts": [{
+                "name": "Verified compiler frontend",
+                "definition": "A compiler frontend whose import path passed its adapter smoke test.",
+                "evidence": [{
+                    "path": "adapter_results[alpha].capabilities[0].verification",
+                    "quote": "smoke_test",
+                }],
+            }],
+            "relations": [],
+            "possible_conflicts": [],
+        }
+        concepts, _, _, findings = _validate_candidates(response, self.manifest, adapter_results=adapters)
+        self.assertEqual(len(concepts), 1)
+        self.assertEqual(findings, [])
+
     def test_non_tls_remote_endpoint_is_rejected_before_sending_credentials(self):
         from steadfast.ncm_semantic import _call_model
 

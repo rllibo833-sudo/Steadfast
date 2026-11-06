@@ -14,6 +14,7 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `integration-status` | Report installed integration adapters. |
 | `ecosystem [--strict]` | Inventory skill and MCP declarations and apply configured trust labels. |
 | `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
+| `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving concept graph for experimental NCM integration. No inference or source mutation. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
 
@@ -26,6 +27,10 @@ Example:
 ```bash
 steadfast universe-check
 ```
+
+## Experimental NCM graph projection
+
+Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosystem manifest. Add `--include-audit` to include validation findings as graph nodes. This adapter preserves declared purpose text and source provenance; it does not infer dependencies, verify relationships, call an NCM service, or modify source projects. The command is experimental and is isolated on the `experiment/universe-ncm-adapter` branch pending tests and review.
 
 ## Verification and reporting
 

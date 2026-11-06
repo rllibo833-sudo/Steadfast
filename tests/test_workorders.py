@@ -64,6 +64,10 @@ class WorkOrderTests(unittest.TestCase):
         self.assertIn(f"work-order verify {order['id']}", prompt)
 
     def test_routed_skills_flow_into_prompt_and_verification(self):
+        (self.repo / ".steadfast" / "goal.md").write_text(
+            "# Repository audit\n\n## Acceptance criteria\n- [ ] Audit repository policy and report findings\n",
+            encoding="utf-8",
+        )
         skill = self.repo / "skills" / "repo-audit" / "SKILL.md"
         skill.parent.mkdir(parents=True)
         skill.write_text(

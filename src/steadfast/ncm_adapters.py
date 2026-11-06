@@ -152,7 +152,7 @@ def build_default_adapter_registry() -> AdapterRegistry:
     registry = AdapterRegistry()
     registry.register(RepositorySmokeAdapter(
         "pusingcuk-compiler",
-        ("python", "-c", "import compiler.ir, compiler.vm, compiler.self_hosted_frontend"),
+        ("python", "-c", "from compiler.ir import from_source, validate; validate(from_source('', 'ncm-smoke')); import compiler.vm, compiler.self_hosted_frontend"),
         "pusingcuk:compiler-import-and-runtime",
     ))
     registry.register(RepositorySmokeAdapter(
@@ -170,8 +170,8 @@ def build_default_adapter_registry() -> AdapterRegistry:
     registry.register(DocumentedOnlyAdapter())
     registry.register(RepositorySmokeAdapter(
         "steadfast-governance",
-        ("steadfast", "audit"),
-        "steadfast:repository-governance-audit",
+        ("python", "-c", "import steadfast; import steadfast.ncm_runner; import steadfast.ncm_adapters"),
+        "steadfast:ncm-orchestrator-import",
     ))
     return registry
 

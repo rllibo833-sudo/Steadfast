@@ -93,6 +93,52 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.status, "unavailable")
         self.assertEqual(result.findings[0]["code"], "CROSS_PROJECT_SOURCE_MISSING")
 
+    def test_cross_project_bridge_reports_mnemos_graph_composition(self):
+        import json
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            pusingcuk = Path(directory) / "pusingcuk"
+            mnemos = Path(directory) / "mnemos"
+            pusingcuk.mkdir()
+            mnemos.mkdir()
+            context = AdapterContext(
+                project={"id": "steadfast"},
+                source_documents=(),
+                ecosystem_manifest={"projects": []},
+                project_roots={"pusingcuk": pusingcuk, "mnemos-rli": mnemos},
+            )
+            output = {
+                "contract": "pusingcuk-ir-v1",
+                "producer_project": "pusingcuk",
+                "consumer_project": "mnemos-rli",
+                "validated": True,
+                "persisted": True,
+                "idempotent": True,
+                "compiler_features": ["core", "variables"],
+                "mnemos_memory_graph": {
+                    "nodes": 3,
+                    "relationships": 2,
+                    "kinds": {"pusingcuk_compiler_ir": 1, "pusingcuk_ir_feature": 2},
+                },
+            }
+            completed = subprocess.CompletedProcess(
+                args=["python", "-c", "..."], returncode=0,
+                stdout=json.dumps(output), stderr="",
+            )
+            with patch("steadfast.ncm_adapters.subprocess.run", return_value=completed) as run:
+                result = CrossProjectIntegrationAdapter()(context)
+
+        self.assertEqual(result.status, "completed")
+        bridge_source = run.call_args.args[0][2]
+        self.assertIn("from mnemos.graph import graph_payload", bridge_source)
+        self.assertIn("exposes_compiler_feature", bridge_source)
+        self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["nodes"], 3)
+        self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["relationships"], 2)
+
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()
         registry.register(ExampleAdapter())

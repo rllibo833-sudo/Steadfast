@@ -176,6 +176,7 @@ mnemos_root = Path(sys.argv[2]).resolve()
 sys.path[:0] = [str(pusingcuk_root), str(mnemos_root / "src")]
 from compiler.ir import from_source, validate
 from mnemos.store import MemoryStore
+from mnemos.graph import graph_payload
 
 source = "jancuk\nselesai jancuk"
 ir_document = from_source(source, "ncm-cross-project-bridge")
@@ -200,6 +201,32 @@ with tempfile.TemporaryDirectory(prefix="steadfast-ncm-bridge-") as directory:
     assert stored is not None and stored["metadata"]["fingerprint"] == fingerprint
     assert not inserted_again and repeated["id"] == record["id"]
     assert len(store.list_all(kind="pusingcuk_compiler_ir")) == 1
+    feature_records = []
+    for feature in sorted(set(ir_document.get("features", []))):
+        feature_fingerprint = hashlib.sha256(
+            ("pusingcuk-ir-v1:feature:" + feature).encode("utf-8")
+        ).hexdigest()
+        feature_record, _ = store.add_once(
+            "Compiler capability: " + feature,
+            kind="pusingcuk_ir_feature",
+            fingerprint=feature_fingerprint,
+            tags=["ncm", "compiler-feature", feature],
+            source="pusingcuk://compiler-ir/features",
+            metadata={"contract": "pusingcuk-ir-v1", "feature": feature},
+        )
+        store.link(
+            record["id"], feature_record["id"],
+            relation="exposes_compiler_feature",
+            provenance={
+                "actor": "steadfast-ncm",
+                "source": "pusingcuk-ir-v1",
+                "verification": "end_to_end_contract_verified",
+            },
+        )
+        feature_records.append(feature_record)
+    memory_graph = graph_payload(store.list_all(), store.links())
+    assert memory_graph["stats"]["memories"] == 1 + len(feature_records)
+    assert memory_graph["stats"]["relationships"] == len(feature_records)
 print(json.dumps({
     "contract": "pusingcuk-ir-v1",
     "producer": "pusingcuk.compiler.ir",
@@ -211,6 +238,12 @@ print(json.dumps({
     "idempotent": True,
     "record_id": record["id"],
     "payload_sha256": fingerprint,
+    "compiler_features": sorted(set(ir_document.get("features", []))),
+    "mnemos_memory_graph": {
+        "nodes": memory_graph["stats"]["nodes"],
+        "relationships": memory_graph["stats"]["relationships"],
+        "kinds": memory_graph["stats"]["kinds"],
+    },
 }))
 '''
         try:

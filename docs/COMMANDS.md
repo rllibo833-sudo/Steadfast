@@ -92,3 +92,13 @@ Exact subcommands and options can change. The installed CLI's `--help` output is
 - `2`: usage or runtime error.
 
 Some documentation drift and missing-changelog conditions are warnings rather than automatic failures. Read the command output for the distinction between errors, warnings, and informational findings.
+
+
+## Live ecosystem source checks
+
+- `steadfast universe-sources` performs read-only metadata probes for Notion, Supabase, Cloudflare Workers, and a local JBF/Termux directory.
+- Configure `NOTION_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and optionally `JBF_ROOT` as environment variables. Use least-privilege read-only tokens. Secrets are never written to reports.
+- A missing credential is reported as `not_configured`; an inactive Supabase project is not treated as unreachable.
+- `steadfast universe-semantic --allow-remote` sends project descriptions and declared relationships to an explicitly configured OpenAI-compatible chat-completions endpoint. Set `NCM_API_KEY`, `NCM_MODEL`, and optionally `NCM_BASE_URL`. Without `--allow-remote`, no network request is made.
+- Semantic concepts, relations, and possible conflicts remain candidates. Evidence quotes must match the exact manifest fields; human review is still required.
+- Neither command modifies the manifest, remote services, or device files. The Termux probe checks metadata paths only; it does not execute commands or inspect private files.

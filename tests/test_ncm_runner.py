@@ -223,10 +223,12 @@ class NcmRunnerTests(unittest.TestCase):
 
         registry = AdapterRegistry()
         registry.register(BridgeAdapter())
-        with patch("steadfast.ncm_runner.load_universe_manifest", return_value=(manifest, [])), \\
-             patch("steadfast.ncm_runner.collect_source_documents", return_value={"documents": [], "failures": [], "summary": {}, "safety": {}}), \\
-             patch("steadfast.ncm_runner.build_cross_project_model", return_value=graph), \\
-             patch("steadfast.ncm_runner.infer_semantic_candidates", return_value={"status": "blocked", "concepts": [], "relations": [], "possible_conflicts": [], "findings": [], "summary": {}, "safety": {}}):
+        with (
+            patch("steadfast.ncm_runner.load_universe_manifest", return_value=(manifest, [])),
+            patch("steadfast.ncm_runner.collect_source_documents", return_value={"documents": [], "failures": [], "summary": {}, "safety": {}}),
+            patch("steadfast.ncm_runner.build_cross_project_model", return_value=graph),
+            patch("steadfast.ncm_runner.infer_semantic_candidates", return_value={"status": "blocked", "concepts": [], "relations": [], "possible_conflicts": [], "findings": [], "summary": {}, "safety": {}}),
+        ):
             result = run_ncm("/tmp/repo", adapter_registry=registry)
 
         edge_types = {edge["type"] for edge in result["ecosystem_graph"]["edges"]}

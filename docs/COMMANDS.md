@@ -13,8 +13,19 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `integrate --agent TARGET` | Install agent-specific instructions and hook configuration. |
 | `integration-status` | Report installed integration adapters. |
 | `ecosystem [--strict]` | Inventory skill and MCP declarations and apply configured trust labels. |
+| `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
+
+## Cross-platform ecosystem index
+
+The default manifest path is `ecosystem/universe.json`. The validator checks JSON structure, required top-level fields, duplicate IDs, unknown source IDs, and relationship endpoints. `local://` references are checked relative to the index root. HTTP(S) references are not fetched, and no project source is changed. Output is JSON and includes a safety summary.
+
+Example:
+
+```bash
+steadfast universe-check
+```
 
 ## Verification and reporting
 

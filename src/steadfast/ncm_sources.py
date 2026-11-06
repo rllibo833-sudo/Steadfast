@@ -185,7 +185,7 @@ def _supabase_allowlist(raw: str) -> list[dict[str, Any]]:
         project_ref, table, columns = item.get("project_ref"), item.get("table"), item.get("columns")
         if not isinstance(project_ref, str) or not re.fullmatch(r"[a-z0-9]{20}", project_ref):
             continue
-        if not isinstance(table, str) or not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*", table):
+        if not isinstance(table, str) or not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*", table):
             continue
         if not isinstance(columns, list) or not columns or len(columns) > 40:
             continue
@@ -368,8 +368,8 @@ def collect_source_documents(
                 seen.add(key)
                 api_key = settings.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
                 allowlist = [item for item in _supabase_allowlist(settings.get("SUPABASE_READ_ALLOWLIST", "")) if item["project_ref"] == project_ref]
-                if not api_key or not allowlist:
-                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "not_configured" if not api_key or not settings.get("SUPABASE_READ_ALLOWLIST") else "no_tables_allowlisted"})
+                if not api_key.startswith("sb_publishable_") or not allowlist:
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "not_configured" if not api_key.startswith("sb_publishable_") or not settings.get("SUPABASE_READ_ALLOWLIST") else "no_tables_allowlisted"})
                     continue
                 for entry in allowlist:
                     table_content, table_status, resolved_uri = _supabase_table(project_ref, entry, key=api_key)
@@ -456,7 +456,10 @@ def collect_source_documents(
             "remote_writes": False,
             "local_files_modified": False,
             "local_file_allowlist_only": True,
-            "credentials_in_output": False,\n            "supabase_read_only_publishable_key": True,\n            "supabase_table_allowlist_required": True,\n            "cloudflare_workers_get_only": True,
+            "credentials_in_output": False,
+            "supabase_read_only_publishable_key": True,
+            "supabase_table_allowlist_required": True,
+            "cloudflare_workers_get_only": True,
             "content_sent_to_model": False,
         },
     }

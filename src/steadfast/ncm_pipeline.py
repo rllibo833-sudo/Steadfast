@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import defaultdict
@@ -260,6 +261,11 @@ def infer_candidate_relations(
                     "No matching declared pair was found; this is not evidence of contradiction."
                 ),
             })
+
+    for edge in edges:
+        identity = {key: edge.get(key) for key in ("from", "to", "type", "attributes", "evidence")}
+        canonical = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        edge["edge_id"] = "edge:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
 
     node_ids = {node["id"] for node in nodes}
     graph_findings = []

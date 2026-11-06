@@ -198,10 +198,16 @@ def run_ncm(
     }
     combined_graph["semantic_review_queue"] = semantic_layer["possible_conflicts"]
     combined_graph["summary"] = {
-        **graph.get("summary", {}),
-        "candidate_concepts": combined_graph["summary"]["candidate_concepts"],
-        "cross_project_relations": combined_graph["summary"]["cross_project_relations"],
+        **combined_graph.get("summary", {}),
+        "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0)
+        + len(semantic_layer["concepts"]) + len(ecosystem_synthesis["emergent_concepts"]),
+        "cross_project_relations": graph.get("summary", {}).get("cross_project_relations", 0)
+        + len(semantic_layer["relations"]),
         "semantic_conflicts_for_review": len(semantic_layer["possible_conflicts"]),
+        "emergent_concepts": ecosystem_synthesis["summary"]["emergent_concepts"],
+        "orchestration_relations": ecosystem_synthesis["summary"]["orchestration_relations"],
+        "nodes": len(combined_graph["nodes"]),
+        "edges": len(combined_graph["edges"]),
     }
     has_findings = bool(manifest_findings or graph.get("graph_findings") or graph.get("manifest_findings"))
     has_partial_sources = bool(ingestion.get("failures"))

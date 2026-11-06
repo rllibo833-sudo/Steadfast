@@ -87,10 +87,18 @@ def run_ncm(
             "epistemic_status": "candidate",
         })
         known_node_ids.add(concept_id)
-    for relation in semantic_layer["relations"]:
+    accepted_semantic_relations = 0
+    for relation_index, relation in enumerate(semantic_layer["relations"]):
+        source_id, target_id = relation.get("from"), relation.get("to")
+        if source_id not in known_node_ids or target_id not in known_node_ids:
+            semantic_layer["findings"].append({
+                "code": "SEMANTIC_RELATION_ENDPOINT_NOT_IN_GRAPH",
+                "item": relation_index,
+            })
+            continue
         edge = {
-            "from": relation["from"],
-            "to": relation["to"],
+            "from": source_id,
+            "to": target_id,
             "type": relation["type"],
             "attributes": {
                 "rationale": relation["rationale"],
@@ -103,6 +111,7 @@ def run_ncm(
         identity = json.dumps(edge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         edge["edge_id"] = "edge:semantic:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
         combined_graph["edges"].append(edge)
+        accepted_semantic_relations += 1
     # Add deterministic emergent concepts and observed orchestration edges.
     for concept in ecosystem_synthesis.get("emergent_concepts", []):
         concept_id = concept.get("id")
@@ -189,6 +198,26 @@ def run_ncm(
                 "evidence": "adapter_layer.results.outputs",
                 "epistemic_status": "observed_adapter_output",
             })
+            if output.get("kind") == "cross_project_integration":
+                producer = output.get("producer_project")
+                consumer = output.get("consumer_project")
+                if producer and consumer and f"project:{producer}" in known_node_ids and f"project:{consumer}" in known_node_ids:
+                    combined_graph["edges"].extend([
+                        {
+                            "from": f"project:{producer}", "to": output_node_id,
+                            "type": "provided_cross_project_payload",
+                            "attributes": {"contract": output.get("contract")},
+                            "evidence": "adapter_layer.results.outputs",
+                            "epistemic_status": "end_to_end_contract_verified",
+                        },
+                        {
+                            "from": output_node_id, "to": f"project:{consumer}",
+                            "type": "consumed_cross_project_payload",
+                            "attributes": {"contract": output.get("contract")},
+                            "evidence": "adapter_layer.results.outputs",
+                            "epistemic_status": "end_to_end_contract_verified",
+                        },
+                    ])
     combined_graph["summary"] = {
         **combined_graph.get("summary", {}),
         "adapter_capabilities": adapter_capabilities,
@@ -202,7 +231,7 @@ def run_ncm(
         "candidate_concepts": graph.get("summary", {}).get("candidate_concepts", 0)
         + len(semantic_layer["concepts"]) + len(ecosystem_synthesis["emergent_concepts"]),
         "cross_project_relations": graph.get("summary", {}).get("cross_project_relations", 0)
-        + len(semantic_layer["relations"]),
+        + accepted_semantic_relations,
         "semantic_conflicts_for_review": len(semantic_layer["possible_conflicts"]),
         "emergent_concepts": ecosystem_synthesis["summary"]["emergent_concepts"],
         "orchestration_relations": ecosystem_synthesis["summary"]["orchestration_relations"],

@@ -100,6 +100,69 @@ def run_ncm(
         identity = json.dumps(edge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         edge["edge_id"] = "edge:semantic:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
         combined_graph["edges"].append(edge)
+    # Adapter outputs become first-class nodes and edges in the same ecosystem graph.
+    adapter_capabilities = 0
+    adapter_outputs = 0
+    for adapter_result in adapter_layer.get("results", []):
+        project_id = adapter_result.get("project_id")
+        if not isinstance(project_id, str):
+            continue
+        project_node_id = f"project:{project_id}"
+        for capability in adapter_result.get("capabilities", []):
+            if not isinstance(capability, dict):
+                continue
+            capability_key = capability.get("id")
+            if not isinstance(capability_key, str) or not capability_key:
+                continue
+            capability_node_id = f"adapter-capability:{project_id}:{capability_key}"
+            if capability_node_id not in known_node_ids:
+                combined_graph["nodes"].append({
+                    "id": capability_node_id,
+                    "kind": "verified_project_capability",
+                    "label": capability.get("name", capability_key),
+                    "attributes": {key: value for key, value in capability.items() if key not in {"id", "name"}},
+                    "provenance": {"project_id": project_id, "adapter_id": adapter_result.get("adapter_id")},
+                    "epistemic_status": "adapter_smoke_verified",
+                })
+                known_node_ids.add(capability_node_id)
+                adapter_capabilities += 1
+                combined_graph["edges"].append({
+                    "from": project_node_id,
+                    "to": capability_node_id,
+                    "type": "exposes_verified_capability",
+                    "attributes": {"adapter_id": adapter_result.get("adapter_id")},
+                    "evidence": "adapter_layer.results.capabilities",
+                    "epistemic_status": "adapter_smoke_verified",
+                })
+        for output_index, output in enumerate(adapter_result.get("outputs", [])):
+            if not isinstance(output, dict):
+                continue
+            output_node_id = f"adapter-output:{project_id}:{adapter_result.get('adapter_id')}:{output_index}"
+            combined_graph["nodes"].append({
+                "id": output_node_id,
+                "kind": "project_adapter_output",
+                "label": f"{project_id} adapter output {output_index + 1}",
+                "attributes": output,
+                "provenance": {"project_id": project_id, "adapter_id": adapter_result.get("adapter_id")},
+                "epistemic_status": "observed_adapter_output",
+            })
+            known_node_ids.add(output_node_id)
+            adapter_outputs += 1
+            combined_graph["edges"].append({
+                "from": project_node_id,
+                "to": output_node_id,
+                "type": "produced_adapter_output",
+                "attributes": {"adapter_status": adapter_result.get("status")},
+                "evidence": "adapter_layer.results.outputs",
+                "epistemic_status": "observed_adapter_output",
+            })
+    combined_graph["summary"] = {
+        **combined_graph.get("summary", {}),
+        "adapter_capabilities": adapter_capabilities,
+        "adapter_outputs": adapter_outputs,
+        "nodes": len(combined_graph["nodes"]),
+        "edges": len(combined_graph["edges"]),
+    }
     combined_graph["semantic_review_queue"] = semantic_layer["possible_conflicts"]
     combined_graph["summary"] = {
         **graph.get("summary", {}),
@@ -107,10 +170,15 @@ def run_ncm(
         "cross_project_relations": combined_graph["summary"]["cross_project_relations"],
         "semantic_conflicts_for_review": len(semantic_layer["possible_conflicts"]),
     }
+    has_findings = bool(manifest_findings or graph.get("graph_findings") or graph.get("manifest_findings"))
+    has_partial_sources = bool(ingestion.get("failures"))
+    has_adapter_issues = adapter_layer.get("status") != "completed"
+    semantic_failed = semantic_layer["status"] in {"failed", "error"}
+    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed) else "completed"
     return {
         "model_type": "next_concept_model",
         "model_version": "1.0.0",
-        "status": "completed" if not manifest_findings and not graph.get("graph_findings") and not graph.get("manifest_findings") else "findings",
+        "status": model_status,
         "manifest_findings": manifest_findings,
         "source_ingestion": {
             "summary": ingestion.get("summary", {}),
@@ -133,6 +201,9 @@ def run_ncm(
             "adapters_not_configured": adapter_layer["summary"]["not_configured"],
             "adapters_unavailable": adapter_layer["summary"]["unavailable"],
             "adapter_failures": adapter_layer["summary"]["failed"],
+            "adapter_archived": adapter_layer["summary"].get("archived", 0),
+            "adapter_capabilities": adapter_capabilities,
+            "adapter_outputs": adapter_outputs,
         },
         "safety": {
             "manifest_modified": False,

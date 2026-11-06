@@ -88,4 +88,4 @@ Semantic use of captured text requires both `--allow-remote` and `--allow-source
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account identifier.
 - `CLOUDFLARE_API_TOKEN`: read-only token with Workers Scripts Read or Workers Content Read-Only.
 
-Keep these as repository Actions secrets or local runtime environment variables. Never store them in the manifest. Collected documents may contain private code or records; keep artifacts out of public commits and require the separate `--allow-source-content-remote` consent before sending content to a model.
+Keep these as repository Actions secrets or local runtime environment variables. Never store them in the manifest. Collected documents may contain private records or hard-coded secrets embedded in source code; review and protect artifacts, keep them out of public commits, and require the separate `--allow-source-content-remote` consent before sending content to a model.

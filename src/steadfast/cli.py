@@ -309,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "universe-analyze":
             from .ncm_pipeline import infer_candidate_relations
+            from .ncm_review import model_digest
             from .universe import load_universe_manifest
             manifest_path = Path(args.manifest)
             if not manifest_path.is_absolute():
@@ -325,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
                     output_path = repo / output_path
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(rendered, encoding="utf-8")
-                print(json.dumps({"output": str(output_path), "summary": result["summary"], "graph_findings": result["graph_findings"]}, indent=2, ensure_ascii=False))
+                print(json.dumps({"output": str(output_path), "model_sha256": model_digest(result), "summary": result["summary"], "graph_findings": result["graph_findings"]}, indent=2, ensure_ascii=False))
             else:
                 print(rendered, end="")
             return 1 if result["graph_findings"] else 0

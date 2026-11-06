@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from steadfast.ncm_sources import collect_source_documents, _notion_document, _github_readme, _supabase_table, _cloudflare_worker
+from steadfast.ncm_sources import _github_readme, _notion_document, collect_source_documents
 
 
 class NcmSourceIngestionTests(unittest.TestCase):

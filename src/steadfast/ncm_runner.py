@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .ncm_adapters import AdapterRegistry, derive_ecosystem_synthesis, run_project_adapters
+from .ncm_backends import probe_backend_services
 from .ncm_cross_project import build_cross_project_model
 from .ncm_semantic import infer_semantic_candidates
 from .ncm_sources import collect_source_documents
@@ -43,6 +44,7 @@ def run_ncm(
 
     graph = build_cross_project_model(manifest, documents, threshold=threshold)
     adapter_layer = run_project_adapters(manifest, documents, adapter_registry, env=env)
+    backend_layer = probe_backend_services(manifest)
     ecosystem_synthesis = derive_ecosystem_synthesis(adapter_layer)
 
     # Source text is sent to the semantic provider only with its separate consent flag.
@@ -74,6 +76,36 @@ def run_ncm(
     combined_graph["nodes"] = list(graph.get("nodes", []))
     combined_graph["edges"] = list(graph.get("edges", []))
     known_node_ids = {item.get("id") for item in combined_graph["nodes"] if isinstance(item, dict)}
+    # Backend probes are read-only observations of deployed Edge Function routes.
+    for backend in backend_layer.get("results", []):
+        project_id = backend.get("project_id")
+        service_id = backend.get("service_id")
+        if not isinstance(project_id, str) or not isinstance(service_id, str):
+            continue
+        service_node_id = f"backend-service:{project_id}:{service_id}"
+        combined_graph["nodes"].append({
+            "id": service_node_id,
+            "kind": "deployed_backend_service",
+            "label": service_id,
+            "attributes": {
+                "status": backend.get("status"),
+                "http_status": backend.get("http_status"),
+                "auth_mode": backend.get("auth_mode"),
+                "endpoint": backend.get("endpoint"),
+            },
+            "provenance": {"source": "read_only_supabase_edge_probe"},
+            "epistemic_status": "runtime_probe_observed",
+        })
+        known_node_ids.add(service_node_id)
+        if f"project:{project_id}" in known_node_ids:
+            combined_graph["edges"].append({
+                "from": f"project:{project_id}",
+                "to": service_node_id,
+                "type": "exposes_deployed_backend_service",
+                "attributes": {"probe_status": backend.get("status")},
+                "evidence": "backend_layer.results",
+                "epistemic_status": "runtime_probe_observed",
+            })
     for concept in semantic_layer["concepts"]:
         concept_id = concept.get("id")
         if not isinstance(concept_id, str) or concept_id in known_node_ids:
@@ -243,7 +275,8 @@ def run_ncm(
     has_adapter_issues = adapter_layer.get("status") != "completed"
     semantic_failed = semantic_layer["status"] in {"failed", "error"}
     has_semantic_rejections = bool(semantic_layer.get("findings"))
-    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed or has_semantic_rejections) else "completed"
+    has_backend_failures = backend_layer.get("summary", {}).get("failed", 0) > 0
+    model_status = "partial" if (has_findings or has_partial_sources or has_adapter_issues or semantic_failed or has_semantic_rejections or has_backend_failures) else "completed"
     return {
         "model_type": "next_concept_model",
         "model_version": "1.0.0",
@@ -257,6 +290,7 @@ def run_ncm(
         "ecosystem_graph": combined_graph,
         "semantic_layer": semantic_layer,
         "adapter_layer": adapter_layer,
+        "backend_layer": backend_layer,
         "ecosystem_synthesis": ecosystem_synthesis,
         "summary": {
             "projects": graph.get("summary", {}).get("projects", 0),
@@ -277,6 +311,10 @@ def run_ncm(
             "adapter_outputs": adapter_outputs,
             "emergent_concepts": ecosystem_synthesis["summary"]["emergent_concepts"],
             "orchestration_relations": ecosystem_synthesis["summary"]["orchestration_relations"],
+            "backend_services": backend_layer.get("summary", {}).get("services", 0),
+            "backend_services_ready": backend_layer.get("summary", {}).get("ready", 0),
+            "backend_services_auth_required": backend_layer.get("summary", {}).get("reachable_auth_required", 0),
+            "backend_service_failures": backend_layer.get("summary", {}).get("failed", 0),
         },
         "safety": {
             "manifest_modified": False,

@@ -114,6 +114,10 @@
         "consumers": {
           "type": "integer",
           "minimum": 0
+        },
+        "declared_relationships": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false

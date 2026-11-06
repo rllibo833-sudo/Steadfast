@@ -53,6 +53,18 @@ class NcmSourceIngestionTests(unittest.TestCase):
         self.assertNotIn("must-not-read", content)
         self.assertTrue(result["safety"]["local_file_allowlist_only"])
 
+    def test_local_document_truncation_is_reported_as_partial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "README.md").write_text("A" * 40, encoding="utf-8")
+            manifest = {"projects": [{"id": "jbf-sandboxos", "name": "JBF", "sources": []}]}
+            with patch("steadfast.ncm_sources.MAX_DOCUMENT_CHARS", 12):
+                result = collect_source_documents(manifest, env={"JBF_ROOT": directory})
+        document = result["documents"][0]
+        self.assertEqual(document["content"], "A" * 12)
+        self.assertEqual(document["status"], "partial")
+        self.assertEqual(result["summary"]["partial_documents"], 1)
+
     def test_content_artifact_marks_unsupported_services_instead_of_claiming_read(self):
         manifest = {"projects": [{"id": "p", "sources": [
             {"source_id": "supabase", "uri": "supabase://project/vcvejjpzklpvknxmymgy"},

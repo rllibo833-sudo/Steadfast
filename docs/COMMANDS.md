@@ -16,7 +16,8 @@ Run `steadfast --help` or `steadfast COMMAND --help` for the options supported b
 | `universe-check [--manifest PATH]` | Validate the cross-platform ecosystem manifest, IDs, source references, and relationship endpoints. Remote references are syntax-checked only. |
 | `universe-model [--manifest PATH] [--include-audit]` | Export a provenance-preserving graph of declared facts. No inference or source mutation. |
 | `universe-infer [--manifest PATH] [--threshold SCORE]` | Run the original purpose-text lexical candidate prototype. |
-| `universe-analyze [--manifest PATH] [--threshold SCORE]` | Build a multi-field concept graph from project, source, consumer, and inventory descriptions; emit candidate overlaps and graph findings. Read-only; not semantic NCM. |
+| `universe-analyze [--manifest PATH] [--threshold SCORE] [--output PATH]` | Build a multi-field concept graph and optionally save a model artifact with a SHA-256 digest. |
+| `universe-review --model PATH --ledger PATH` | Validate human decisions against the exact model digest and candidate edge IDs; never promotes candidates to verified. |
 
 Agent targets include `claude`, `cursor`, `codex`, and `all` where supported by the selected command.
 

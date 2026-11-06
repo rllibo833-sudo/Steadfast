@@ -39,12 +39,16 @@ def build_cross_project_model(
         item["id"]: item for item in manifest.get("projects", [])
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
+    declared_source_ids = {
+        item["id"] for item in manifest.get("sources", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
     project_source_ids: dict[str, set[str]] = defaultdict(set)
     for project_id, project in projects.items():
         refs = project.get("sources", [])
         if isinstance(refs, list):
             for ref in refs:
-                if isinstance(ref, dict) and isinstance(ref.get("source_id"), str):
+                if isinstance(ref, dict) and ref.get("source_id") in declared_source_ids:
                     project_source_ids[project_id].add(ref["source_id"])
 
     findings: list[dict[str, Any]] = []
@@ -90,6 +94,13 @@ def build_cross_project_model(
         project_id = document.get("project_id")
         source_id = document.get("source_id")
         content = document.get("content")
+        if isinstance(source_id, str) and source_id not in declared_source_ids:
+            findings.append({
+                "code": "UNRESOLVED_DOCUMENT_SOURCE",
+                "path": path,
+                "document_id": document_id if isinstance(document_id, str) else None,
+                "source_id": source_id,
+            })
         status = document.get("status", "unknown")
         if not isinstance(document_id, str) or not document_id.strip():
             findings.append({"code": "DOCUMENT_ID_REQUIRED", "path": path})
@@ -322,6 +333,7 @@ def build_cross_project_model(
             "model_scope": "cross_project",
             "source_documents_used": bool(document_records),
             "source_document_text_embedded": False,
+            "source_document_evidence_excerpts_embedded": True,
             "source_document_content_live_checked": False,
             "cross_project_relations_are_candidates": True,
             "semantic_understanding": False,

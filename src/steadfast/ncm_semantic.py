@@ -31,6 +31,20 @@ def _evidence_index(manifest: dict[str, Any], source_documents: list[dict[str, A
                 value = ref.get(field)
                 if isinstance(value, str) and value.strip():
                     index[f"projects[{project_id}].sources[{number}].{field}"] = value
+    def add_manifest_evidence(value: Any, path: str) -> None:
+        if isinstance(value, str) and value.strip():
+            index[path] = value
+        elif isinstance(value, list):
+            for number, item in enumerate(value):
+                add_manifest_evidence(item, f"{path}[{number}]")
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(key, str):
+                    add_manifest_evidence(item, f"{path}.{key}")
+
+    for field in ("title", "purpose", "principles", "sources", "consumers", "relationships", "inventory_notes"):
+        if field in manifest:
+            add_manifest_evidence(manifest[field], field)
     for document in source_documents or []:
         if not isinstance(document, dict) or not isinstance(document.get("document_id"), str):
             continue
@@ -85,6 +99,10 @@ def _call_model(manifest: dict[str, Any], env: Mapping[str, str], source_documen
                 "content": json.dumps({
                     "universe_id": manifest.get("universe_id"),
                     "manifest_version": manifest.get("manifest_version"),
+                    "ecosystem_context": {
+                        key: manifest.get(key)
+                        for key in ("title", "purpose", "principles", "sources", "consumers", "inventory_notes")
+                    },
                     "projects": projects,
                     "relationships": manifest.get("relationships", []),
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],

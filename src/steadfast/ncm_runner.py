@@ -52,6 +52,7 @@ def run_ncm(
         env=env,
         source_documents=semantic_documents,
         allow_source_content_remote=allow_source_content_remote,
+        adapter_results=adapter_layer.get("results", []),
     )
 
     semantic_layer = {
@@ -63,6 +64,7 @@ def run_ncm(
         "summary": semantic.get("summary", {}),
         "source_manifest_sha256": semantic.get("source_manifest_sha256"),
         "source_documents_sha256": semantic.get("source_documents_sha256"),
+        "adapter_results_sha256": semantic.get("adapter_results_sha256"),
         "safety": semantic.get("safety", {}),
     }
 

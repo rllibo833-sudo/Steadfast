@@ -312,7 +312,7 @@
   "inventory_notes": [
     "GitHub enumeration returned exactly five accessible repositories in the connected account at inventory time.",
     "Notion search returned nine relevant pages; only pages clearly mapped to known projects are included.",
-    "Supabase listed three projects and reported each as INACTIVE.",
+    "Supabase listed three projects as INACTIVE at inventory time; deployed Edge Functions on all three are separately confirmed ACTIVE.",
     "Cloudflare inventory and live Termux filesystem inventory remain pending.",
     "Relationships are provisional and must be confirmed from project evidence before being treated as technical dependencies."
   ],

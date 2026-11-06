@@ -1,3 +1,4 @@
+import io
 import unittest
 from unittest.mock import patch
 
@@ -28,7 +29,7 @@ class BackendProbeTests(unittest.TestCase):
         with patch("steadfast.ncm_backends.urllib.request.urlopen", side_effect=[
             Response(200, b'{"status":"ok"}'),
             __import__("urllib.error", fromlist=["HTTPError"]).HTTPError(
-                "https://beta.supabase.co/functions/v1/mcp", 401, "Unauthorized", {}, None
+                "https://beta.supabase.co/functions/v1/mcp", 401, "Unauthorized", {}, io.BytesIO(b"auth required")
             ),
         ]):
             result = probe_backend_services(manifest)

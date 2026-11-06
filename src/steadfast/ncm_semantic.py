@@ -180,7 +180,7 @@ def _call_model(
                     "relationships": manifest.get("relationships", []),
                     "verbatim_evidence_catalog": evidence_catalog,
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],
-                    "verbatim_evidence_catalog": evidence_catalog,\n                    "adapter_results": [{
+                    "adapter_results": [{
                         "project_id": item.get("project_id"), "adapter_id": item.get("adapter_id"),
                         "status": item.get("status"), "capabilities": item.get("capabilities", []),
                         "outputs": [{key: output.get(key) for key in ("kind", "exit_code", "expected_files", "present_files")} if isinstance(output, dict) else {} for output in item.get("outputs", [])],

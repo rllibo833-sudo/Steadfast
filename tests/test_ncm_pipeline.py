@@ -40,6 +40,7 @@ class NcmPipelineTests(unittest.TestCase):
             self.assertIn(edge["to"], ids)
             self.assertIsInstance(edge["evidence"], str)
             self.assertTrue(edge["evidence"])
+            self.assertRegex(edge["edge_id"], r"^edge:[a-f0-9]{24}$")
 
     def test_overlap_candidate_has_reproducible_field_evidence(self):
         result = infer_candidate_relations(self.manifest)

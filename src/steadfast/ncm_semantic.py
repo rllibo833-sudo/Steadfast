@@ -123,7 +123,7 @@ def _call_model(
                     "A concept must be a meaningful capability, system primitive, workflow or ecosystem-level abstraction, "
                     "not a project name or generic topic. Prefer high-value, evidence-supported items; maximum 20 concepts, "
                     "30 relations and 10 conflicts. "
-                    "STRICT EVIDENCE RULE: every evidence item must have exactly two string fields path and quote. "
+                    "STRICT EVIDENCE RULE: every evidence item must have exactly two string fields path and quote. Select evidence ONLY from verbatim_evidence_catalog; copy both path and quote exactly from one catalog entry. Do not reconstruct quotes from memory or use excerpts absent from the catalog. "
                     "The path must be copied exactly from one of the supplied evidence paths. The quote must be a "
                     "contiguous substring copied character-for-character from that path's source text; do not paraphrase, "
                     "add ellipses, normalize punctuation, or combine passages. Use short distinctive excerpts. "
@@ -151,7 +151,7 @@ def _call_model(
                     "projects": projects,
                     "relationships": manifest.get("relationships", []),
                     "source_documents": [{key: item.get(key) for key in ("document_id", "project_id", "source_id", "title", "uri", "content")} for item in (source_documents or []) if isinstance(item, dict)],
-                    "adapter_results": [{
+                    "verbatim_evidence_catalog": evidence_catalog,\n                    "adapter_results": [{
                         "project_id": item.get("project_id"), "adapter_id": item.get("adapter_id"),
                         "status": item.get("status"), "capabilities": item.get("capabilities", []),
                         "outputs": [{key: output.get(key) for key in ("kind", "exit_code", "expected_files", "present_files")} if isinstance(output, dict) else {} for output in item.get("outputs", [])],

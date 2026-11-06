@@ -89,3 +89,21 @@ Semantic use of captured text requires both `--allow-remote` and `--allow-source
 - `CLOUDFLARE_API_TOKEN`: read-only token with Workers Scripts Read or Workers Content Read-Only.
 
 Keep these as repository Actions secrets or local runtime environment variables. Never store them in the manifest. Collected documents may contain private records or hard-coded secrets embedded in source code; review and protect artifacts, keep them out of public commits, and require the separate `--allow-source-content-remote` consent before sending content to a model.
+
+
+## Cross-project graph builder (experimental v2)
+
+`steadfast universe-cross-project` builds a single graph across all projects in the canonical manifest. It combines the existing manifest-field lexical baseline with an optional previously collected `universe-content` artifact:
+
+```bash
+steadfast --repo . universe-content --output .steadfast/artifacts/source-documents.json
+steadfast --repo . universe-cross-project --documents .steadfast/artifacts/source-documents.json --output .steadfast/artifacts/ncm-cross-project.json
+```
+
+The graph includes project, source-system, consumer, candidate-concept, and source-document nodes; manifest-declared edges; project-to-source-document edges; document-to-concept mention edges with exact character spans; and cross-project candidate edges for shared concepts and shared indexed source systems. A shared source or term is a discovery signal only: it does not prove collaboration, dependency, equivalence, or a causal relationship.
+
+The document artifact is supplied explicitly. The graph builder does not access the network or filesystem and does not embed full document bodies in its output. Exact lexical evidence excerpts and character spans are retained for traceability. It accepts only `read` or `partial` documents associated with a project in the manifest. It verifies any supplied `content_sha256`, rejects duplicate document IDs and unknown project IDs, and reports unavailable/empty/oversized or digest-mismatched inputs as findings. Partial documents remain marked partial. The model records per-document content digests and a digest of the accepted document inventory.
+
+Cross-project candidate relations carry their contributing shared concepts, source-system IDs, and evidence references. Every generated edge receives a deterministic digest-derived ID. Graph endpoint integrity and source-document ingestion findings are reported separately. The manifest digest and document-inventory digest are distinct so a review ledger can be bound to the exact combined artifact without rewriting canonical project data.
+
+This remains a lexical, evidence-indexing model, not semantic understanding. It does not infer project status, validate external services, decide whether two concepts mean the same thing, or automatically resolve declared relationships. Semantic model candidates remain a separate opt-in operation and require the existing explicit remote-transfer approvals.

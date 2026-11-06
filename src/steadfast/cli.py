@@ -91,6 +91,11 @@ def parser() -> argparse.ArgumentParser:
     analyze.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
     analyze.add_argument("--threshold", type=float, default=0.2, help="Minimum Jaccard overlap score from 0.0 to 1.0")
     analyze.add_argument("--output", help="Optional path for the generated model JSON artifact")
+    cross_project = commands.add_parser("universe-cross-project", help="Build a cross-project NCM graph from the manifest and an optional collected source-document artifact")
+    cross_project.add_argument("--manifest", default="ecosystem/universe.json", help="Manifest path relative to repository root")
+    cross_project.add_argument("--documents", help="Previously collected source-document artifact JSON; no network reads are performed")
+    cross_project.add_argument("--threshold", type=float, default=0.2, help="Minimum lexical overlap threshold from 0.0 to 1.0")
+    cross_project.add_argument("--output", help="Optional path for the generated cross-project model JSON artifact")
     review = commands.add_parser("universe-review", help="Validate a human review ledger against an exact model artifact")
     review.add_argument("--model", required=True, help="Path to a previously generated model JSON file")
     review.add_argument("--ledger", required=True, help="Path to a review decisions JSON file")
@@ -410,6 +415,47 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(rendered, end="")
             return 1 if result["graph_findings"] else 0
+
+        if args.command == "universe-cross-project":
+            from .ncm_cross_project import build_cross_project_model
+            from .ncm_review import model_digest
+            from .universe import load_universe_manifest
+            manifest_path = Path(args.manifest)
+            if not manifest_path.is_absolute():
+                manifest_path = repo / manifest_path
+            manifest, load_findings = load_universe_manifest(manifest_path)
+            if manifest is None:
+                print(json.dumps({"passed": False, "findings": load_findings}, indent=2, ensure_ascii=False))
+                return 1
+            documents = []
+            if args.documents:
+                document_path = Path(args.documents)
+                if not document_path.is_absolute():
+                    document_path = repo / document_path
+                artifact = json.loads(document_path.read_text(encoding="utf-8"))
+                if not isinstance(artifact, dict) or not isinstance(artifact.get("documents"), list):
+                    print(json.dumps({"passed": False, "findings": [{"code": "INVALID_SOURCE_DOCUMENT_ARTIFACT"}]}, indent=2, ensure_ascii=False))
+                    return 1
+                documents = artifact["documents"]
+            result = build_cross_project_model(manifest, documents, threshold=args.threshold)
+            rendered = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
+            if args.output:
+                output_path = Path(args.output)
+                if not output_path.is_absolute():
+                    output_path = repo / output_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding="utf-8")
+                print(json.dumps({
+                    "output": str(output_path),
+                    "model_sha256": model_digest(result),
+                    "summary": result["summary"],
+                    "cross_project": result["cross_project"],
+                    "graph_findings": result["graph_findings"],
+                    "source_document_findings": result["source_document_findings"],
+                }, indent=2, ensure_ascii=False))
+            else:
+                print(rendered, end="")
+            return 1 if result["graph_findings"] or result["source_document_findings"] else 0
 
         if args.command == "universe-infer":
             from .ncm_inference import infer_candidate_relations

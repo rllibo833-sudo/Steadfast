@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from steadfast.ncm_adapters import AdapterRegistry, AdapterResult
 from steadfast.ncm_runner import render_ncm, run_ncm
 
 
@@ -98,6 +99,48 @@ class NcmRunnerTests(unittest.TestCase):
         result = run_ncm("/tmp/repo")
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["manifest_findings"], [{"code": "INVALID"}])
+
+
+    def test_adapter_capabilities_are_merged_into_the_ecosystem_graph(self):
+        manifest = {
+            "universe_id": "test",
+            "projects": [{"id": "alpha", "adapter": {"id": "alpha-adapter"}}],
+        }
+        graph = {
+            "nodes": [{"id": "project:alpha", "kind": "project", "label": "Alpha"}],
+            "edges": [],
+            "summary": {"projects": 1, "candidate_concepts": 0, "cross_project_relations": 0},
+            "documents": [],
+            "graph_findings": [],
+            "manifest_findings": [],
+        }
+
+        class AlphaAdapter:
+            adapter_id = "alpha-adapter"
+
+            def __call__(self, context):
+                return AdapterResult(
+                    project_id="alpha",
+                    adapter_id=self.adapter_id,
+                    status="completed",
+                    capabilities=[{"id": "alpha:capability", "name": "Verified capability"}],
+                    outputs=[{"kind": "smoke_test", "exit_code": 0}],
+                )
+
+        registry = AdapterRegistry()
+        registry.register(AlphaAdapter())
+        with patch("steadfast.ncm_runner.load_universe_manifest", return_value=(manifest, [])), \
+             patch("steadfast.ncm_runner.collect_source_documents", return_value={"documents": [], "failures": [], "summary": {}, "safety": {}}), \
+             patch("steadfast.ncm_runner.build_cross_project_model", return_value=graph), \
+             patch("steadfast.ncm_runner.infer_semantic_candidates", return_value={"status": "completed", "concepts": [], "relations": [], "possible_conflicts": [], "findings": [], "summary": {}, "safety": {}}):
+            result = run_ncm("/tmp/repo", adapter_registry=registry)
+
+        nodes = result["ecosystem_graph"]["nodes"]
+        edges = result["ecosystem_graph"]["edges"]
+        self.assertTrue(any(node["kind"] == "verified_project_capability" for node in nodes))
+        self.assertTrue(any(edge["type"] == "exposes_verified_capability" for edge in edges))
+        self.assertEqual(result["summary"]["adapter_capabilities"], 1)
+        self.assertEqual(result["summary"]["adapter_outputs"], 1)
 
     def test_rendered_artifact_is_single_json_document_with_newline(self):
         rendered = render_ncm({"model_type": "next_concept_model"})

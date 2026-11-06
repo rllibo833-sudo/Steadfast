@@ -403,7 +403,7 @@ def collect_source_documents(
                 if key in seen:
                     continue
                 seen.add(key)
-                if not account_id or not token:
+                if not re.fullmatch(r"[a-fA-F0-9]{32}", account_id) or not token:
                     failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "not_configured"})
                     continue
                 text, status, resolved_uri = _cloudflare_worker(account_id, script_name, token=token)

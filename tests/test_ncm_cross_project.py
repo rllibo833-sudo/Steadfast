@@ -106,6 +106,23 @@ class NcmCrossProjectTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_cross_project_model(self.manifest, threshold=1.1)
 
+    def test_canonical_ecosystem_manifest_builds_complete_project_graph(self):
+        import json
+        from pathlib import Path
+
+        manifest_path = Path(__file__).resolve().parents[1] / "ecosystem" / "universe.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        result = build_cross_project_model(manifest)
+        self.assertEqual(result["summary"]["projects"], len(manifest["projects"]))
+        self.assertEqual(result["summary"]["source_systems"], len(manifest["sources"]))
+        self.assertEqual(result["summary"]["consumers"], len(manifest["consumers"]))
+        self.assertEqual(result["graph_findings"], [])
+        self.assertEqual(result["manifest_findings"], [])
+        self.assertEqual(result["source_document_findings"], [])
+        self.assertTrue(result["cross_project"]["candidate_relations"] >= 0)
+        node_ids = {node["id"] for node in result["nodes"]}
+        self.assertTrue(all(edge["from"] in node_ids and edge["to"] in node_ids for edge in result["edges"]))
+
 
 if __name__ == "__main__":
     unittest.main()

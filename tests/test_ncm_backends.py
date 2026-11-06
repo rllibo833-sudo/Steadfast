@@ -37,7 +37,7 @@ class BackendProbeTests(unittest.TestCase):
             result = probe_backend_services(manifest)
 
         self.assertEqual(result["summary"], {
-            "services": 2, "ready": 1, "reachable_auth_required": 1, "failed": 0,
+            "services": 2, "ready": 1, "reachable_auth_required": 1, "failed": 0, "project_inactive": 0,
         })
         self.assertEqual(result["results"][0]["status"], "ready")
         self.assertEqual(result["results"][1]["status"], "reachable_auth_required")
@@ -50,6 +50,24 @@ class BackendProbeTests(unittest.TestCase):
         }]})
         self.assertEqual(result["summary"]["failed"], 1)
         self.assertEqual(result["results"][0]["findings"][0]["code"], "BACKEND_PROBE_ENDPOINT_NOT_ALLOWLISTED")
+
+    def test_skips_network_probe_for_inactive_supabase_project(self):
+        manifest = {"backend_services": [{
+            "id": "paused", "project_id": "alpha",
+            "endpoint": "https://alpha.supabase.co/functions/v1/health",
+            "project_state": "INACTIVE",
+            "auth_mode": "public", "expected_status": [200],
+        }]}
+        with patch("steadfast.ncm_backends.urllib.request.urlopen") as request:
+            result = probe_backend_services(manifest)
+
+        request.assert_not_called()
+        self.assertEqual(result["summary"]["project_inactive"], 1)
+        self.assertEqual(result["results"][0]["status"], "project_inactive")
+        self.assertEqual(
+            result["results"][0]["findings"][0]["code"],
+            "BACKEND_SUPABASE_PROJECT_INACTIVE",
+        )
 
     def test_exposes_underlying_dns_failure_for_diagnostics(self):
         manifest = {"backend_services": [{

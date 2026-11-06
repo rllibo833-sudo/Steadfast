@@ -127,5 +127,16 @@ class NcmSourceIngestionTests(unittest.TestCase):
         self.assertEqual(result["failures"][0]["status"], "not_configured")
 
 
+    def test_supabase_reader_rejects_secret_key(self):
+        project_ref = "vcvejjpzklpvknxmymgy"
+        manifest = {"projects": [{"id": "p", "sources": [
+            {"source_id": "supabase", "uri": f"supabase://project/{project_ref}"},
+        ]}]}
+        allowlist = json.dumps([{"project_ref": project_ref, "table": "public.notes", "columns": ["id"]}])
+        result = collect_source_documents(manifest, env={"SUPABASE_PUBLISHABLE_KEY": "sb_secret_never-use", "SUPABASE_READ_ALLOWLIST": allowlist})
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["failures"][0]["status"], "not_configured")
+
+
 if __name__ == "__main__":
     unittest.main()

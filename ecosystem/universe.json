@@ -124,7 +124,12 @@
           "evidence": "repository listing and README"
         }
       ],
-      "status": "repository_confirmed; runtime_status_unverified"
+      "status": "repository_confirmed; runtime_status_unverified",
+      "adapter": {
+        "id": "steadfast-governance",
+        "version": "1.0.0",
+        "status": "enabled"
+      }
     },
     {
       "id": "ecos",
@@ -213,7 +218,12 @@
           "title": "Cukmind — Agent AI Android"
         }
       ],
-      "status": "documented; implementation_unverified"
+      "status": "documented; implementation_unverified",
+      "adapter": {
+        "id": "documented-only",
+        "version": "1.0.0",
+        "status": "documented_only"
+      }
     },
     {
       "id": "beyond-light",
@@ -227,7 +237,12 @@
           "title": "Beyond-Light — Arsip Proyek"
         }
       ],
-      "status": "documented; implementation_unverified"
+      "status": "documented; implementation_unverified",
+      "adapter": {
+        "id": "documented-only",
+        "version": "1.0.0",
+        "status": "documented_only"
+      }
     },
     {
       "id": "orbit",
@@ -241,7 +256,12 @@
           "title": "Orbit — Simulasi Mini Tata Surya"
         }
       ],
-      "status": "documented; implementation_unverified"
+      "status": "documented; implementation_unverified",
+      "adapter": {
+        "id": "documented-only",
+        "version": "1.0.0",
+        "status": "documented_only"
+      }
     },
     {
       "id": "jbf-sandboxos",
@@ -255,7 +275,12 @@
           "evidence": "user-supplied environment inventory"
         }
       ],
-      "status": "local_environment_documented; flash_capability_unverified"
+      "status": "local_environment_documented; flash_capability_unverified",
+      "adapter": {
+        "id": "documented-only",
+        "version": "1.0.0",
+        "status": "documented_only"
+      }
     }
   ],
   "relationships": [

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
 from typing import Any
@@ -187,6 +188,12 @@ def infer_candidate_relations(
                     if isinstance(value, str) and value.strip():
                         add_text(project_node, f"projects[{project_id}].sources[{index}].{key}", value, project_id=project_id)
 
+    if isinstance(manifest.get("inventory_notes"), list):
+        nodes.append({
+            "id": "universe:inventory", "kind": "universe_inventory",
+            "label": manifest.get("title", "Universe inventory"), "attributes": {},
+            "provenance": {"manifest_field": "inventory_notes"},
+        })
     for note_index, note in enumerate(manifest.get("inventory_notes", [])):
         if isinstance(note, str) and note.strip():
             add_text("universe:inventory", f"inventory_notes[{note_index}]", note)
@@ -234,11 +241,11 @@ def infer_candidate_relations(
                     "threshold": threshold, "shared_terms": shared,
                     "interpretation": "lexical_overlap_only_not_a_verified_dependency",
                 },
-                "evidence": {
+                "evidence": json.dumps({
                     "left_fields": sorted(set(project_text_fields[left])),
                     "right_fields": sorted(set(project_text_fields[right])),
                     "shared_terms": shared,
-                },
+                }, ensure_ascii=False, sort_keys=True),
                 "epistemic_status": "candidate",
             }
             edges.append(candidate)

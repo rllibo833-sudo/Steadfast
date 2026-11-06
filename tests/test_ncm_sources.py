@@ -55,6 +55,34 @@ class NcmSourceIngestionTests(unittest.TestCase):
         self.assertEqual(statuses["cloudflare"], "content_reader_not_implemented")
         self.assertEqual(result["documents"], [])
 
+    def test_notion_nested_blocks_are_read_and_depth_is_bounded(self):
+        page = {"id": "page", "properties": {}}
+        parent = {"results": [{
+            "id": "child", "type": "toggle", "has_children": True,
+            "toggle": {"rich_text": [{"plain_text": "Parent section"}]},
+        }], "has_more": False}
+        child = {"results": [{
+            "id": "grandchild", "type": "paragraph",
+            "paragraph": {"rich_text": [{"plain_text": "Nested evidence"}]},
+        }], "has_more": False}
+        with patch("steadfast.ncm_sources._json", side_effect=[(200, page), (200, parent), (200, child)]):
+            content, status = _notion_document("a" * 32, token="token")
+        self.assertEqual(status, "read")
+        self.assertIn("Parent section", content)
+        self.assertIn("Nested evidence", content)
+
+    def test_notion_content_limit_is_reported_as_partial(self):
+        page = {"id": "page", "properties": {}}
+        blocks = {"results": [{
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"plain_text": "A much longer paragraph than the configured cap"}]},
+        }], "has_more": False}
+        with patch("steadfast.ncm_sources.MAX_DOCUMENT_CHARS", 12):
+            with patch("steadfast.ncm_sources._json", side_effect=[(200, page), (200, blocks)]):
+                content, status = _notion_document("a" * 32, token="token")
+        self.assertEqual(len(content), 12)
+        self.assertEqual(status, "partial")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rllibo833-sudo/Steadfast/blob/main/ecosystem/ncm-review.schema.json",
+  "title": "NCM Human Review Ledger",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "model_sha256",
+    "reviewer",
+    "reviewed_at",
+    "decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "model_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewed_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO-8601 timestamp supplied by reviewer"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "edge_id",
+          "decision",
+          "rationale",
+          "evidence"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "pattern": "^edge:[a-f0-9]{24}$"
+          },
+          "decision": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "deferred"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

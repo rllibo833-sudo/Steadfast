@@ -110,7 +110,10 @@ def _validate_candidates(
         for item in items:
             if not isinstance(item, dict):
                 return False
-            source = evidence_index.get(item.get("path"))
+            evidence_path = item.get("path")
+            if not isinstance(evidence_path, str):
+                return False
+            source = evidence_index.get(evidence_path)
             quote = item.get("quote")
             if not isinstance(source, str) or not isinstance(quote, str) or not quote.strip() or quote not in source:
                 return False

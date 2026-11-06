@@ -59,9 +59,24 @@ class NcmSemanticTests(unittest.TestCase):
             "possible_conflicts": [],
         }
         with patch("steadfast.ncm_semantic._call_model", return_value=response):
-            result = infer_semantic_candidates(self.manifest, allow_remote=True, env={"NCM_MODEL": "test"})
+            result = infer_semantic_candidates(self.manifest, allow_remote=True, env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"})
         self.assertEqual(result["summary"]["concepts"], 0)
         self.assertEqual(result["findings"][0]["code"], "UNSUPPORTED_CONCEPT_EVIDENCE")
+
+    def test_malformed_evidence_and_relation_shapes_are_rejected_safely(self):
+        response = {
+            "concepts": [{
+                "name": "Bad path", "definition": "Invalid evidence path.",
+                "evidence": [{"path": [], "quote": "shared knowledge archive"}],
+            }],
+            "relations": [{"from": [], "to": "beta", "type": "supports", "rationale": "bad", "confidence": 0.5, "evidence": []}],
+            "possible_conflicts": [],
+        }
+        with patch("steadfast.ncm_semantic._call_model", return_value=response):
+            result = infer_semantic_candidates(self.manifest, allow_remote=True, env={"NCM_API_KEY": "test-secret-value", "NCM_MODEL": "test"})
+        self.assertEqual(result["summary"]["concepts"], 0)
+        self.assertEqual(result["findings"][0]["code"], "UNSUPPORTED_CONCEPT_EVIDENCE")
+        self.assertEqual(result["findings"][1]["code"], "INVALID_RELATION_ENDPOINT")
 
 
 if __name__ == "__main__":

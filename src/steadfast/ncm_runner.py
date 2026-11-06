@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .ncm_adapters import AdapterRegistry, run_project_adapters
 from .ncm_cross_project import build_cross_project_model
 from .ncm_semantic import infer_semantic_candidates
 from .ncm_sources import collect_source_documents
@@ -19,6 +20,7 @@ def run_ncm(
     allow_remote: bool = False,
     allow_source_content_remote: bool = False,
     env: Mapping[str, str] | None = None,
+    adapter_registry: AdapterRegistry | None = None,
 ) -> dict[str, Any]:
     """Run the complete Next Concept Modelling workflow through one Python entry point."""
     root = Path(repo).resolve()
@@ -40,6 +42,7 @@ def run_ncm(
         documents = []
 
     graph = build_cross_project_model(manifest, documents, threshold=threshold)
+    adapter_layer = run_project_adapters(manifest, documents, adapter_registry)
 
     # Source text is sent to the semantic provider only with its separate consent flag.
     semantic_documents = documents if allow_source_content_remote else []
@@ -116,6 +119,7 @@ def run_ncm(
         },
         "ecosystem_graph": combined_graph,
         "semantic_layer": semantic_layer,
+        "adapter_layer": adapter_layer,
         "summary": {
             "projects": graph.get("summary", {}).get("projects", 0),
             "source_documents": len(graph.get("documents", [])),
@@ -125,6 +129,10 @@ def run_ncm(
             "source_failures": len(ingestion.get("failures", [])),
             "semantic_rejected_items": len(semantic_layer["findings"]),
             "graph_findings": len(graph.get("graph_findings", [])) + len(graph.get("manifest_findings", [])),
+            "adapters_executed": adapter_layer["summary"]["executed"],
+            "adapters_not_configured": adapter_layer["summary"]["not_configured"],
+            "adapters_unavailable": adapter_layer["summary"]["unavailable"],
+            "adapter_failures": adapter_layer["summary"]["failed"],
         },
         "safety": {
             "manifest_modified": False,

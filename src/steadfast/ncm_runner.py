@@ -92,7 +92,7 @@ def run_ncm(
 
 
 def render_ncm(result: dict[str, Any]) -> str:
-    return json.dumps(result, indent=2, ensure_ascii=False) + "\\n"
+    return json.dumps(result, indent=2, ensure_ascii=False) + "\n"
 
 
 __all__ = ["run_ncm", "render_ncm"]

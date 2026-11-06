@@ -29,7 +29,7 @@ Every model assertion must carry one of these statuses:
 | `verified` | A human or trusted verification process attached evidence | Yes, within the evidence scope |
 | `rejected` | Reviewed and rejected, with a reason | No |
 
-No model output may silently promote `candidate`, `proposed`, or `unverified` to `verified`.
+No model output may silently promote `candidate`, `proposed`, or `unverified` to `verified`. Human review decisions (`accepted`, `rejected`, or `deferred`) are stored in a separate digest-bound ledger; an `accepted` candidate remains epistemically `candidate` until an independent verification process attaches scoped evidence.
 
 ## Required model structure
 

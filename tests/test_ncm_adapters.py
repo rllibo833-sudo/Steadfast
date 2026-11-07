@@ -139,6 +139,47 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["nodes"], 3)
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["relationships"], 2)
 
+    def test_jbf_cloud_agent_adapter_reports_live_connectors_and_providers(self):
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from steadfast.ncm_adapters import JbfCloudAgentAdapter
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "kits" / "jbf-cloud-agent" / "src" / "index.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text('import { Agent } from "agents"; export class JbfAgent extends Agent {} addMcpServer awaiting_owner_approval ctx.storage.put openrouter/free', encoding="utf-8")
+            context = AdapterContext(
+                project={"id": "jbf-cloud-agent"}, source_documents=(),
+                ecosystem_manifest={"projects": []}, project_roots={"steadfast": root},
+            )
+            status_payload = {
+                "connectors": [{"id": "github", "connected": True}],
+                "tools": [{"serverId": "github", "name": "search_repositories", "readOnly": True}],
+                "approvals": [{"status": "pending"}],
+            }
+            provider_payload = {"providers": [{"id": "github", "connected": True, "state": "ready"}]}
+            class Response:
+                status = 200
+                def __init__(self, payload): self.payload = payload
+                def __enter__(self): return self
+                def __exit__(self, *args): return False
+                def read(self, limit): return json.dumps(self.payload).encode()
+            with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), patch(
+                "urllib.request.urlopen", side_effect=[Response(status_payload), Response(provider_payload)]
+            ) as request:
+                result = JbfCloudAgentAdapter()(context)
+
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.outputs[0]["kind"], "jbf_agent_code_inventory")
+        self.assertEqual(result.outputs[1]["connected_connectors"], ["github"])
+        self.assertEqual(result.outputs[1]["pending_owner_approvals"], 1)
+        self.assertEqual(result.outputs[1]["provider_inventory"][0]["id"], "github")
+        self.assertTrue(all(call.args[0].method == "GET" for call in request.call_args_list))
+
     def test_jbf_cloud_agent_adapter_preserves_source_capabilities_when_runtime_is_forbidden(self):
         import os
         import tempfile
@@ -189,23 +230,6 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.findings[0]["code"], "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED")
         self.assertIn("jbf:cloud-agent-runtime", [item["id"] for item in result.capabilities])
 
-    def test_jbf_cloud_agent_adapter_distinguishes_forbidden_from_bad_credentials(self):
-        import os
-        import urllib.error
-        from unittest.mock import patch
-        from steadfast.ncm_adapters import JbfCloudAgentAdapter
-
-        context = AdapterContext(
-            project={"id": "jbf-sandboxos"}, source_documents=(),
-            ecosystem_manifest={"projects": []},
-        )
-        forbidden = urllib.error.HTTPError("https://worker.example/status", 403, "Forbidden", {}, None)
-        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \
-             patch("urllib.request.urlopen", side_effect=forbidden):
-            result = JbfCloudAgentAdapter()(context)
-        self.assertEqual(result.status, "failed")
-        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_FORBIDDEN")
-
     def test_manifest_distinguishes_jbf_cloud_agent_from_sandboxos(self):
         import json
         from pathlib import Path
@@ -217,20 +241,6 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(projects["jbf-sandboxos"]["adapter"]["id"], "documented-only")
         self.assertEqual(projects["jbf-cloud-agent"]["adapter"]["id"], "jbf-cloud-agent")
         self.assertIn("Cloudflare Agents SDK", projects["jbf-cloud-agent"]["purpose"])
-
-    def test_jbf_cloud_agent_adapter_fails_closed_without_owner_token(self):
-        import os
-        from unittest.mock import patch
-        from steadfast.ncm_adapters import JbfCloudAgentAdapter
-
-        context = AdapterContext(
-            project={"id": "jbf-sandboxos"}, source_documents=(),
-            ecosystem_manifest={"projects": []},
-        )
-        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": ""}):
-            result = JbfCloudAgentAdapter()(context)
-        self.assertEqual(result.status, "unavailable")
-        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED")
 
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()

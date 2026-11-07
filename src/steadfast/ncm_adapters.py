@@ -317,15 +317,14 @@ class JbfCloudAgentAdapter:
         return AdapterResult(
             project_id=context.project["id"],
             adapter_id=self.adapter_id,
-            status="completed",
-            capabilities=capabilities,
             status="completed" if provider_probe == "completed" else "partial",
+            capabilities=capabilities,
             outputs=[source_inventory, {
                 "kind": "jbf_agent_runtime",
                 "endpoint": base_url,
                 "agent_framework": "cloudflare_agents_sdk",
                 "integration_protocol": "remote_mcp_connectors",
-                "openclaw_compatibility": "not_exposed_by_current_worker",
+                "openclaw_compatibility": source_inventory["openclaw_compatibility"],
                 "agent_status": "reachable",
                 "connected_connectors": connected,
                 "available_tool_count": len(available_tools),

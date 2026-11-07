@@ -241,7 +241,7 @@ class JbfCloudAgentAdapter:
             headers = exc.headers or {}
             try:
                 body = json.loads(exc.read(2048).decode("utf-8", errors="replace"))
-            except (ValueError, TypeError):
+            except (AttributeError, OSError, ValueError, TypeError):
                 body = {}
             provider_message = body.get("error") if isinstance(body, dict) else None
             return partial_result(

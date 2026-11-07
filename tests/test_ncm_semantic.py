@@ -227,6 +227,7 @@ class NcmSemanticTests(unittest.TestCase):
         send.assert_called_once()
 
     def test_model_json_parser_recovers_fenced_and_prose_wrapped_objects(self):
+        import json
         from steadfast.ncm_semantic import _parse_model_json
         expected = {"concepts": [], "relations": [], "possible_conflicts": []}
         self.assertEqual(_parse_model_json("```json\n" + json.dumps(expected) + "\n```"), expected)

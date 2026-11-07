@@ -198,8 +198,7 @@ class NcmAdapterTests(unittest.TestCase):
                 ecosystem_manifest={"projects": []}, project_roots={"steadfast": root},
             )
             forbidden = urllib.error.HTTPError("https://worker.example/status", 403, "Forbidden", {}, None)
-            with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \\
-                 patch("urllib.request.urlopen", side_effect=forbidden):
+            with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), patch("urllib.request.urlopen", side_effect=forbidden):
                 result = JbfCloudAgentAdapter()(context)
 
         self.assertEqual(result.status, "partial")

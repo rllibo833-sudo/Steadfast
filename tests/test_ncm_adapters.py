@@ -139,6 +139,53 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["nodes"], 3)
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["relationships"], 2)
 
+    def test_jbf_cloud_agent_adapter_reports_live_connectors_without_executing_tasks(self):
+        import json
+        import os
+        from unittest.mock import patch
+        from steadfast.ncm_adapters import JbfCloudAgentAdapter
+
+        payload = {
+            "connectors": [
+                {"id": "github", "connected": True},
+                {"id": "cloudflare", "connected": False},
+            ],
+            "tools": [{"serverId": "github", "name": "search_repositories"}],
+        }
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return json.dumps(payload).encode()
+
+        context = AdapterContext(
+            project={"id": "jbf-sandboxos"}, source_documents=(),
+            ecosystem_manifest={"projects": []},
+        )
+        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \
+             patch("urllib.request.urlopen", return_value=Response()) as request:
+            result = JbfCloudAgentAdapter()(context)
+
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.outputs[0]["connected_connectors"], ["github"])
+        self.assertEqual(result.outputs[0]["available_tool_count"], 1)
+        self.assertFalse(result.outputs[0]["task_execution_requested"])
+        self.assertEqual(request.call_args.args[0].method, "GET")
+
+    def test_jbf_cloud_agent_adapter_fails_closed_without_owner_token(self):
+        import os
+        from unittest.mock import patch
+        from steadfast.ncm_adapters import JbfCloudAgentAdapter
+
+        context = AdapterContext(
+            project={"id": "jbf-sandboxos"}, source_documents=(),
+            ecosystem_manifest={"projects": []},
+        )
+        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": ""}):
+            result = JbfCloudAgentAdapter()(context)
+        self.assertEqual(result.status, "unavailable")
+        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED")
+
     def test_duplicate_adapter_registration_is_rejected(self):
         registry = AdapterRegistry()
         registry.register(ExampleAdapter())

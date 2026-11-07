@@ -91,6 +91,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           JBF_GITHUB_TOKEN: ${{ secrets.JBF_GITHUB_TOKEN }}
+          JBF_OWNER_TOKEN: ${{ secrets.JBF_OWNER_TOKEN }}
+          JBF_AGENT_URL: https://jbf-cloud-agent.fadlibo833.workers.dev
           NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

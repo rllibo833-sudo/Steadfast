@@ -277,9 +277,9 @@
       ],
       "status": "local_environment_documented; flash_capability_unverified",
       "adapter": {
-        "id": "documented-only",
+        "id": "jbf-cloud-agent",
         "version": "1.0.0",
-        "status": "documented_only"
+        "status": "runtime_probe"
       }
     }
   ],

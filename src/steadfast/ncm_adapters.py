@@ -150,6 +150,94 @@ class ArchivedProjectAdapter:
 
 
 
+class JbfCloudAgentAdapter:
+    """Read-only bridge from NCM to the deployed JBF Cloud Agent (MCP/OpenClaw gateway)."""
+
+    adapter_id = "jbf-cloud-agent"
+
+    def __call__(self, context: AdapterContext) -> AdapterResult:
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        token = os.environ.get("JBF_OWNER_TOKEN", "")
+        base_url = os.environ.get(
+            "JBF_AGENT_URL", "https://jbf-cloud-agent.fadlibo833.workers.dev"
+        ).rstrip("/")
+        parsed = urllib.parse.urlparse(base_url)
+        if not token:
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "unavailable",
+                findings=[{"code": "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED"}],
+            )
+        if parsed.scheme != "https" or parsed.hostname != "jbf-cloud-agent.fadlibo833.workers.dev":
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": "JBF_AGENT_ENDPOINT_NOT_ALLOWLISTED"}],
+            )
+        request = urllib.request.Request(
+            base_url + "/agents/jbf-agent/status",
+            headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=12) as response:
+                if response.status != 200:
+                    raise RuntimeError("unexpected_status")
+                payload = json.loads(response.read(256_000).decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            code = "JBF_AGENT_AUTH_REJECTED" if status in (401, 403) else "JBF_AGENT_HTTP_ERROR"
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": code, "http_status": status}],
+            )
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "unavailable",
+                findings=[{"code": "JBF_AGENT_UNREACHABLE", "error_type": type(exc).__name__}],
+            )
+        connectors = payload.get("connectors", [])
+        tools = payload.get("tools", [])
+        if not isinstance(connectors, list) or not isinstance(tools, list):
+            return AdapterResult(
+                context.project["id"], self.adapter_id, "failed",
+                findings=[{"code": "JBF_AGENT_STATUS_SCHEMA_INVALID"}],
+            )
+        connected = sorted(
+            str(item.get("id")) for item in connectors
+            if isinstance(item, dict) and item.get("connected") is True
+        )
+        available_tools = sorted(
+            f"{item.get('serverId')}:{item.get('name')}"
+            for item in tools if isinstance(item, dict)
+            and isinstance(item.get("serverId"), str)
+            and isinstance(item.get("name"), str)
+        )
+        return AdapterResult(
+            project_id=context.project["id"],
+            adapter_id=self.adapter_id,
+            status="completed",
+            capabilities=[
+                {"id": "jbf:cloud-agent-control-plane", "verification": "live_authenticated_status"},
+                *[
+                    {"id": f"jbf:connector:{connector}", "verification": "live_authenticated_status"}
+                    for connector in connected
+                ],
+            ],
+            outputs=[{
+                "kind": "jbf_agent_runtime",
+                "endpoint": base_url,
+                "agent_status": "reachable",
+                "connected_connectors": connected,
+                "available_tool_count": len(available_tools),
+                "available_tools": available_tools,
+                "read_only_probe": True,
+                "task_execution_requested": False,
+            }],
+        )
+
+
 class CrossProjectIntegrationAdapter:
     """Exercise a real, isolated Pusingcuk-to-Mnemos data contract."""
 
@@ -305,6 +393,7 @@ def build_default_adapter_registry() -> AdapterRegistry:
     registry.register(ArchivedProjectAdapter())
     registry.register(DocumentedOnlyAdapter())
     registry.register(CrossProjectIntegrationAdapter())
+    registry.register(JbfCloudAgentAdapter())
     return registry
 
 
@@ -479,6 +568,6 @@ def run_project_adapters(
 __all__ = [
     "AdapterContext", "AdapterResult", "AdapterRegistry", "ProjectAdapter",
     "RepositorySmokeAdapter", "ArchivedProjectAdapter", "DocumentedOnlyAdapter",
-    "CrossProjectIntegrationAdapter",
+    "CrossProjectIntegrationAdapter", "JbfCloudAgentAdapter",
     "build_default_adapter_registry", "run_project_adapters", "derive_ecosystem_synthesis",
 ]

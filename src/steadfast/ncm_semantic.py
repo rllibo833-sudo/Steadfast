@@ -116,9 +116,13 @@ def _call_model(
     api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
     base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
     model = env.get("NCM_MODEL", "").strip()
+    endpoint = urllib.parse.urlsplit(base_url)
+    configured_model = model
+    if endpoint.hostname and endpoint.hostname.lower() in {"openrouter.ai", "www.openrouter.ai"}:
+        # JBF/NCM policy is free-only; never dispatch a paid OpenRouter model from CI.
+        model = "openrouter/free"
     if not api_key or not model:
         raise RuntimeError("NCM_API_KEY and NCM_MODEL must be configured.")
-    endpoint = urllib.parse.urlsplit(base_url)
     local_hosts = {"localhost", "127.0.0.1", "::1"}
     if (
         not endpoint.hostname
@@ -358,7 +362,7 @@ def infer_semantic_candidates(
         return {
             "status": "failed",
             "error": "Configure NCM_API_KEY or JBF_OPENROUTER_API_KEY, and NCM_MODEL.",
-            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": settings.get("NCM_MODEL")},
+            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": ("openrouter/free" if urllib.parse.urlsplit(settings.get("NCM_BASE_URL", "https://api.openai.com/v1")).hostname in {"openrouter.ai", "www.openrouter.ai"} else settings.get("NCM_MODEL")), "configured_model": settings.get("NCM_MODEL"), "free_only": urllib.parse.urlsplit(settings.get("NCM_BASE_URL", "https://api.openai.com/v1")).hostname in {"openrouter.ai", "www.openrouter.ai"}},
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }

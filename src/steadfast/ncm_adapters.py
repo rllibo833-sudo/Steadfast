@@ -199,9 +199,14 @@ class JbfCloudAgentAdapter:
             code = "JBF_AGENT_AUTH_REJECTED" if exc.code == 401 else (
                 "JBF_AGENT_FORBIDDEN" if exc.code == 403 else "JBF_AGENT_HTTP_ERROR"
             )
+            headers = exc.headers or {}
             return AdapterResult(
                 context.project["id"], self.adapter_id, "failed",
-                findings=[{"code": code, "http_status": exc.code}],
+                findings=[{
+                    "code": code, "http_status": exc.code,
+                    "server": headers.get("server"), "cf_ray": headers.get("cf-ray"),
+                    "content_type": headers.get("content-type"),
+                }],
             )
         except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
             return AdapterResult(

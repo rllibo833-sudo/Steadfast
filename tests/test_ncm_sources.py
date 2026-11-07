@@ -105,6 +105,18 @@ class NcmSourceIngestionTests(unittest.TestCase):
         self.assertEqual(status, "partial")
 
 
+    def test_inactive_supabase_project_is_skipped_without_credentials_or_network(self):
+        project_ref = "vcvejjpzklpvknxmymgy"
+        manifest = {"projects": [{"id": "p", "sources": [
+            {"source_id": "supabase", "uri": f"supabase://project/{project_ref}", "project_status": "INACTIVE"},
+        ]}]}
+        with patch("steadfast.ncm_sources._supabase_table") as reader:
+            result = collect_source_documents(manifest, env={})
+        reader.assert_not_called()
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["failures"][0]["status"], "project_inactive")
+        self.assertEqual(result["summary"]["inactive_projects"], 1)
+
     def test_supabase_reader_uses_explicit_table_and_column_allowlist(self):
         project_ref = "vcvejjpzklpvknxmymgy"
         manifest = {"projects": [{"id": "p", "name": "P", "sources": [

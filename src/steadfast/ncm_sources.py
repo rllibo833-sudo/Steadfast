@@ -358,6 +358,9 @@ def collect_source_documents(
                 text, status, resolved_uri = _github_readme(uri, token=github_token)
                 doc = {"document_id": f"github:{key[1]}", "project_id": project.get("id"), "source_id": "github", "title": f"{project.get('name', key[1])} README", "uri": resolved_uri or uri, "content": text, "status": status}
             elif source_id == "supabase":
+                if str(ref.get("project_status", "")).upper() == "INACTIVE":
+                    failures.append({"project_id": project.get("id"), "source_id": source_id, "status": "project_inactive"})
+                    continue
                 parsed = urllib.parse.urlparse(uri)
                 project_ref = parsed.path.strip("/").split("/")[0] if parsed.scheme == "supabase" else ""
                 if not re.fullmatch(r"[a-z0-9]{20}", project_ref):
@@ -451,6 +454,7 @@ def collect_source_documents(
             "characters_read": total_chars,
             "sources_with_failures": len(failures),
             "partial_documents": sum(item.get("status") == "partial" for item in documents),
+            "inactive_projects": sum(item.get("status") == "project_inactive" for item in failures),
         },
         "safety": {
             "http_method": "GET",

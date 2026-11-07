@@ -226,6 +226,22 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["concepts"], [])
         send.assert_called_once()
 
+    def test_http_provider_failure_reports_status_without_response_body(self):
+        import urllib.error
+        from unittest.mock import patch
+        from steadfast.ncm_semantic import _call_model
+
+        error = urllib.error.HTTPError(
+            "https://provider.example/v1/chat/completions", 403, "Forbidden",
+            {}, None,
+        )
+        with patch("steadfast.ncm_semantic.urllib.request.urlopen", side_effect=error):
+            with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+                _call_model(
+                    self.manifest,
+                    {"NCM_API_KEY": "secret", "NCM_MODEL": "test"},
+                )
+
     def test_incomplete_model_response_schema_is_rejected(self):
         import json
         from steadfast.ncm_semantic import _call_model

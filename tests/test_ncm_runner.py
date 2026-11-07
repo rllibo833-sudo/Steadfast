@@ -192,6 +192,31 @@ class NcmRunnerTests(unittest.TestCase):
         self.assertEqual(sum(edge["type"] == "verified_by_shared_ncm_orchestrator" for edge in result["ecosystem_graph"]["edges"]), 2)
         self.assertEqual(result["ecosystem_graph"]["summary"]["nodes"], len(result["ecosystem_graph"]["nodes"]))
 
+    @patch("steadfast.ncm_runner.infer_semantic_candidates")
+    @patch("steadfast.ncm_runner.build_cross_project_model")
+    @patch("steadfast.ncm_runner.collect_source_documents")
+    @patch("steadfast.ncm_runner.load_universe_manifest")
+    def test_semantic_provider_error_is_preserved_in_combined_model(
+        self, load_manifest, collect, build_graph, semantic
+    ):
+        load_manifest.return_value = ({"projects": []}, [])
+        collect.return_value = {"documents": [], "failures": [], "summary": {}, "safety": {}}
+        build_graph.return_value = {
+            "nodes": [], "edges": [], "summary": {"projects": 0, "candidate_concepts": 0, "cross_project_relations": 0},
+            "graph_findings": [], "manifest_findings": [],
+        }
+        semantic.return_value = {
+            "status": "failed", "error": "Semantic model provider returned HTTP 403.",
+            "concepts": [], "relations": [], "possible_conflicts": [], "findings": [],
+            "summary": {}, "safety": {"remote_request_made": True},
+        }
+        result = run_ncm(
+            ".", allow_remote=True, allow_source_content_remote=True,
+            env={"NCM_API_KEY": "test", "NCM_MODEL": "test"},
+        )
+        self.assertEqual(result["semantic_layer"]["error"], "Semantic model provider returned HTTP 403.")
+        self.assertEqual(result["summary"]["semantic_status"], "failed")
+
     def test_verified_cross_project_contract_becomes_two_graph_edges(self):
         manifest = {
             "universe_id": "test",

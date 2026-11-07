@@ -216,7 +216,9 @@ def _call_model(
             if len(body) > 1_000_000:
                 raise RuntimeError("Semantic model response exceeded the 1 MB limit.")
             result = json.loads(body.decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError) as exc:
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Semantic model provider returned HTTP {exc.code}.") from None
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         raise RuntimeError(f"Semantic model request failed: {type(exc).__name__}") from None
     try:
         content = result["choices"][0]["message"]["content"]

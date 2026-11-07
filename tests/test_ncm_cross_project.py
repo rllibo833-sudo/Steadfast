@@ -64,6 +64,32 @@ class NcmCrossProjectTests(unittest.TestCase):
         self.assertTrue(all(edge["from"] in ids and edge["to"] in ids for edge in result["edges"]))
         self.assertEqual(result["graph_findings"], [])
 
+    def test_document_only_lexical_concepts_are_retained_only_when_shared_across_projects(self):
+        documents = [
+            {
+                "document_id": "alpha-doc", "project_id": "alpha", "source_id": "github",
+                "content": "unique alpha capability phrase. shared orchestration capability.",
+                "status": "read",
+            },
+            {
+                "document_id": "beta-doc", "project_id": "beta", "source_id": "github",
+                "content": "shared orchestration capability supports integration.",
+                "status": "read",
+            },
+        ]
+        for document in documents:
+            document["content_sha256"] = hashlib.sha256(document["content"].encode()).hexdigest()
+
+        result = build_cross_project_model(self.manifest, documents)
+        labels = {node["label"] for node in result["nodes"] if node.get("kind") == "candidate_concept"}
+        self.assertIn("shared orchestration capability", labels)
+        self.assertNotIn("unique alpha capability phrase", labels)
+        self.assertGreater(result["summary"]["document_concepts_filtered"], 0)
+        self.assertEqual(
+            result["semantics"]["document_concept_retention_rule"],
+            "shared_across_two_or_more_projects_or_manifest_seeded",
+        )
+
     def test_documents_are_referenced_but_content_is_not_embedded(self):
         result = build_cross_project_model(self.manifest, self.documents)
         rendered = str(result)

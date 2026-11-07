@@ -169,6 +169,9 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.outputs[0]["connected_connectors"], ["github"])
         self.assertEqual(result.outputs[0]["available_tool_count"], 1)
+        self.assertTrue(result.outputs[0]["available_tools"][0]["read_only"])
+        self.assertEqual(result.outputs[0]["agent_framework"], "cloudflare_agents_sdk")
+        self.assertEqual(result.outputs[0]["openclaw_compatibility"], "not_exposed_by_current_worker")
         self.assertFalse(result.outputs[0]["task_execution_requested"])
         self.assertEqual(request.call_args.args[0].method, "GET")
 

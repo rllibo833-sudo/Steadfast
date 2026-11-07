@@ -51,6 +51,10 @@ def build_cross_project_model(
                 if isinstance(ref, dict) and ref.get("source_id") in declared_source_ids:
                     project_source_ids[project_id].add(ref["source_id"])
 
+    manifest_concept_ids = {
+        node.get("id") for node in nodes
+        if node.get("kind") == "candidate_concept" and isinstance(node.get("id"), str)
+    }
     findings: list[dict[str, Any]] = []
     document_records: list[dict[str, Any]] = []
     concept_projects: dict[str, set[str]] = defaultdict(set)
@@ -225,6 +229,28 @@ def build_cross_project_model(
                 "epistemic_status": "candidate",
             })
 
+    # Keep document-derived lexical candidates only when evidence spans multiple projects.
+    # Single-project detail remains available to the evidence-grounded semantic layer.
+    retained_document_concepts = {
+        concept for concept, project_ids in concept_projects.items()
+        if len(project_ids) >= 2
+    }
+    document_concepts_filtered = 0
+    retained_nodes = []
+    for node in nodes:
+        if node.get("kind") == "candidate_concept" and node.get("id") not in manifest_concept_ids:
+            if node.get("label") not in retained_document_concepts:
+                document_concepts_filtered += 1
+                continue
+        retained_nodes.append(node)
+    nodes[:] = retained_nodes
+    retained_node_ids = {node["id"] for node in nodes}
+    edges[:] = [
+        edge for edge in edges
+        if edge.get("from") in retained_node_ids and edge.get("to") in retained_node_ids
+    ]
+    node_by_id = {node["id"]: node for node in nodes}
+
     # Normalize concept statistics after merging manifest and document evidence.
     for concept, project_ids in concept_projects.items():
         node = node_by_id.get(f"concept:{concept}")
@@ -314,11 +340,13 @@ def build_cross_project_model(
             "projects_with_source_documents": len({item["project_id"] for item in document_records}),
             "source_documents_included": len(document_records),
             "source_documents_content_embedded": False,
+            "document_concept_retention_rule": "shared_across_two_or_more_projects_or_manifest_seeded",
         },
         "summary": {
             **model["summary"],
             "documents": len(document_records),
             "candidate_concepts": sum(1 for node in nodes if node.get("kind") == "candidate_concept"),
+            "document_concepts_filtered": document_concepts_filtered,
             "cross_project_relations": len(cross_project_candidates),
             "shared_concepts_across_projects": sum(1 for owners in concept_projects.values() if len(owners) > 1),
             "audit_findings": len(graph_findings) + len(model.get("manifest_findings", [])) + len(findings),

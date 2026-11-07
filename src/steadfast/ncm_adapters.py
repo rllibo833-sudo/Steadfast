@@ -151,7 +151,7 @@ class ArchivedProjectAdapter:
 
 
 class JbfCloudAgentAdapter:
-    """Read-only bridge from NCM to the deployed JBF Cloud Agent (MCP/OpenClaw gateway)."""
+    """Read-only bridge from NCM to the deployed JBF Cloud Agent control plane."""
 
     adapter_id = "jbf-cloud-agent"
 
@@ -175,63 +175,121 @@ class JbfCloudAgentAdapter:
                 context.project["id"], self.adapter_id, "failed",
                 findings=[{"code": "JBF_AGENT_ENDPOINT_NOT_ALLOWLISTED"}],
             )
-        request = urllib.request.Request(
-            base_url + "/agents/jbf-agent/status",
-            headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
-            method="GET",
-        )
-        try:
+
+        def get_json(route: str) -> dict[str, Any]:
+            request = urllib.request.Request(
+                base_url + "/agents/jbf-agent/" + route,
+                headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+                method="GET",
+            )
             with urllib.request.urlopen(request, timeout=12) as response:
                 if response.status != 200:
                     raise RuntimeError("unexpected_status")
-                payload = json.loads(response.read(256_000).decode("utf-8"))
+                raw = response.read(256_001)
+                if len(raw) > 256_000:
+                    raise ValueError("response_too_large")
+            payload = json.loads(raw.decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("response_not_object")
+            return payload
+
+        try:
+            status_payload = get_json("status")
         except urllib.error.HTTPError as exc:
-            status = exc.code
-            code = "JBF_AGENT_AUTH_REJECTED" if status in (401, 403) else "JBF_AGENT_HTTP_ERROR"
+            code = "JBF_AGENT_AUTH_REJECTED" if exc.code == 401 else (
+                "JBF_AGENT_FORBIDDEN" if exc.code == 403 else "JBF_AGENT_HTTP_ERROR"
+            )
             return AdapterResult(
                 context.project["id"], self.adapter_id, "failed",
-                findings=[{"code": code, "http_status": status}],
+                findings=[{"code": code, "http_status": exc.code}],
             )
         except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
             return AdapterResult(
                 context.project["id"], self.adapter_id, "unavailable",
                 findings=[{"code": "JBF_AGENT_UNREACHABLE", "error_type": type(exc).__name__}],
             )
-        connectors = payload.get("connectors", [])
-        tools = payload.get("tools", [])
-        if not isinstance(connectors, list) or not isinstance(tools, list):
+
+        connectors = status_payload.get("connectors", [])
+        tools = status_payload.get("tools", [])
+        approvals = status_payload.get("approvals", [])
+        if not isinstance(connectors, list) or not isinstance(tools, list) or not isinstance(approvals, list):
             return AdapterResult(
                 context.project["id"], self.adapter_id, "failed",
                 findings=[{"code": "JBF_AGENT_STATUS_SCHEMA_INVALID"}],
             )
+
         connected = sorted(
             str(item.get("id")) for item in connectors
             if isinstance(item, dict) and item.get("connected") is True
         )
         available_tools = sorted(
-            f"{item.get('serverId')}:{item.get('name')}"
-            for item in tools if isinstance(item, dict)
-            and isinstance(item.get("serverId"), str)
-            and isinstance(item.get("name"), str)
+            [
+                {
+                    "server_id": item["serverId"],
+                    "name": item["name"],
+                    "read_only": item.get("readOnly") is True,
+                }
+                for item in tools if isinstance(item, dict)
+                and isinstance(item.get("serverId"), str)
+                and isinstance(item.get("name"), str)
+            ],
+            key=lambda item: (item["server_id"], item["name"]),
         )
+        pending_approvals = sum(
+            1 for item in approvals if isinstance(item, dict) and item.get("status") == "pending"
+        )
+
+        provider_inventory: list[dict[str, Any]] = []
+        provider_probe = "completed"
+        try:
+            provider_payload = get_json("providers")
+            providers = provider_payload.get("providers", [])
+            if not isinstance(providers, list):
+                raise ValueError("provider_schema_invalid")
+            provider_inventory = sorted(
+                [
+                    {
+                        "id": item["id"],
+                        "state": item.get("state", "unknown"),
+                        "connected": item.get("connected") is True,
+                        "availability": item.get("availability", "unknown"),
+                    }
+                    for item in providers if isinstance(item, dict) and isinstance(item.get("id"), str)
+                ],
+                key=lambda item: item["id"],
+            )
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError):
+            provider_probe = "unavailable"
+
+        capabilities = [
+            {"id": "jbf:cloud-agent-control-plane", "verification": "live_authenticated_status"},
+            *[
+                {"id": f"jbf:connector:{connector}", "verification": "live_authenticated_status"}
+                for connector in connected
+            ],
+            *[
+                {"id": f"jbf:provider:{provider['id']}", "verification": "live_authenticated_provider_inventory"}
+                for provider in provider_inventory if provider["connected"]
+            ],
+        ]
         return AdapterResult(
             project_id=context.project["id"],
             adapter_id=self.adapter_id,
             status="completed",
-            capabilities=[
-                {"id": "jbf:cloud-agent-control-plane", "verification": "live_authenticated_status"},
-                *[
-                    {"id": f"jbf:connector:{connector}", "verification": "live_authenticated_status"}
-                    for connector in connected
-                ],
-            ],
+            capabilities=capabilities,
             outputs=[{
                 "kind": "jbf_agent_runtime",
                 "endpoint": base_url,
+                "agent_framework": "cloudflare_agents_sdk",
+                "integration_protocol": "remote_mcp_connectors",
+                "openclaw_compatibility": "not_exposed_by_current_worker",
                 "agent_status": "reachable",
                 "connected_connectors": connected,
                 "available_tool_count": len(available_tools),
                 "available_tools": available_tools,
+                "provider_inventory": provider_inventory,
+                "provider_probe": provider_probe,
+                "pending_owner_approvals": pending_approvals,
                 "read_only_probe": True,
                 "task_execution_requested": False,
             }],

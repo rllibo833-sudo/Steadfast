@@ -64,6 +64,8 @@ def run_ncm(
         "relations": semantic.get("relations", []),
         "possible_conflicts": semantic.get("possible_conflicts", []),
         "findings": semantic.get("findings", []),
+        "error": semantic.get("error"),
+        "reason": semantic.get("reason"),
         "summary": semantic.get("summary", {}),
         "source_manifest_sha256": semantic.get("source_manifest_sha256"),
         "source_documents_sha256": semantic.get("source_documents_sha256"),

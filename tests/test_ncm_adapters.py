@@ -150,7 +150,7 @@ class NcmAdapterTests(unittest.TestCase):
                 {"id": "github", "connected": True},
                 {"id": "cloudflare", "connected": False},
             ],
-            "tools": [{"serverId": "github", "name": "search_repositories"}],
+            "tools": [{"serverId": "github", "name": "search_repositories", "readOnly": True}],
         }
         class Response:
             status = 200
@@ -173,7 +173,24 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.outputs[0]["agent_framework"], "cloudflare_agents_sdk")
         self.assertEqual(result.outputs[0]["openclaw_compatibility"], "not_exposed_by_current_worker")
         self.assertFalse(result.outputs[0]["task_execution_requested"])
-        self.assertEqual(request.call_args.args[0].method, "GET")
+        self.assertTrue(all(call.args[0].method == "GET" for call in request.call_args_list))
+
+    def test_jbf_cloud_agent_adapter_distinguishes_forbidden_from_bad_credentials(self):
+        import os
+        import urllib.error
+        from unittest.mock import patch
+        from steadfast.ncm_adapters import JbfCloudAgentAdapter
+
+        context = AdapterContext(
+            project={"id": "jbf-sandboxos"}, source_documents=(),
+            ecosystem_manifest={"projects": []},
+        )
+        forbidden = urllib.error.HTTPError("https://worker.example/status", 403, "Forbidden", {}, None)
+        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \
+             patch("urllib.request.urlopen", side_effect=forbidden):
+            result = JbfCloudAgentAdapter()(context)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_FORBIDDEN")
 
     def test_jbf_cloud_agent_adapter_fails_closed_without_owner_token(self):
         import os

@@ -86,7 +86,7 @@ class NcmCrossProjectTests(unittest.TestCase):
         self.assertNotIn("unique alpha capability phrase", labels)
         self.assertGreater(result["summary"]["document_concepts_filtered"], 0)
         self.assertEqual(
-            result["semantics"]["document_concept_retention_rule"],
+            result["cross_project"]["document_concept_retention_rule"],
             "shared_across_two_or_more_projects_or_manifest_seeded",
         )
 

@@ -566,6 +566,98 @@ def derive_ecosystem_synthesis(adapter_layer: Mapping[str, Any]) -> dict[str, An
                 }],
                 "epistemic_status": "observed_orchestration_candidate",
             })
+    verified_cross_project_contracts = 0
+    for adapter_result in results:
+        if not isinstance(adapter_result, dict) or adapter_result.get("project_id") != "steadfast":
+            continue
+        outputs = adapter_result.get("outputs", [])
+        if not isinstance(outputs, list):
+            continue
+        for output_index, output in enumerate(outputs):
+            if not isinstance(output, dict) or output.get("kind") != "cross_project_integration":
+                continue
+            if not all(output.get(field) is True for field in ("validated", "persisted", "idempotent")):
+                continue
+            producer = output.get("producer_project")
+            consumer = output.get("consumer_project")
+            if not isinstance(producer, str) or not isinstance(consumer, str):
+                continue
+            verified_cross_project_contracts += 1
+            base = f"adapter_results[steadfast].outputs[{output_index}]"
+            evidence = [
+                {"path": f"{base}.contract", "quote": str(output.get("contract", ""))},
+                {"path": f"{base}.producer", "quote": str(output.get("producer", ""))},
+                {"path": f"{base}.consumer", "quote": str(output.get("consumer", ""))},
+            ]
+            if all(item["quote"] for item in evidence):
+                concepts.append({
+                    "id": "candidate-concept:compiler-backed-semantic-memory",
+                    "name": "Compiler-backed semantic memory graph",
+                    "definition": (
+                        "Validated PusingCuk compiler IR is persisted idempotently into Mnemos MemoryStore "
+                        "and composed into a feature-linked memory graph, making compiler structure reusable "
+                        "as queryable ecosystem memory."
+                    ),
+                    "evidence": evidence,
+                    "epistemic_status": "candidate",
+                    "derivation": "verified_cross_project_contract_synthesis",
+                })
+                relations.append({
+                    "from": f"project:{producer}",
+                    "to": f"project:{consumer}",
+                    "type": "compiler_ir_materialized_as_memory_graph",
+                    "rationale": "The adapter executed, validated, persisted and read back the compiler IR in the consumer memory store.",
+                    "confidence": 1.0,
+                    "evidence": evidence,
+                    "epistemic_status": "end_to_end_contract_verified",
+                })
+
+    jbf_result = next((
+        item for item in results if isinstance(item, dict)
+        and item.get("project_id") == "jbf-cloud-agent"
+        and item.get("status") in {"completed", "partial"}
+    ), None)
+    jbf_pattern_count = 0
+    if jbf_result is not None:
+        capabilities = jbf_result.get("capabilities", [])
+        if isinstance(capabilities, list):
+            cap_indexes = {
+                item.get("id"): index for index, item in enumerate(capabilities)
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            }
+            required = ("jbf:remote-mcp-connectors", "jbf:owner-approval-gate")
+            if all(capability_id in cap_indexes for capability_id in required):
+                jbf_pattern_count = 1
+                evidence = [
+                    {
+                        "path": f"adapter_results[jbf-cloud-agent].capabilities[{cap_indexes[capability_id]}].id",
+                        "quote": capability_id,
+                    }
+                    for capability_id in required
+                ]
+                concepts.append({
+                    "id": "candidate-concept:owner-governed-remote-agent-fabric",
+                    "name": "Owner-governed remote agent fabric",
+                    "definition": (
+                        "A cloud agent can compose remote MCP tools while routing external writes through "
+                        "an explicit owner-approval gate; this is a repository-verified capability pattern, "
+                        "not a claim that the live JBF endpoint is currently reachable."
+                    ),
+                    "evidence": evidence,
+                    "epistemic_status": "candidate",
+                    "derivation": "repository_verified_capability_composition",
+                })
+                if orchestrator is not None:
+                    relations.append({
+                        "from": "project:jbf-cloud-agent",
+                        "to": "project:steadfast",
+                        "type": "repository_verified_agent_adapter_observed_by_ncm",
+                        "rationale": "NCM statically verified the JBF remote MCP and owner-approval capabilities through its registered source adapter.",
+                        "confidence": 1.0,
+                        "evidence": evidence,
+                        "epistemic_status": "repository_source_verified",
+                    })
+
     return {
         "status": "completed",
         "method": "deterministic_adapter_synthesis",
@@ -573,6 +665,8 @@ def derive_ecosystem_synthesis(adapter_layer: Mapping[str, Any]) -> dict[str, An
             "completed_projects": len(completed),
             "emergent_concepts": len(concepts),
             "orchestration_relations": len(relations),
+            "verified_cross_project_contracts": verified_cross_project_contracts,
+            "repository_verified_agent_patterns": jbf_pattern_count,
         },
         "emergent_concepts": concepts,
         "orchestration_relations": relations,

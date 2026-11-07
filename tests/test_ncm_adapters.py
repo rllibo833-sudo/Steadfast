@@ -71,6 +71,43 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result["emergent_concepts"][0]["epistemic_status"], "candidate")
         self.assertEqual(result["safety"]["inferred_dependencies"], False)
 
+    def test_synthesis_derives_compiler_memory_and_governed_agent_concepts(self):
+        result = derive_ecosystem_synthesis({
+            "results": [
+                {"project_id": "pusingcuk", "status": "completed"},
+                {"project_id": "mnemos-rli", "status": "completed"},
+                {"project_id": "core-public", "status": "completed"},
+                {
+                    "project_id": "steadfast", "status": "completed",
+                    "outputs": [{
+                        "kind": "cross_project_integration",
+                        "contract": "pusingcuk-ir-v1",
+                        "producer": "pusingcuk.compiler.ir",
+                        "consumer": "mnemos.store.MemoryStore",
+                        "producer_project": "pusingcuk",
+                        "consumer_project": "mnemos-rli",
+                        "validated": True, "persisted": True, "idempotent": True,
+                    }],
+                },
+                {
+                    "project_id": "jbf-cloud-agent", "status": "partial",
+                    "capabilities": [
+                        {"id": "jbf:cloud-agent-runtime", "verification": "repository_source_verified"},
+                        {"id": "jbf:remote-mcp-connectors", "verification": "repository_source_verified"},
+                        {"id": "jbf:owner-approval-gate", "verification": "repository_source_verified"},
+                    ],
+                },
+            ]
+        })
+        names = {item["name"] for item in result["emergent_concepts"]}
+        self.assertIn("Compiler-backed semantic memory graph", names)
+        self.assertIn("Owner-governed remote agent fabric", names)
+        self.assertEqual(result["summary"]["verified_cross_project_contracts"], 1)
+        self.assertEqual(result["summary"]["repository_verified_agent_patterns"], 1)
+        relation_types = {item["type"] for item in result["orchestration_relations"]}
+        self.assertIn("compiler_ir_materialized_as_memory_graph", relation_types)
+        self.assertIn("repository_verified_agent_adapter_observed_by_ncm", relation_types)
+
     def test_synthesis_does_not_infer_integration_from_two_non_orchestrator_projects(self):
         result = derive_ecosystem_synthesis({
             "results": [

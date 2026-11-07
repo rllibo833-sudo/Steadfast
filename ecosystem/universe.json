@@ -277,9 +277,28 @@
       ],
       "status": "local_environment_documented; flash_capability_unverified",
       "adapter": {
+        "id": "documented-only",
+        "version": "1.0.0",
+        "status": "documented_only"
+      }
+    },
+    {
+      "id": "jbf-cloud-agent",
+      "name": "JBF Cloud Agent",
+      "purpose": "Cloud-hosted agent orchestrator using the Cloudflare Agents SDK, remote MCP connectors for GitHub, Cloudflare and Supabase, and owner-approved external writes.",
+      "sources": [
+        {
+          "source_id": "github",
+          "uri": "https://github.com/rllibo833-sudo/Steadfast/tree/main/kits/jbf-cloud-agent",
+          "role": "implementation_directory",
+          "evidence": "implementation files in the Steadfast repository"
+        }
+      ],
+      "status": "repository_confirmed; live_runtime_probe_pending",
+      "adapter": {
         "id": "jbf-cloud-agent",
         "version": "1.0.0",
-        "status": "runtime_probe"
+        "status": "enabled"
       }
     }
   ],

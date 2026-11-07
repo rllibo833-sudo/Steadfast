@@ -192,6 +192,18 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.findings[0]["code"], "JBF_AGENT_FORBIDDEN")
 
+    def test_manifest_distinguishes_jbf_cloud_agent_from_sandboxos(self):
+        import json
+        from pathlib import Path
+
+        manifest = json.loads(
+            (Path(__file__).resolve().parents[1] / "ecosystem" / "universe.json").read_text(encoding="utf-8")
+        )
+        projects = {item["id"]: item for item in manifest["projects"]}
+        self.assertEqual(projects["jbf-sandboxos"]["adapter"]["id"], "documented-only")
+        self.assertEqual(projects["jbf-cloud-agent"]["adapter"]["id"], "jbf-cloud-agent")
+        self.assertIn("Cloudflare Agents SDK", projects["jbf-cloud-agent"]["purpose"])
+
     def test_jbf_cloud_agent_adapter_fails_closed_without_owner_token(self):
         import os
         from unittest.mock import patch

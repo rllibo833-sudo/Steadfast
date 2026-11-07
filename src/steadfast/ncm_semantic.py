@@ -358,6 +358,7 @@ def infer_semantic_candidates(
         return {
             "status": "failed",
             "error": "Configure NCM_API_KEY or JBF_OPENROUTER_API_KEY, and NCM_MODEL.",
+            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": settings.get("NCM_MODEL")},
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }
@@ -367,6 +368,7 @@ def infer_semantic_candidates(
         return {
             "status": "failed",
             "error": str(exc),
+            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": settings.get("NCM_MODEL")},
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": True, "manifest_modified": False, "candidates_promoted": False},
         }

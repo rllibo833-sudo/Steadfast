@@ -233,6 +233,24 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(_parse_model_json("```json\n" + json.dumps(expected) + "\n```"), expected)
         self.assertEqual(_parse_model_json("Result:\n" + json.dumps(expected)), expected)
 
+    def test_semantic_failure_reports_effective_free_model_provider(self):
+        from unittest.mock import patch
+        from steadfast.ncm_semantic import infer_semantic_candidates
+
+        with patch("steadfast.ncm_semantic._call_model", side_effect=RuntimeError("provider unavailable")):
+            result = infer_semantic_candidates(
+                self.manifest,
+                allow_remote=True,
+                env={
+                    "NCM_API_KEY": "test-key",
+                    "NCM_BASE_URL": "https://openrouter.ai/api/v1",
+                    "NCM_MODEL": "openai/gpt-4o-mini",
+                },
+            )
+        self.assertEqual(result["provider"]["model"], "openrouter/free")
+        self.assertEqual(result["provider"]["configured_model"], "openai/gpt-4o-mini")
+        self.assertTrue(result["provider"]["free_only"])
+
     def test_openrouter_provider_metadata_reports_effective_free_model(self):
         from steadfast.ncm_semantic import _provider_metadata
         provider = _provider_metadata({

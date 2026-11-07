@@ -139,8 +139,10 @@ def _parse_model_json(content: Any) -> dict[str, Any]:
                 raise RuntimeError("Semantic model returned an invalid JSON response.") from None
     if not isinstance(parsed, dict):
         raise RuntimeError("Semantic model response must be a JSON object.")
-    if any(not isinstance(parsed.get(key), list) for key in ("concepts", "relations", "possible_conflicts")):
-        raise RuntimeError("Semantic model response must contain concepts, relations, and possible_conflicts arrays.")
+    required = ("concepts", "relations", "possible_conflicts")
+    if any(not isinstance(parsed.get(key), list) for key in required):
+        keys = ",".join(sorted(str(key) for key in parsed.keys())[:12])
+        raise RuntimeError("Semantic model response schema invalid; received keys: " + keys)
     return parsed
 
 def _call_model(
@@ -404,7 +406,7 @@ def infer_semantic_candidates(
         return {
             "status": "failed",
             "error": str(exc),
-            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": settings.get("NCM_MODEL")},
+            "provider": _provider_metadata(settings),
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": True, "manifest_modified": False, "candidates_promoted": False},
         }

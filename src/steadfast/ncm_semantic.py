@@ -103,6 +103,46 @@ def _evidence_catalog(evidence_index: dict[str, str], *, max_paths: int = 100, m
     return catalog
 
 
+def _provider_metadata(settings: Mapping[str, str]) -> dict[str, Any]:
+    base_url = settings.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
+    configured_model = settings.get("NCM_MODEL", "").strip()
+    hostname = urllib.parse.urlsplit(base_url).hostname
+    is_openrouter = hostname in {"openrouter.ai", "www.openrouter.ai"}
+    return {
+        "base_url": base_url,
+        "model": "openrouter/free" if is_openrouter else configured_model,
+        "configured_model": configured_model,
+        "free_only": is_openrouter,
+    }
+
+
+def _parse_model_json(content: Any) -> dict[str, Any]:
+    if isinstance(content, dict):
+        parsed = content
+    else:
+        if isinstance(content, list):
+            content = "".join(str(item.get("text", "")) for item in content if isinstance(item, dict))
+        if not isinstance(content, str):
+            raise RuntimeError("Semantic model returned an invalid JSON response.")
+        text = content.strip()
+        if text.startswith("```"):
+            text = "\n".join(line for line in text.splitlines() if not line.strip().startswith("```" )).strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            start, end = text.find("{"), text.rfind("}")
+            if start < 0 or end <= start:
+                raise RuntimeError("Semantic model returned an invalid JSON response.") from None
+            try:
+                parsed = json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                raise RuntimeError("Semantic model returned an invalid JSON response.") from None
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Semantic model response must be a JSON object.")
+    if any(not isinstance(parsed.get(key), list) for key in ("concepts", "relations", "possible_conflicts")):
+        raise RuntimeError("Semantic model response must contain concepts, relations, and possible_conflicts arrays.")
+    return parsed
+
 def _call_model(
     manifest: dict[str, Any],
     env: Mapping[str, str],
@@ -114,13 +154,10 @@ def _call_model(
 ) -> dict[str, Any]:
     # Reuse the repository's existing OpenRouter credential when no NCM-specific key is set.
     api_key = (env.get("NCM_API_KEY") or env.get("JBF_OPENROUTER_API_KEY") or "").strip()
-    base_url = env.get("NCM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
-    model = env.get("NCM_MODEL", "").strip()
+    provider = _provider_metadata(env)
+    base_url = provider["base_url"]
+    model = provider["model"]
     endpoint = urllib.parse.urlsplit(base_url)
-    configured_model = model
-    if endpoint.hostname and endpoint.hostname.lower() in {"openrouter.ai", "www.openrouter.ai"}:
-        # JBF/NCM policy is free-only; never dispatch a paid OpenRouter model from CI.
-        model = "openrouter/free"
     if not api_key or not model:
         raise RuntimeError("NCM_API_KEY and NCM_MODEL must be configured.")
     local_hosts = {"localhost", "127.0.0.1", "::1"}
@@ -226,14 +263,9 @@ def _call_model(
         raise RuntimeError(f"Semantic model request failed: {type(exc).__name__}") from None
     try:
         content = result["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+    except (KeyError, IndexError, TypeError):
         raise RuntimeError("Semantic model returned an invalid JSON response.") from None
-    if not isinstance(parsed, dict):
-        raise RuntimeError("Semantic model response must be a JSON object.")
-    if any(not isinstance(parsed.get(key), list) for key in ("concepts", "relations", "possible_conflicts")):
-        raise RuntimeError("Semantic model response must contain concepts, relations, and possible_conflicts arrays.")
-    return parsed
+    return _parse_model_json(content)
 
 
 def _validate_candidates(
@@ -362,7 +394,7 @@ def infer_semantic_candidates(
         return {
             "status": "failed",
             "error": "Configure NCM_API_KEY or JBF_OPENROUTER_API_KEY, and NCM_MODEL.",
-            "provider": {"base_url": settings.get("NCM_BASE_URL", "https://api.openai.com/v1"), "model": ("openrouter/free" if urllib.parse.urlsplit(settings.get("NCM_BASE_URL", "https://api.openai.com/v1")).hostname in {"openrouter.ai", "www.openrouter.ai"} else settings.get("NCM_MODEL")), "configured_model": settings.get("NCM_MODEL"), "free_only": urllib.parse.urlsplit(settings.get("NCM_BASE_URL", "https://api.openai.com/v1")).hostname in {"openrouter.ai", "www.openrouter.ai"}},
+            "provider": _provider_metadata(settings),
             "source_manifest_sha256": digest,
             "safety": {"remote_request_made": False, "manifest_modified": False, "candidates_promoted": False},
         }

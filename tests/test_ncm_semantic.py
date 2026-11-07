@@ -226,6 +226,21 @@ class NcmSemanticTests(unittest.TestCase):
         self.assertEqual(result["concepts"], [])
         send.assert_called_once()
 
+    def test_model_json_parser_recovers_fenced_and_prose_wrapped_objects(self):
+        from steadfast.ncm_semantic import _parse_model_json
+        expected = {"concepts": [], "relations": [], "possible_conflicts": []}
+        self.assertEqual(_parse_model_json("```json\n" + json.dumps(expected) + "\n```"), expected)
+        self.assertEqual(_parse_model_json("Result:\n" + json.dumps(expected)), expected)
+
+    def test_openrouter_provider_metadata_reports_effective_free_model(self):
+        from steadfast.ncm_semantic import _provider_metadata
+        provider = _provider_metadata({
+            "NCM_BASE_URL": "https://openrouter.ai/api/v1",
+            "NCM_MODEL": "openai/gpt-4o-mini",
+        })
+        self.assertEqual(provider["model"], "openrouter/free")
+        self.assertEqual(provider["configured_model"], "openai/gpt-4o-mini")
+        self.assertTrue(provider["free_only"])
     def test_openrouter_is_forced_to_free_router_model(self):
         import json
         from unittest.mock import patch

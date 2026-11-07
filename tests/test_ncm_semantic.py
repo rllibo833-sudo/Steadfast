@@ -306,7 +306,7 @@ class NcmSemanticTests(unittest.TestCase):
         response = {"choices": [{"message": {"content": '{"concepts":[]}'}}]}
         with patch("steadfast.ncm_semantic.urllib.request.urlopen") as send:
             send.return_value.__enter__.return_value.read.return_value = json.dumps(response).encode()
-            with self.assertRaisesRegex(RuntimeError, "must contain concepts"):
+            with self.assertRaisesRegex(RuntimeError, "schema invalid"):
                 _call_model(self.manifest, {"NCM_API_KEY": "secret", "NCM_MODEL": "test"})
 
 

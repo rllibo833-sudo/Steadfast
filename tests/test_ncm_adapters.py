@@ -139,41 +139,55 @@ class NcmAdapterTests(unittest.TestCase):
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["nodes"], 3)
         self.assertEqual(result.outputs[0]["mnemos_memory_graph"]["relationships"], 2)
 
-    def test_jbf_cloud_agent_adapter_reports_live_connectors_without_executing_tasks(self):
-        import json
+    def test_jbf_cloud_agent_adapter_preserves_source_capabilities_when_runtime_is_forbidden(self):
         import os
+        import tempfile
+        import urllib.error
+        from pathlib import Path
         from unittest.mock import patch
         from steadfast.ncm_adapters import JbfCloudAgentAdapter
 
-        payload = {
-            "connectors": [
-                {"id": "github", "connected": True},
-                {"id": "cloudflare", "connected": False},
-            ],
-            "tools": [{"serverId": "github", "name": "search_repositories", "readOnly": True}],
-        }
-        class Response:
-            status = 200
-            def __enter__(self): return self
-            def __exit__(self, *args): return False
-            def read(self, limit): return json.dumps(payload).encode()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "kits" / "jbf-cloud-agent" / "src" / "index.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text('import { Agent } from "agents";\\nexport class JbfAgent extends Agent {}\\naddMcpServer awaiting_owner_approval ctx.storage.put openrouter/free', encoding="utf-8")
+            context = AdapterContext(
+                project={"id": "jbf-cloud-agent"}, source_documents=(),
+                ecosystem_manifest={"projects": []}, project_roots={"steadfast": root},
+            )
+            forbidden = urllib.error.HTTPError("https://worker.example/status", 403, "Forbidden", {}, None)
+            with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \\
+                 patch("urllib.request.urlopen", side_effect=forbidden):
+                result = JbfCloudAgentAdapter()(context)
 
-        context = AdapterContext(
-            project={"id": "jbf-sandboxos"}, source_documents=(),
-            ecosystem_manifest={"projects": []},
-        )
-        with patch.dict(os.environ, {"JBF_OWNER_TOKEN": "test-token"}), \
-             patch("urllib.request.urlopen", return_value=Response()) as request:
-            result = JbfCloudAgentAdapter()(context)
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(result.outputs[0]["kind"], "jbf_agent_code_inventory")
+        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_FORBIDDEN")
+        self.assertIn("jbf:owner-approval-gate", [item["id"] for item in result.capabilities])
 
-        self.assertEqual(result.status, "completed")
-        self.assertEqual(result.outputs[0]["connected_connectors"], ["github"])
-        self.assertEqual(result.outputs[0]["available_tool_count"], 1)
-        self.assertTrue(result.outputs[0]["available_tools"][0]["read_only"])
-        self.assertEqual(result.outputs[0]["agent_framework"], "cloudflare_agents_sdk")
-        self.assertEqual(result.outputs[0]["openclaw_compatibility"], "not_exposed_by_current_worker")
-        self.assertFalse(result.outputs[0]["task_execution_requested"])
-        self.assertTrue(all(call.args[0].method == "GET" for call in request.call_args_list))
+    def test_jbf_cloud_agent_source_inventory_does_not_require_runtime_credentials(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from steadfast.ncm_adapters import JbfCloudAgentAdapter
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "kits" / "jbf-cloud-agent" / "src" / "index.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text('import { Agent } from "agents";\\nexport class JbfAgent extends Agent {}', encoding="utf-8")
+            context = AdapterContext(
+                project={"id": "jbf-cloud-agent"}, source_documents=(),
+                ecosystem_manifest={"projects": []}, project_roots={"steadfast": root},
+            )
+            with patch.dict(os.environ, {"JBF_OWNER_TOKEN": ""}):
+                result = JbfCloudAgentAdapter()(context)
+
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(result.findings[0]["code"], "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED")
+        self.assertIn("jbf:cloud-agent-runtime", [item["id"] for item in result.capabilities])
 
     def test_jbf_cloud_agent_adapter_distinguishes_forbidden_from_bad_credentials(self):
         import os

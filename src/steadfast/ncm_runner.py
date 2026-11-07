@@ -199,7 +199,11 @@ def run_ncm(
                     "label": capability.get("name", capability_key),
                     "attributes": {key: value for key, value in capability.items() if key not in {"id", "name"}},
                     "provenance": {"project_id": project_id, "adapter_id": adapter_result.get("adapter_id")},
-                    "epistemic_status": "adapter_smoke_verified",
+                    "epistemic_status": (
+                    "repository_source_verified" if capability.get("verification") == "repository_source_verified"
+                    else "live_runtime_verified" if str(capability.get("verification", "")).startswith("live_authenticated_")
+                    else "adapter_smoke_verified"
+                ),
                 })
                 known_node_ids.add(capability_node_id)
                 adapter_capabilities += 1
@@ -309,6 +313,7 @@ def run_ncm(
             "adapters_not_configured": adapter_layer["summary"]["not_configured"],
             "adapters_unavailable": adapter_layer["summary"]["unavailable"],
             "adapter_failures": adapter_layer["summary"]["failed"],
+            "adapter_partial": adapter_layer["summary"].get("partial", 0),
             "adapter_archived": adapter_layer["summary"].get("archived", 0),
             "adapter_documented_only": adapter_layer["summary"].get("documented_only", 0),
             "adapter_capabilities": adapter_capabilities,

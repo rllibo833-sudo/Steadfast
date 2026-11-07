@@ -160,21 +160,59 @@ class JbfCloudAgentAdapter:
         import urllib.parse
         import urllib.request
 
+        repo_root = context.project_roots.get("steadfast") or context.project_root
+        if repo_root is None:
+            return AdapterResult(context.project["id"], self.adapter_id, "unavailable",
+                                 findings=[{"code": "JBF_AGENT_REPOSITORY_ROOT_MISSING"}])
+        source_path = repo_root / "kits" / "jbf-cloud-agent" / "src" / "index.ts"
+        readme_path = repo_root / "kits" / "jbf-cloud-agent" / "README.md"
+        if not source_path.is_file():
+            return AdapterResult(context.project["id"], self.adapter_id, "unavailable",
+                                 findings=[{"code": "JBF_AGENT_SOURCE_MISSING"}])
+        source = source_path.read_text(encoding="utf-8")[:128_000]
+        readme = readme_path.read_text(encoding="utf-8")[:16_000] if readme_path.is_file() else ""
+        combined_source = source + "\n" + readme
+        checks = [
+            ("jbf:cloud-agent-runtime", 'export class JbfAgent extends Agent', "Cloudflare Agents SDK runtime"),
+            ("jbf:remote-mcp-connectors", "addMcpServer", "Remote MCP connectors"),
+            ("jbf:owner-approval-gate", "awaiting_owner_approval", "Owner approval gate"),
+            ("jbf:durable-task-state", "ctx.storage.put", "Durable task state"),
+            ("jbf:free-inference-router", "openrouter/free", "Free-only inference fallback"),
+        ]
+        source_capabilities = [
+            {"id": capability_id, "name": name, "verification": "repository_source_verified"}
+            for capability_id, needle, name in checks if needle in combined_source
+        ]
+        source_inventory = {
+            "kind": "jbf_agent_code_inventory",
+            "source_path": str(source_path.relative_to(repo_root)),
+            "source_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "agent_framework": "cloudflare_agents_sdk" if 'from "agents"' in source else "unknown",
+            "integration_protocol": "remote_mcp_connectors" if "addMcpServer" in source else "unknown",
+            "openclaw_compatibility": "present_in_source" if "openclaw" in combined_source.casefold() else "not_exposed_by_current_worker",
+            "verified_features": [item["id"] for item in source_capabilities],
+        }
+
+        def partial_result(code: str, runtime_status: str, details: dict[str, Any] | None = None) -> AdapterResult:
+            return AdapterResult(
+                project_id=context.project["id"], adapter_id=self.adapter_id, status="partial",
+                capabilities=source_capabilities,
+                outputs=[source_inventory, {
+                    "kind": "jbf_agent_runtime", "runtime_status": runtime_status,
+                    "read_only_probe": True, "task_execution_requested": False, **(details or {}),
+                }],
+                findings=[{"code": code}],
+            )
+
         token = os.environ.get("JBF_OWNER_TOKEN", "")
         base_url = os.environ.get(
             "JBF_AGENT_URL", "https://jbf-cloud-agent.fadlibo833.workers.dev"
         ).rstrip("/")
         parsed = urllib.parse.urlparse(base_url)
         if not token:
-            return AdapterResult(
-                context.project["id"], self.adapter_id, "unavailable",
-                findings=[{"code": "JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED"}],
-            )
+            return partial_result("JBF_AGENT_OWNER_TOKEN_NOT_CONFIGURED", "not_probed")
         if parsed.scheme != "https" or parsed.hostname != "jbf-cloud-agent.fadlibo833.workers.dev":
-            return AdapterResult(
-                context.project["id"], self.adapter_id, "failed",
-                findings=[{"code": "JBF_AGENT_ENDPOINT_NOT_ALLOWLISTED"}],
-            )
+            return partial_result("JBF_AGENT_ENDPOINT_NOT_ALLOWLISTED", "not_probed")
 
         def get_json(route: str) -> dict[str, Any]:
             request = urllib.request.Request(
@@ -200,28 +238,27 @@ class JbfCloudAgentAdapter:
                 "JBF_AGENT_FORBIDDEN" if exc.code == 403 else "JBF_AGENT_HTTP_ERROR"
             )
             headers = exc.headers or {}
-            return AdapterResult(
-                context.project["id"], self.adapter_id, "failed",
-                findings=[{
-                    "code": code, "http_status": exc.code,
-                    "server": headers.get("server"), "cf_ray": headers.get("cf-ray"),
-                    "content_type": headers.get("content-type"),
-                }],
+            try:
+                body = json.loads(exc.read(2048).decode("utf-8", errors="replace"))
+            except (ValueError, TypeError):
+                body = {}
+            provider_message = body.get("error") if isinstance(body, dict) else None
+            return partial_result(
+                code, "forbidden" if exc.code == 403 else "rejected",
+                {
+                    "http_status": exc.code, "server": headers.get("server"),
+                    "cf_ray": headers.get("cf-ray"), "content_type": headers.get("content-type"),
+                    "provider_message": str(provider_message)[:180] if isinstance(provider_message, str) else None,
+                },
             )
         except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
-            return AdapterResult(
-                context.project["id"], self.adapter_id, "unavailable",
-                findings=[{"code": "JBF_AGENT_UNREACHABLE", "error_type": type(exc).__name__}],
-            )
+            return partial_result("JBF_AGENT_UNREACHABLE", "unavailable", {"error_type": type(exc).__name__})
 
         connectors = status_payload.get("connectors", [])
         tools = status_payload.get("tools", [])
         approvals = status_payload.get("approvals", [])
         if not isinstance(connectors, list) or not isinstance(tools, list) or not isinstance(approvals, list):
-            return AdapterResult(
-                context.project["id"], self.adapter_id, "failed",
-                findings=[{"code": "JBF_AGENT_STATUS_SCHEMA_INVALID"}],
-            )
+            return partial_result("JBF_AGENT_STATUS_SCHEMA_INVALID", "invalid_response")
 
         connected = sorted(
             str(item.get("id")) for item in connectors
@@ -266,7 +303,7 @@ class JbfCloudAgentAdapter:
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError):
             provider_probe = "unavailable"
 
-        capabilities = [
+        capabilities = source_capabilities + [
             {"id": "jbf:cloud-agent-control-plane", "verification": "live_authenticated_status"},
             *[
                 {"id": f"jbf:connector:{connector}", "verification": "live_authenticated_status"}
@@ -282,7 +319,8 @@ class JbfCloudAgentAdapter:
             adapter_id=self.adapter_id,
             status="completed",
             capabilities=capabilities,
-            outputs=[{
+            status="completed" if provider_probe == "completed" else "partial",
+            outputs=[source_inventory, {
                 "kind": "jbf_agent_runtime",
                 "endpoint": base_url,
                 "agent_framework": "cloudflare_agents_sdk",
@@ -298,6 +336,7 @@ class JbfCloudAgentAdapter:
                 "read_only_probe": True,
                 "task_execution_requested": False,
             }],
+            findings=[] if provider_probe == "completed" else [{"code": "JBF_PROVIDER_INVENTORY_UNAVAILABLE"}],
         )
 
 
@@ -613,6 +652,7 @@ def run_project_adapters(
         "archived": sum(item["status"] == "archived" for item in results),
         "documented_only": sum(item["status"] == "documented_only" for item in results),
         "not_configured": sum(item["status"] == "not_configured" for item in results),
+        "partial": sum(item["status"] == "partial" for item in results),
         "unavailable": sum(item["status"] == "unavailable" for item in results),
         "failed": sum(item["status"] == "failed" for item in results),
     }

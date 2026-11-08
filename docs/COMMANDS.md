@@ -78,9 +78,9 @@ Run `steadfast universe-model` to emit a deterministic JSON graph from the ecosy
 | `pipeline-history` | Inspect recent recorded pipeline executions. |
 | `work-order issue` | Create a scoped work order. |
 | `work-order list/show/verify/close` | Inspect and manage work orders. |
-| `automation list` | List built-in automation actions. |
-| `automation run NAME` | Execute a registered automation. |
-| `automation history` | Inspect local automation history. |
+| `automations list` | List built-in automation actions. |
+| `automations run NAME` | Execute a registered automation. |
+| `automations history` | Inspect local automation history. |
 | `serve` | Open the loopback-only read-only Project Console. |
 
 Exact subcommands and options can change. The installed CLI's `--help` output is authoritative.

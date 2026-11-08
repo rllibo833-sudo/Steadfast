@@ -93,6 +93,25 @@ The `ecosystem/` directory contains a canonical index of projects and their dist
 
 Run `steadfast init` to create starter governance files. Repository policy lives in `.steadfast/policy.json`; pipeline steps are configured in `.steadfast/pipeline.json`. Treat pipeline manifests as executable configuration and review their commands before running them.
 
+## Repository layout
+
+```
+src/steadfast/     Python package and CLI implementation
+web/               Cloudflare Worker, its static page, and wrangler config
+tests/             Standard-library test suite
+skills/            Portable agent skills (SKILL.md per skill)
+agents/            Role rules for code and media agents
+docs/              User and maintainer documentation
+ecosystem/         Cross-platform project index and JSON schemas
+examples/          Copy-ready workflow examples
+kits/              Reusable workflow kits and the composite GitHub Action
+supabase/          Database migrations and edge function
+.steadfast/        Repository policy, goals, pipeline, and automations
+.github/           Workflows, issue templates, and PR template
+```
+
+All documentation lives under `docs/`; the root keeps only the standard project files (`README.md`, `AGENTS.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`).
+
 ## Project links
 
 - [Source code and issues](https://github.com/rllibo833-sudo/Steadfast)

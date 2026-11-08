@@ -9,30 +9,98 @@ DEFAULT_POLICY: dict[str, Any] = {
     "product_code_budget": 20000,
     "agent_path_rules": {
         "code": [
-            "src/**", "tests/**", "skills/**", "docs/**", "evidence/**",
-            "CHANGELOG.md", "README.md", "AGENTS.md", "agents/**", "kits/**",
+            "src/**",
+            "tests/**",
+            "skills/**",
+            "docs/**",
+            "evidence/**",
+            "CHANGELOG.md",
+            "README.md",
+            "AGENTS.md",
+            "SECURITY.md",
+            "CONTRIBUTING.md",
+            "agents/**",
+            "kits/**",
+            "web/**",
+            "ecosystem/**",
+            "examples/**",
             "pyproject.toml",
+            "server.json"
         ],
         "media": [
-            "assets/**", "media/**", "images/**", "videos/**", "audio/**",
-            "public/assets/**", "public/images/**", "public/videos/**", "public/audio/**",
-        ],
+            "assets/**",
+            "media/**",
+            "images/**",
+            "videos/**",
+            "audio/**",
+            "public/assets/**",
+            "public/images/**",
+            "public/videos/**",
+            "public/audio/**"
+        ]
     },
-    "agent_protected_paths": [".steadfast/**", ".github/workflows/**", ".codex/**"],
+    "agent_protected_paths": [
+        ".steadfast/**",
+        ".github/workflows/**",
+        ".codex/**"
+    ],
     "allowed_paths": [
-        "src/**", "tests/**", "skills/**", ".github/workflows/**", ".steadfast/**",
-        "README.md", "LICENSE", ".gitignore", "pyproject.toml", "docs/**",
-        "evidence/**", "CHANGELOG.md", ".codex/**", ".agents/**", "agents/**", "kits/**",
+        "src/**",
+        "tests/**",
+        "skills/**",
+        "docs/**",
+        "evidence/**",
+        "agents/**",
+        "kits/**",
+        "web/**",
+        "ecosystem/**",
+        "examples/**",
+        "supabase/**",
+        ".github/**",
+        ".steadfast/**",
+        ".codex/**",
+        ".agents/**",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "LICENSE",
+        ".gitignore",
+        ".pre-commit-config.yaml",
+        "pyproject.toml",
+        "server.json"
     ],
     "documentation_paths": [
-        "README.md", "docs/**", "CHANGELOG.md", "ROADMAP.md", "ARCHITECTURE.md",
-        "SPEC.md", "agents/**", "kits/**",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "docs/**",
+        "agents/**",
+        "kits/**",
+        "ecosystem/README.md"
     ],
-    "required_evidence": ["evidence/verification.md"],
-    "implementation_paths": ["src/**"],
-    "ignored_paths": [".git/**", ".venv/**", "build/**", "dist/**", "__pycache__/**"],
+    "required_evidence": [
+        "evidence/verification.md"
+    ],
+    "implementation_paths": [
+        "src/**"
+    ],
+    "ignored_paths": [
+        ".git/**",
+        ".venv/**",
+        "build/**",
+        "dist/**",
+        "__pycache__/**"
+    ],
     "max_active_goals": 3,
-    "forbidden_roadmap_phrases": ["someday", "maybe later", "future ideas"],
+    "forbidden_roadmap_phrases": [
+        "someday",
+        "maybe later",
+        "future ideas"
+    ]
 }
 
 DEFAULT_GOAL = """# Product goal

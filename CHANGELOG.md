@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## Unreleased
 
+### Changed
+- Reorganized the Cloudflare web surface into a single `web/` directory: `knowledge/steadfst.html` → `web/index.html`, `src/worker.js` → `web/worker.js`, and `wrangler.jsonc` → `web/wrangler.jsonc`. The misspelled `steadfst` filename is gone; the Worker now serves the page at `/` and `/index.html`.
+- Moved the portfolio-level `ECOSYSTEM.md` into `docs/ECOSYSTEM.md` so all documentation lives under `docs/`.
+- Renamed the agent rule files to Markdown with consistent names: `agents/code.txt` → `agents/code-agent.md`, `agents/media.txt` → `agents/media-agent.md`.
+- Aligned `.steadfast/policy.json` and `DEFAULT_POLICY` with the real repository layout (`web/`, `ecosystem/`, `examples/`, `supabase/`, root docs) and removed references to files that do not exist.
+
+### Removed
+- Removed the duplicated `seo/` directory; the Worker already serves `/robots.txt` and `/sitemap.xml` dynamically.
+- Removed `docs/ECOSYSTEM_INDEX.md`, a duplicate of the canonical `ecosystem/README.md`.
+
 ### Added
 - Added regression tests for security-scanner behavior, including secret redaction, risky API patterns, workflow shell interpolation, and action pinning.
 - Added dashboard action tests for runtime token injection, missing-token rejection, cross-origin rejection, valid local actions, automation catalog access, and unknown actions.

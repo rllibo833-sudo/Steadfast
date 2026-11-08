@@ -4,10 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "knowledge/**"
-      - "seo/**"
-      - "src/worker.js"
-      - "wrangler.jsonc"
+      - "web/**"
       - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
 
@@ -26,4 +23,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.153.0"
-          command: deploy src/worker.js --config wrangler.jsonc
+          command: deploy web/worker.js --config web/wrangler.jsonc
